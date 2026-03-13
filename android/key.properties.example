@@ -1,0 +1,4 @@
+storePassword=change-me
+keyPassword=change-me
+keyAlias=driverapp
+storeFile=driver-app-release.jks
