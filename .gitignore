@@ -26,6 +26,9 @@ migrate_working_dir/
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+macos/Flutter/ephemeral/
 .dart_tool/
 .flutter-plugins-dependencies
 .pub-cache/
@@ -43,6 +46,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Xcode / CocoaPods
+**/xcuserdata/
+**/*.xcuserstate
+ios/Pods/
+ios/Podfile.lock
 
 # Firebase and signing
 android/app/google-services.json
