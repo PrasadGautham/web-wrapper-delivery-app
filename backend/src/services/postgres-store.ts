@@ -39,16 +39,14 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
     await this.ensureInitialized();
     const client = await this.pool.connect();
     try {
-      const [merchants, drivers, restaurants, adminUsers, orders, sessions, passwordResetTokens, auditLogs] = await Promise.all([
-        this.merchantsRepository.list(client),
-        this.driversRepository.list(client),
-        this.restaurantsRepository.list(client),
-        this.adminUsersRepository.list(client),
-        this.ordersRepository.list(client),
-        this.sessionsRepository.list(client),
-        this.passwordResetTokensRepository.list(client),
-        this.auditLogsRepository.list(client),
-      ]);
+      const merchants = await this.merchantsRepository.list(client);
+      const drivers = await this.driversRepository.list(client);
+      const restaurants = await this.restaurantsRepository.list(client);
+      const adminUsers = await this.adminUsersRepository.list(client);
+      const orders = await this.ordersRepository.list(client);
+      const sessions = await this.sessionsRepository.list(client);
+      const passwordResetTokens = await this.passwordResetTokensRepository.list(client);
+      const auditLogs = await this.auditLogsRepository.list(client);
 
       return {
         merchants,
@@ -158,11 +156,9 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
   }
 
   private async createOperationalContext(client: PoolClient): Promise<OperationalStateContext> {
-    const [drivers, restaurants, orders] = await Promise.all([
-      this.driversRepository.list(client),
-      this.restaurantsRepository.list(client),
-      this.ordersRepository.list(client),
-    ]);
+    const drivers = await this.driversRepository.list(client);
+    const restaurants = await this.restaurantsRepository.list(client);
+    const orders = await this.ordersRepository.list(client);
 
     return {
       state: { drivers, restaurants, orders },

@@ -17,6 +17,13 @@ async function waitForOptions(page: Page, selector: string, minimumCount = 1) {
   );
 }
 
+async function waitForText(page: Page, selector: string, expectedSnippet: string) {
+  await page.waitForFunction(
+    ([query, snippet]) => document.querySelector(query)?.textContent?.includes(snippet) ?? false,
+    [selector, expectedSnippet],
+  );
+}
+
 async function run() {
   process.env.WEB_SESSION_COOKIE_SECURE = 'false';
   process.env.WEB_SESSION_COOKIE_SAME_SITE = 'Strict';
@@ -80,6 +87,41 @@ async function run() {
 
     await loginAndLogout('/merchant', 'falafel.group@demo.com', 'Password123', 'driverapp_merchant_session', 'Logged in as');
     await loginAndLogout('/restaurant', 'falafel.dispatch@demo.com', 'Password123', 'driverapp_restaurant_session', 'Logged in as');
+
+    const merchantPage = await context.newPage();
+    const restaurantPage = await context.newPage();
+
+    await merchantPage.goto(`${baseUrl}/merchant`, { waitUntil: 'networkidle' });
+    await merchantPage.fill('#email', 'falafel.group@demo.com');
+    await merchantPage.fill('#password', 'Password123');
+    await Promise.all([
+      merchantPage.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
+      merchantPage.click('#loginBtn'),
+    ]);
+    await waitForSessionText(merchantPage, 'Logged in as');
+    await waitForText(merchantPage, '#orders', 'No merchant-wide orders yet.');
+
+    await restaurantPage.goto(`${baseUrl}/restaurant`, { waitUntil: 'networkidle' });
+    await restaurantPage.fill('#email', 'falafel.dispatch@demo.com');
+    await restaurantPage.fill('#password', 'Password123');
+    await Promise.all([
+      restaurantPage.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
+      restaurantPage.click('#loginBtn'),
+    ]);
+    await waitForSessionText(restaurantPage, 'Logged in as');
+
+    await restaurantPage.fill('#customerName', 'Portal E2E Customer');
+    await restaurantPage.fill('#customerAddress', 'Dubai Marina Walk');
+    await restaurantPage.fill('#deliveryArea', 'Dubai Marina');
+    await Promise.all([
+      restaurantPage.waitForResponse((response) => response.url().endsWith('/api/restaurants/me/orders') && response.request().method() === 'POST' && response.ok()),
+      restaurantPage.click('#createOrderBtn'),
+    ]);
+    await waitForText(restaurantPage, '#orders', 'Portal E2E Customer');
+    await waitForText(merchantPage, '#orders', 'Portal E2E Customer');
+
+    await merchantPage.close();
+    await restaurantPage.close();
     console.log('PASS portal-e2e');
   } finally {
     await context.close();
