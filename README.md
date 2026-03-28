@@ -68,12 +68,26 @@ Those values are snapped onto each order so historical reporting stays correct e
 
 ## Local Run
 
-Backend:
+Backend with PostgreSQL:
 
 ```powershell
 cd C:\dev\DriverApp\backend
 npm install
 npm run prisma:generate
+.\start-local-postgres.ps1
+```
+
+Optional explicit local reset back to seed data:
+
+```powershell
+cd C:\dev\DriverApp\backend
+.\reset-local-postgres.ps1
+```
+
+File-store mode remains available only as a quick fallback demo path:
+
+```powershell
+cd C:\dev\DriverApp\backend
 .\start-local-file-store.ps1
 ```
 
@@ -104,4 +118,3 @@ cd C:\dev\DriverApp
 C:\flutter\bin\flutter.bat analyze
 C:\flutter\bin\flutter.bat test
 ```
-

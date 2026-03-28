@@ -26,6 +26,8 @@ export interface AppConfig {
   passwordResetBaseUrl: string | null;
   alertWebhookUrl: string | null;
   alertMinIntervalSeconds: number;
+  authLoginRateLimitWindowMinutes: number;
+  authLoginRateLimitMaxRequests: number;
   sessionTtlHours: number;
   staleLocationMinutes: number;
   dispatchIntervalMs: number;
@@ -43,7 +45,7 @@ function parseEnvFile(raw: string): NodeJS.ProcessEnv {
       continue;
     }
     const key = trimmed.slice(0, separatorIndex).trim();
-    const value = trimmed.slice(separatorIndex + 1).trim().replace(/^['"]|['"]$/g, '');
+    const value = trimmed.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, '');
     parsed[key] = value;
   }
   return parsed;
@@ -167,9 +169,18 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       300,
       'ALERT_MIN_INTERVAL_SECONDS',
     ),
+    authLoginRateLimitWindowMinutes: readPositiveInteger(
+      resolvedEnv.AUTH_LOGIN_RATE_LIMIT_WINDOW_MINUTES,
+      15,
+      'AUTH_LOGIN_RATE_LIMIT_WINDOW_MINUTES',
+    ),
+    authLoginRateLimitMaxRequests: readPositiveInteger(
+      resolvedEnv.AUTH_LOGIN_RATE_LIMIT_MAX_REQUESTS,
+      8,
+      'AUTH_LOGIN_RATE_LIMIT_MAX_REQUESTS',
+    ),
     sessionTtlHours: readPositiveInteger(resolvedEnv.SESSION_TTL_HOURS, 12, 'SESSION_TTL_HOURS'),
     staleLocationMinutes: readPositiveInteger(resolvedEnv.STALE_LOCATION_MINUTES, 5, 'STALE_LOCATION_MINUTES'),
     dispatchIntervalMs: readPositiveInteger(resolvedEnv.DISPATCH_INTERVAL_MS, 5000, 'DISPATCH_INTERVAL_MS'),
   };
 }
-

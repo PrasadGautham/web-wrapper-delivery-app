@@ -156,11 +156,21 @@ export class BackendRuntime {
       if (!restaurant) {
         continue;
       }
+      restaurant.driverOfferSettings ??= { distanceMode: 'storeToCustomer' };
       if (typeof order.tripEarnings !== 'number' || !Number.isFinite(order.tripEarnings)) {
         order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm ?? 0);
       }
       if (typeof order.companyCharge !== 'number' || !Number.isFinite(order.companyCharge)) {
         order.companyCharge = calculatePricingAmount(restaurant.pricing.merchantBillingRule, order.estimatedKm ?? 0);
+      }
+      if (typeof order.driverDisplayDistanceKm !== 'number' || !Number.isFinite(order.driverDisplayDistanceKm)) {
+        order.driverDisplayDistanceKm = order.estimatedKm ?? 0;
+      }
+      if (typeof order.driverDisplayMinutes !== 'number' || !Number.isFinite(order.driverDisplayMinutes)) {
+        order.driverDisplayMinutes = order.estimatedMinutes ?? 0;
+      }
+      if (order.driverDisplayMode !== 'storeToCustomer' && order.driverDisplayMode !== 'includeCommuteToStore') {
+        order.driverDisplayMode = restaurant.driverOfferSettings.distanceMode ?? 'storeToCustomer';
       }
     }
   }

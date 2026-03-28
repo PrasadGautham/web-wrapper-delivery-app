@@ -119,6 +119,12 @@ export interface RestaurantTrackingSettings {
   showDestinationEta: boolean;
 }
 
+export type DriverOfferDistanceMode = 'storeToCustomer' | 'includeCommuteToStore';
+
+export interface DriverOfferSettings {
+  distanceMode: DriverOfferDistanceMode;
+}
+
 export interface DistancePricingRule {
   baseAmount: number;
   includedDistanceKm: number;
@@ -140,6 +146,7 @@ export interface RestaurantRecord {
   pricing: RestaurantPricingRules;
   currency: string;
   trackingSettings: RestaurantTrackingSettings;
+  driverOfferSettings: DriverOfferSettings;
   staffUsers: RestaurantStaffUserRecord[];
 }
 
@@ -151,6 +158,7 @@ export interface RestaurantProfile {
   pricing: RestaurantPricingRules;
   currency: string;
   trackingSettings: RestaurantTrackingSettings;
+  driverOfferSettings: DriverOfferSettings;
 }
 
 export type PlatformAdminRole = 'platformAdmin' | 'opsAdmin' | 'supportAdmin' | 'billingAdmin';
@@ -201,6 +209,9 @@ export interface OrderRecord {
   distanceKm: number;
   estimatedKm: number;
   estimatedMinutes: number;
+  driverDisplayDistanceKm: number;
+  driverDisplayMinutes: number;
+  driverDisplayMode: DriverOfferDistanceMode;
   tripEarnings: number;
   companyCharge: number;
   createdAt: string;

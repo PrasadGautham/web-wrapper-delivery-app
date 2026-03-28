@@ -251,6 +251,13 @@
             <label class="toggle"><input id="showPickedUpAsInTransit" type="checkbox" /> Show status as "In transit" after pickup</label>
             <label class="toggle"><input id="showDriverEtaToPickup" type="checkbox" /> Show driver ETA to pickup</label>
             <label class="toggle"><input id="showDestinationEta" type="checkbox" /> Show destination ETA after pickup</label>
+            <label>Driver app offer distance shown to the courier
+              <select id="driverOfferDistanceMode">
+                <option value="storeToCustomer">Store to customer only</option>
+                <option value="includeCommuteToStore">Include commute to store plus delivery</option>
+              </select>
+            </label>
+            <div class="hint">This controls the distance and ETA shown in the driver app when an order offer appears.</div>
             <button id="saveTrackingBtn" type="button" class="secondary">Save Tracking Display</button>
             <div id="restaurantTrackingStatus" class="muted"></div>
           </section>

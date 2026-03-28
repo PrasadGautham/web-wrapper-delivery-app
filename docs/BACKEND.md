@@ -108,8 +108,17 @@ Driver app uses:
 cd C:\dev\DriverApp\backend
 npm install
 npm run prisma:generate
-.\start-local-file-store.ps1
+.\start-local-postgres.ps1
 ```
+
+Explicit local reset:
+
+```powershell
+cd C:\dev\DriverApp\backend
+.\reset-local-postgres.ps1
+```
+
+Normal backend startup preserves data. Reset is a separate local operator action.
 
 ## Validation
 
@@ -149,4 +158,3 @@ Restaurant can:
 - watch live movement
 - see store-facing billing and ETA status
 - use password reset flow
-

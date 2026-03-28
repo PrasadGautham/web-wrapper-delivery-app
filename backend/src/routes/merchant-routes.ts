@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { DistancePricingRule, RestaurantStaffRole } from '../domain/models.js';
+import { DistancePricingRule, DriverOfferDistanceMode, RestaurantStaffRole } from '../domain/models.js';
 import { assertValidPricingRule, normalizePricingRule } from '../services/pricing-rules.js';
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
@@ -20,6 +20,10 @@ interface MerchantAuthedRequest extends FastifyRequest {
 
 function isRestaurantStaffRole(value: unknown): value is RestaurantStaffRole {
   return value === 'owner' || value === 'manager' || value === 'dispatcher' || value === 'viewer';
+}
+
+function isDriverOfferDistanceMode(value: unknown): value is DriverOfferDistanceMode {
+  return value === 'storeToCustomer' || value === 'includeCommuteToStore';
 }
 
 export async function registerMerchantRoutes(
@@ -204,6 +208,25 @@ export async function registerMerchantRoutes(
       const updated = await backendService.updateMerchantRestaurantPricing(merchant, params.restaurantId, {
         driverPayoutRule: normalizePricingRule(body.driverPayoutRule),
         merchantBillingRule: normalizePricingRule(body.merchantBillingRule),
+      });
+      restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
+      return updated;
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.patch('/api/merchant/me/restaurants/:restaurantId/driver-offer-settings', async (request, reply) => {
+    const authedRequest = request as MerchantAuthedRequest;
+    const merchant = await backendService.requireMerchantFromToken(authedRequest.authToken);
+    const params = request.params as { restaurantId: string };
+    const body = request.body as { distanceMode?: DriverOfferDistanceMode };
+    if (!isDriverOfferDistanceMode(body.distanceMode)) {
+      return reply.status(400).send({ message: 'distanceMode must be storeToCustomer or includeCommuteToStore.' });
+    }
+    try {
+      const updated = await backendService.updateMerchantRestaurantDriverOfferSettings(merchant, params.restaurantId, {
+        distanceMode: body.distanceMode,
       });
       restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
       return updated;

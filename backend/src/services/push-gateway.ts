@@ -36,9 +36,11 @@ export class PushGateway {
 
     const restaurantName = order.restaurant?.name ?? 'New delivery offer';
     const estimatedKm =
-      typeof order.estimatedKm === 'number' && Number.isFinite(order.estimatedKm)
-        ? order.estimatedKm
-        : 0;
+      typeof order.driverDisplayDistanceKm === 'number' && Number.isFinite(order.driverDisplayDistanceKm)
+        ? order.driverDisplayDistanceKm
+        : typeof order.estimatedKm === 'number' && Number.isFinite(order.estimatedKm)
+          ? order.estimatedKm
+          : 0;
     const tripEarnings =
       typeof order.tripEarnings === 'number' && Number.isFinite(order.tripEarnings)
         ? order.tripEarnings

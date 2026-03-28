@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { DistancePricingRule, DriverDispatchMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
+import { DistancePricingRule, DriverDispatchMode, DriverOfferDistanceMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
 import { assertValidPricingRule, normalizePricingRule } from '../services/pricing-rules.js';
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
@@ -44,6 +44,10 @@ function isPlatformAdminRole(value: unknown): value is PlatformAdminRole {
 
 function isMerchantUserRole(value: unknown): value is MerchantUserRole {
   return value === 'merchantOwner' || value === 'merchantManager' || value === 'merchantDispatcher' || value === 'merchantViewer';
+}
+
+function isDriverOfferDistanceMode(value: unknown): value is DriverOfferDistanceMode {
+  return value === 'storeToCustomer' || value === 'includeCommuteToStore';
 }
 
 export async function registerAdminRoutes(
@@ -304,6 +308,25 @@ export async function registerAdminRoutes(
       const updated = await backendService.updateRestaurantPricing(params.restaurantId, {
         driverPayoutRule: normalizePricingRule(body.driverPayoutRule),
         merchantBillingRule: normalizePricingRule(body.merchantBillingRule),
+      });
+      restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
+      return updated;
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.patch('/api/admin/restaurants/:restaurantId/driver-offer-settings', async (request, reply) => {
+    const params = request.params as { restaurantId: string };
+    const body = request.body as { distanceMode?: DriverOfferDistanceMode };
+
+    if (!isDriverOfferDistanceMode(body.distanceMode)) {
+      return reply.status(400).send({ message: 'distanceMode must be storeToCustomer or includeCommuteToStore.' });
+    }
+
+    try {
+      const updated = await backendService.updateRestaurantDriverOfferSettings(params.restaurantId, {
+        distanceMode: body.distanceMode,
       });
       restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
       return updated;

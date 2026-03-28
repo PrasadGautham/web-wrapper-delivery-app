@@ -18,4 +18,4 @@ Get-Content $envFile | ForEach-Object {
 }
 
 Set-Location $PSScriptRoot
-npm start
+npm run seed:postgres

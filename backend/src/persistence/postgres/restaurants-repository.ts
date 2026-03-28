@@ -17,12 +17,13 @@ function mapRestaurant(row: Record<string, unknown>): RestaurantRecord {
     },
     currency: row.currency as string,
     trackingSettings: row.tracking_settings as RestaurantRecord['trackingSettings'],
+    driverOfferSettings: (row.driver_offer_settings as RestaurantRecord['driverOfferSettings'] | null) ?? { distanceMode: 'storeToCustomer' },
     staffUsers: (row.staff_users as RestaurantRecord['staffUsers'] | null) ?? [],
   };
 }
 
 const baseSelect = `select id, merchant_id, name, email, password, pickup_location,
-                           driver_payout_rule, merchant_billing_rule, currency, tracking_settings, staff_users
+                           driver_payout_rule, merchant_billing_rule, currency, tracking_settings, driver_offer_settings, staff_users
                     from restaurants`;
 
 export class PostgresRestaurantsRepository {
@@ -57,8 +58,8 @@ export class PostgresRestaurantsRepository {
 
   async upsertOne(client: PoolClient, item: RestaurantRecord): Promise<void> {
     await client.query(
-      `insert into restaurants(id, merchant_id, name, email, password, pickup_location, driver_payout_rule, merchant_billing_rule, currency, tracking_settings, staff_users)
-       values($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb)
+      `insert into restaurants(id, merchant_id, name, email, password, pickup_location, driver_payout_rule, merchant_billing_rule, currency, tracking_settings, driver_offer_settings, staff_users)
+       values($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb,$12::jsonb)
        on conflict (id) do update set
          merchant_id = excluded.merchant_id,
          name = excluded.name,
@@ -69,6 +70,7 @@ export class PostgresRestaurantsRepository {
          merchant_billing_rule = excluded.merchant_billing_rule,
          currency = excluded.currency,
          tracking_settings = excluded.tracking_settings,
+         driver_offer_settings = excluded.driver_offer_settings,
          staff_users = excluded.staff_users`,
       [
         item.id,
@@ -81,6 +83,7 @@ export class PostgresRestaurantsRepository {
         toJson(item.pricing.merchantBillingRule),
         item.currency,
         toJson(item.trackingSettings),
+        toJson(item.driverOfferSettings ?? { distanceMode: 'storeToCustomer' }),
         toJson(item.staffUsers ?? []),
       ],
     );

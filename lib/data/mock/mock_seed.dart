@@ -3,7 +3,7 @@ class MockSeed {
 
   static Map<String, dynamic> driver() {
     return {
-      'id': 'driver-001',
+      'id': 'drv_1f2c9a44',
       'name': 'Alex Driver',
       'email': 'driver@demo.com',
       'rating': 4.9,
@@ -45,6 +45,9 @@ class MockSeed {
         'distanceKm': 1.8,
         'estimatedKm': 4.6,
         'estimatedMinutes': 18,
+        'driverDisplayDistanceKm': 4.6,
+        'driverDisplayMinutes': 18,
+        'driverDisplayMode': 'storeToCustomer',
         'tripEarnings': 23.5,
         'createdAt': DateTime.now().toUtc().toIso8601String(),
         'expiresAt': DateTime.now().toUtc().add(const Duration(seconds: 30)).toIso8601String(),
@@ -71,3 +74,4 @@ class MockSeed {
     };
   }
 }
+

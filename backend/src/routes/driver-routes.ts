@@ -168,7 +168,8 @@ export async function registerDriverRoutes(
   app.post('/api/driver/orders/:orderId/reject', async (request) => {
     const authedRequest = request as AuthedRequest;
     const params = request.params as { orderId: string };
-    await backendService.rejectOrder(authedRequest.driverId, params.orderId);
+    const body = request.body as { expired?: boolean } | undefined;
+    await backendService.rejectOrder(authedRequest.driverId, params.orderId, { expired: body?.expired === true });
     return { ok: true };
   });
 
@@ -195,4 +196,5 @@ export async function registerDriverRoutes(
     return backendService.getDriverEarnings(authedRequest.driverId);
   });
 }
+
 

@@ -40,7 +40,12 @@ Recommended:
 
 You can keep the same codebase and switch deployment behavior by env only.
 
-No code change should be required to go from local file-store mode to Postgres-backed mode. For local Windows testing, keep your real DATABASE_URL in backend/.env.local-postgres and use start-local-postgres.ps1.
+No code change should be required to go from local file-store mode to Postgres-backed mode. For local Windows testing, keep your real `DATABASE_URL` in `backend/.env.local-postgres` and use `start-local-postgres.ps1`.
+
+Important:
+- normal startup must preserve existing data
+- database reset must be an explicit operator action
+- production deployment must never reseed or wipe the live database on boot
 
 ## Basic Deployment Steps
 
@@ -78,5 +83,3 @@ npm run smoke:deploy
 - Redis is not required for single-instance production
 - Android-first go-live is acceptable
 - iOS validation remains separate
-
-

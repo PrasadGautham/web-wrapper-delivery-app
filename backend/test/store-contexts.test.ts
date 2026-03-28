@@ -6,20 +6,20 @@ export async function runStoreContextsTests(): Promise<void> {
   {
     const store = new InMemoryStore(loadSeed());
     const driver = await store.withWorkflowReadContext((context) => context.findDriverByEmail('driver@demo.com'));
-    assert.equal(driver?.id, 'driver-001');
+    assert.equal(driver?.id, 'drv_1f2c9a44');
   }
 
   {
     const store = new InMemoryStore(loadSeed());
     await store.withWorkflowWriteContext(async (context) => {
-      const driver = await context.findDriverById('driver-001');
+      const driver = await context.findDriverById('drv_1f2c9a44');
       assert.ok(driver);
       driver.deviceToken = 'test-token';
       await context.saveDriver(driver);
       await context.replaceSession({
         token: 'session-1',
         userType: 'driver',
-        userId: 'driver-001',
+        userId: 'drv_1f2c9a44',
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
       });
@@ -35,7 +35,7 @@ export async function runStoreContextsTests(): Promise<void> {
     await store.withOperationalWriteContext(async (context) => {
       context.state.orders.push({
         id: 'op-order',
-        restaurantId: 'restaurant-001',
+        restaurantId: 'rst_a13c5f20',
         restaurant: context.state.restaurants[0]!.pickupLocation,
         customer: {
           name: 'Operational',
@@ -48,6 +48,9 @@ export async function runStoreContextsTests(): Promise<void> {
         distanceKm: 1,
         estimatedKm: 1.5,
         estimatedMinutes: 8,
+        driverDisplayDistanceKm: 1.5,
+        driverDisplayMinutes: 8,
+        driverDisplayMode: 'storeToCustomer',
         tripEarnings: 10,
         companyCharge: 15,
         createdAt: new Date().toISOString(),
@@ -64,3 +67,4 @@ export async function runStoreContextsTests(): Promise<void> {
     assert.equal(db.orders.some((item) => item.id === 'op-order'), true);
   }
 }
+

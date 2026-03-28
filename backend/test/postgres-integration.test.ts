@@ -81,7 +81,7 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     });
     assert.equal(updatedAdmin.role, 'supportAdmin');
 
-    const createdMerchantUser = await service.createMerchantUser('merchant-001', {
+    const createdMerchantUser = await service.createMerchantUser('mrc_7f3a2d91', {
       name: 'Merchant Dispatcher',
       email: 'merchant.dispatch@demo.com',
       password: 'Password123',
@@ -89,14 +89,14 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     });
     assert.equal(createdMerchantUser.email, 'merchant.dispatch@demo.com');
 
-    const updatedMerchantUser = await service.updateMerchantUser('merchant-001', createdMerchantUser.id, {
+    const updatedMerchantUser = await service.updateMerchantUser('mrc_7f3a2d91', createdMerchantUser.id, {
       name: 'Merchant Dispatcher Updated',
       isActive: true,
       role: 'merchantManager',
     });
     assert.equal(updatedMerchantUser.role, 'merchantManager');
 
-    const createdStaffUser = await service.createRestaurantStaffUser('restaurant-001', {
+    const createdStaffUser = await service.createRestaurantStaffUser('rst_a13c5f20', {
       name: 'Night Dispatcher',
       email: 'night.dispatch@demo.com',
       password: 'Password123',
@@ -104,7 +104,7 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     });
     assert.equal(createdStaffUser.email, 'night.dispatch@demo.com');
 
-    const updatedStaffUser = await service.updateRestaurantStaffUser('restaurant-001', createdStaffUser.id, {
+    const updatedStaffUser = await service.updateRestaurantStaffUser('rst_a13c5f20', createdStaffUser.id, {
       name: 'Night Dispatch Lead',
       isActive: true,
       role: 'manager',
@@ -116,15 +116,15 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     assert.ok(merchantLogin.token);
     assert.ok(staffLogin.token);
 
-    await service.updateDriverDispatchPolicy('driver-001', {
+    await service.updateDriverDispatchPolicy('drv_1f2c9a44', {
       mode: 'allowListOnly',
-      restaurantIds: ['restaurant-001'],
+      restaurantIds: ['rst_a13c5f20'],
       merchantIds: [],
     });
-    const updatedDriver = await service.updateDriverCapacity('driver-001', 2);
+    const updatedDriver = await service.updateDriverCapacity('drv_1f2c9a44', 2);
     assert.equal(updatedDriver.maxActiveOrders, 2);
 
-    await service.updateDriverLocation('driver-001', {
+    await service.updateDriverLocation('drv_1f2c9a44', {
       latitude: 25.0829,
       longitude: 55.1451,
       accuracyMeters: 5,
@@ -132,36 +132,36 @@ export async function runPostgresIntegrationTests(): Promise<void> {
       headingDegrees: 0,
       capturedAt: new Date().toISOString(),
     });
-    await service.updateDriverAvailability('driver-001', true);
+    await service.updateDriverAvailability('drv_1f2c9a44', true);
 
-    const rejectedOrder = await service.createRestaurantOrder('restaurant-001', {
+    const rejectedOrder = await service.createRestaurantOrder('rst_a13c5f20', {
       customerName: 'Rejected Customer',
       customerAddress: 'Business Bay',
       customerLatitude: 25.188,
       customerLongitude: 55.271,
       deliveryArea: 'Business Bay',
     });
-    assert.equal((await service.getIncomingOrder('driver-001'))?.id, rejectedOrder.id);
-    await service.rejectOrder('driver-001', rejectedOrder.id);
-    assert.equal(await service.getIncomingOrder('driver-001'), null);
+    assert.equal((await service.getIncomingOrder('drv_1f2c9a44'))?.id, rejectedOrder.id);
+    await service.rejectOrder('drv_1f2c9a44', rejectedOrder.id);
+    assert.equal(await service.getIncomingOrder('drv_1f2c9a44'), null);
 
-    const createdOrder = await service.createRestaurantOrder('restaurant-001', {
+    const createdOrder = await service.createRestaurantOrder('rst_a13c5f20', {
       customerName: 'Integration Customer',
       customerAddress: 'Dubai Marina',
       customerLatitude: 25.08,
       customerLongitude: 55.14,
       deliveryArea: 'Dubai Marina',
     });
-    assert.equal(createdOrder.restaurantId, 'restaurant-001');
+    assert.equal(createdOrder.restaurantId, 'rst_a13c5f20');
 
-    const incoming = await service.getIncomingOrder('driver-001');
+    const incoming = await service.getIncomingOrder('drv_1f2c9a44');
     assert.ok(incoming);
     assert.equal(incoming?.id, createdOrder.id);
 
-    await service.acceptOrder('driver-001', createdOrder.id);
-    await service.markArrived('driver-001', createdOrder.id);
-    await service.pickupOrder('driver-001', createdOrder.id);
-    await service.completeOrder('driver-001', createdOrder.id);
+    await service.acceptOrder('drv_1f2c9a44', createdOrder.id);
+    await service.markArrived('drv_1f2c9a44', createdOrder.id);
+    await service.pickupOrder('drv_1f2c9a44', createdOrder.id);
+    await service.completeOrder('drv_1f2c9a44', createdOrder.id);
 
     await service.logout(merchantLogin.token);
     await assert.rejects(() => service.requireMerchantFromToken(merchantLogin.token), /Unauthorized/);
@@ -175,19 +175,19 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     assert.ok(relogin.token);
     process.env.ALLOW_INSECURE_PASSWORD_RESET_TOKEN_RESPONSE = 'false';
 
-    const earnings = await service.getDriverEarnings('driver-001');
+    const earnings = await service.getDriverEarnings('drv_1f2c9a44');
     assert.equal(earnings.completedDeliveries, 1);
     assert.equal(earnings.total > 0, true);
 
-    const report = await service.getRestaurantReport('restaurant-001');
+    const report = await service.getRestaurantReport('rst_a13c5f20');
     assert.equal(report.totalOrders, 2);
     assert.equal(report.deliveredOrders, 1);
 
-    const merchantReport = await service.getMerchantReport('merchant-001');
+    const merchantReport = await service.getMerchantReport('mrc_7f3a2d91');
     assert.equal(merchantReport.totalOrders, 2);
     assert.equal(merchantReport.totalRestaurants >= 1, true);
 
-    const orders = await service.getRestaurantOrders('restaurant-001');
+    const orders = await service.getRestaurantOrders('rst_a13c5f20');
     assert.equal(orders.length, 2);
     assert.equal(orders.some((item) => item.status === 'delivered'), true);
     assert.equal(orders.some((item) => item.status === 'rejected'), true);
@@ -206,4 +206,5 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     await pool.end();
   }
 }
+
 

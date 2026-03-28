@@ -11,6 +11,9 @@ class OrderModel {
       distanceKm: (json['distanceKm'] as num).toDouble(),
       estimatedKm: (json['estimatedKm'] as num).toDouble(),
       estimatedMinutes: json['estimatedMinutes'] as int,
+      driverDisplayDistanceKm: ((json['driverDisplayDistanceKm'] ?? json['estimatedKm']) as num).toDouble(),
+      driverDisplayMinutes: (json['driverDisplayMinutes'] ?? json['estimatedMinutes']) as int,
+      driverDisplayMode: (json['driverDisplayMode'] ?? 'storeToCustomer') as String,
       tripEarnings: (json['tripEarnings'] as num).toDouble(),
       createdAt: json['createdAt'] as String,
       expiresAt: json['expiresAt'] as String?,
@@ -26,6 +29,9 @@ class OrderModel {
     required this.distanceKm,
     required this.estimatedKm,
     required this.estimatedMinutes,
+    required this.driverDisplayDistanceKm,
+    required this.driverDisplayMinutes,
+    required this.driverDisplayMode,
     required this.tripEarnings,
     required this.createdAt,
     required this.expiresAt,
@@ -39,6 +45,9 @@ class OrderModel {
   final double distanceKm;
   final double estimatedKm;
   final int estimatedMinutes;
+  final double driverDisplayDistanceKm;
+  final int driverDisplayMinutes;
+  final String driverDisplayMode;
   final double tripEarnings;
   final String createdAt;
   final String? expiresAt;
@@ -53,6 +62,9 @@ class OrderModel {
       distanceKm: distanceKm,
       estimatedKm: estimatedKm,
       estimatedMinutes: estimatedMinutes,
+      driverDisplayDistanceKm: driverDisplayDistanceKm,
+      driverDisplayMinutes: driverDisplayMinutes,
+      driverDisplayMode: driverDisplayMode,
       tripEarnings: tripEarnings,
       createdAt: DateTime.parse(createdAt),
       expiresAt: expiresAt == null ? null : DateTime.parse(expiresAt!),

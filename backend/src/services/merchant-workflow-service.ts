@@ -11,6 +11,7 @@ import {
   RestaurantReport,
   RestaurantStaffRole,
   RestaurantStaffUserProfile,
+  DriverOfferSettings,
 } from '../domain/models.js';
 import { hashPassword } from '../utils/passwords.js';
 import { BackofficeReadService } from './backoffice-read-service.js';
@@ -155,6 +156,26 @@ export class MerchantWorkflowService {
         entityType: 'restaurant',
         entityId: restaurantId,
         metadata: pricing as unknown as Record<string, unknown>,
+      });
+      return toRestaurantProfile(restaurant);
+    });
+  }
+
+  async updateRestaurantDriverOfferSettings(
+    merchant: MerchantRecord,
+    restaurantId: string,
+    settings: DriverOfferSettings,
+  ): Promise<RestaurantProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      const restaurant = this.requireMerchantRestaurant(db.restaurants, merchant.id, restaurantId);
+      restaurant.driverOfferSettings = { ...settings };
+      this.runtime.appendAuditLog(db, {
+        actorType: 'merchant',
+        actorId: merchant.id,
+        action: 'merchant.restaurant-driver-offer-settings.updated',
+        entityType: 'restaurant',
+        entityId: restaurantId,
+        metadata: settings as unknown as Record<string, unknown>,
       });
       return toRestaurantProfile(restaurant);
     });

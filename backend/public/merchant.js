@@ -175,12 +175,14 @@ function syncSelectedRestaurant() {
   document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
+  document.getElementById('driverOfferDistanceMode').value = restaurant.driverOfferSettings?.distanceMode || 'storeToCustomer';
   nodes.selectedStoreSummary.innerHTML = `
     <strong>${restaurant.name}</strong>
     <div>${restaurant.pickupLocation.address}</div>
     <div>Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
     <div>Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
     <div>Tracking view: pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'}, destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
+    <div>Driver app offer view: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute to store plus delivery' : 'Store to customer only'}</div>
   `;
   updatePricingSummaries();
 }
@@ -197,6 +199,7 @@ function renderRestaurantCards(groups, report) {
       <div class="muted">Driver payout: ${summarizePricingRule(group.restaurant.pricing.driverPayoutRule, group.restaurant.currency)}</div>
       <div class="muted">Store billing: ${summarizePricingRule(group.restaurant.pricing.merchantBillingRule, group.restaurant.currency)}</div>
       <div class="muted">Pickup ETA ${group.restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'} | Destination ETA ${group.restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
+      <div class="muted">Driver app offer: ${group.restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer only'}</div>
     </article>
   `).join('') || '<div class="muted">No stores assigned.</div>';
 }
@@ -340,7 +343,13 @@ async function saveTracking() {
       showDestinationEta: document.getElementById('showDestinationEta').checked,
     }),
   });
-  nodes.trackingStatus.textContent = 'Store tracking display updated.';
+  await request(`/api/merchant/me/restaurants/${restaurantId}/driver-offer-settings`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      distanceMode: document.getElementById('driverOfferDistanceMode').value,
+    }),
+  });
+  nodes.trackingStatus.textContent = 'Store tracking and driver app display updated.';
   await refreshDashboard();
 }
 

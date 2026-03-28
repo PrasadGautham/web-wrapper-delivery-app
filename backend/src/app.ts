@@ -56,14 +56,18 @@ type CspReportPayload = {
   type?: string;
 }>;
 
-function resolveRateLimitRule(url: string): RateLimitRule | null {
+function resolveRateLimitRule(config: AppConfig, url: string): RateLimitRule | null {
   if (
     url.startsWith('/api/auth/driver/login') ||
     url.startsWith('/api/auth/restaurant/login') ||
     url.startsWith('/api/auth/merchant/login') ||
     url.startsWith('/api/auth/admin/login')
   ) {
-    return { bucket: 'auth-login', windowMs: 15 * 60 * 1000, maxRequests: 8 };
+    return {
+      bucket: 'auth-login',
+      windowMs: config.authLoginRateLimitWindowMinutes * 60 * 1000,
+      maxRequests: config.authLoginRateLimitMaxRequests,
+    };
   }
   if (url.startsWith('/api/auth/password-reset/request')) {
     return { bucket: 'password-reset', windowMs: 15 * 60 * 1000, maxRequests: 5 };
@@ -255,7 +259,7 @@ export async function buildApp(
   });
 
   app.addHook('preHandler', async (request, reply) => {
-    const rule = resolveRateLimitRule(request.url);
+    const rule = resolveRateLimitRule(config, request.url);
     if (!rule) {
       return;
     }
@@ -359,6 +363,7 @@ export async function buildApp(
 
   return { app, backendService, observability };
 }
+
 
 
 

@@ -18,6 +18,8 @@ class BackendApiClient {
   Future<void> Function(String?)? _persistAuthToken;
   void Function()? _onSessionExpired;
   Future<String>? _refreshingToken;
+  Timer? _refreshTimer;
+  bool _refreshInFlight = false;
 
   Stream<Map<String, dynamic>?> watchDriver() => _driverController.stream;
   Stream<Map<String, dynamic>?> watchIncomingOrder() => _incomingOrderController.stream;
@@ -35,11 +37,13 @@ class BackendApiClient {
     _token = token;
     unawaited(_persistAuthToken?.call(token));
     if (token == null) {
+      _stopRefreshLoop();
       _driverController.add(null);
       _incomingOrderController.add(null);
       _activeOrderController.add(null);
       return;
     }
+    _startRefreshLoop();
     unawaited(_registerDeviceTokenIfPossible());
     unawaited(refreshState());
   }
@@ -274,6 +278,7 @@ class BackendApiClient {
     } catch (_) {
       _token = null;
       await _persistAuthToken?.call(null);
+      _stopRefreshLoop();
       _onSessionExpired?.call();
       return false;
     } finally {
@@ -299,12 +304,38 @@ class BackendApiClient {
     }
   }
 
+  void _startRefreshLoop() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      unawaited(_safeRefreshState());
+    });
+  }
+
+  void _stopRefreshLoop() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    _refreshInFlight = false;
+  }
+
+  Future<void> _safeRefreshState() async {
+    if (_refreshInFlight || _token == null) {
+      return;
+    }
+    _refreshInFlight = true;
+    try {
+      await refreshState();
+    } catch (_) {
+      // Fallback polling is best-effort. Auth refresh and foreground actions still handle hard failures.
+    } finally {
+      _refreshInFlight = false;
+    }
+  }
+
   Future<void> dispose() async {
+    _stopRefreshLoop();
     _client.close();
     await _driverController.close();
     await _incomingOrderController.close();
     await _activeOrderController.close();
   }
 }
-
-

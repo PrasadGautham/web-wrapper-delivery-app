@@ -61,9 +61,9 @@ class IncomingOrderScreen extends ConsumerWidget {
             spacing: 12,
             children: [
               _InfoTile(label: 'Delivery area', value: order.deliveryArea),
-              _InfoTile(label: l10n.text('distance'), value: Formatters.kilometers(order.distanceKm)),
-              _InfoTile(label: 'Estimated route', value: Formatters.kilometers(order.estimatedKm)),
-              _InfoTile(label: l10n.text('eta'), value: '${order.estimatedMinutes} min'),
+              _InfoTile(label: 'Courier view', value: order.driverDisplayMode == 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer'),
+              _InfoTile(label: l10n.text('distance'), value: Formatters.kilometers(order.driverDisplayDistanceKm)),
+              _InfoTile(label: l10n.text('eta'), value: '${order.driverDisplayMinutes} min'),
               _InfoTile(
                 label: l10n.text('earningsTrip'),
                 value: Formatters.currency(order.tripEarnings),

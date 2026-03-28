@@ -30,6 +30,7 @@ create table if not exists restaurants (
   merchant_billing_rule jsonb not null,
   currency text not null,
   tracking_settings jsonb not null,
+  driver_offer_settings jsonb not null default '{"distanceMode":"storeToCustomer"}'::jsonb,
   staff_users jsonb not null default '[]'::jsonb
 );
 
@@ -53,6 +54,9 @@ create table if not exists orders (
   distance_km double precision not null,
   estimated_km double precision not null,
   estimated_minutes integer not null,
+  driver_display_distance_km double precision not null default 0,
+  driver_display_minutes integer not null default 0,
+  driver_display_mode text not null default 'storeToCustomer',
   trip_earnings double precision not null,
   company_charge double precision not null,
   created_at timestamptz not null,
@@ -102,3 +106,8 @@ create index if not exists idx_sessions_expires_at on sessions(expires_at);
 create index if not exists idx_password_reset_tokens_expires_at on password_reset_tokens(expires_at);
 create index if not exists idx_audit_logs_at on audit_logs(at desc);
 
+
+alter table restaurants add column if not exists driver_offer_settings jsonb not null default '{"distanceMode":"storeToCustomer"}'::jsonb;
+alter table orders add column if not exists driver_display_distance_km double precision not null default 0;
+alter table orders add column if not exists driver_display_minutes integer not null default 0;
+alter table orders add column if not exists driver_display_mode text not null default 'storeToCustomer';

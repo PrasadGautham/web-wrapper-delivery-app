@@ -185,7 +185,7 @@ export const noopRestaurantRealtime = {
     return { ticket: 'ticket', expiresAt: new Date(Date.now() + 1000).toISOString() };
   },
   resolveTicket() {
-    return { restaurantIds: ['restaurant-001'] };
+    return { restaurantIds: ['rst_a13c5f20'] };
   },
   subscribe() {
     return () => {};
@@ -194,3 +194,4 @@ export const noopRestaurantRealtime = {
     return;
   },
 };
+

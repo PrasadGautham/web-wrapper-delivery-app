@@ -27,22 +27,31 @@ Optional for full local backend features:
 
 ### 1. Start backend
 
-Optional legacy local mode: file-store
+Recommended local mode: PostgreSQL-backed
 
 ```powershell
 cd C:\dev\DriverApp\backend
 npm install
 npm run prisma:generate
-.\start-local-file-store.ps1
-```
-
-Local Postgres-backed mode:
-
-```powershell
-cd C:\dev\DriverApp\backend
 Copy-Item .env.local-postgres.example .env.local-postgres
 # edit DATABASE_URL in .env.local-postgres first
 .\start-local-postgres.ps1
+```
+
+Normal startup preserves your existing local data.
+
+Explicit local reset back to seed data:
+
+```powershell
+cd C:\dev\DriverApp\backend
+.\reset-local-postgres.ps1
+```
+
+Optional fallback mode: file-store
+
+```powershell
+cd C:\dev\DriverApp\backend
+.\start-local-file-store.ps1
 ```
 
 Expected:
@@ -107,9 +116,8 @@ C:\flutter\bin\flutter.bat test
 
 ## Notes
 
-- File-store local mode is acceptable for quick demos.
-- For production-like local testing, use Postgres and production-style env values.
+- Use Postgres for normal local development and production-like testing.
+- `reset-local-postgres.ps1` is a manual dev or demo reset only. It is not part of normal startup.
+- File-store local mode is only a fallback demo option.
 - Android is the current supported launch track from this Windows environment.
 - iOS native validation still requires macOS.
-
-

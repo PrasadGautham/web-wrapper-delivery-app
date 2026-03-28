@@ -168,8 +168,17 @@ These settings are per store, not global.
 
 ```powershell
 cd C:\dev\DriverApp\backend
-.\start-local-file-store.ps1
+.\start-local-postgres.ps1
 ```
+
+Optional local reset back to seed data:
+
+```powershell
+cd C:\dev\DriverApp\backend
+.\reset-local-postgres.ps1
+```
+
+That reset command is for local demo or dev use only. It is not part of normal startup or production deployment.
 
 ### Portals
 
@@ -303,4 +312,3 @@ Not included in current launch claim:
 - Environment: [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
 - Go-live: [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
 - Mobile release: [RELEASE.md](/c:/dev/DriverApp/docs/RELEASE.md)
-

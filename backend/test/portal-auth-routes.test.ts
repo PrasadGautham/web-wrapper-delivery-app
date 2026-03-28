@@ -80,7 +80,7 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
 
       const pricingUpdate = await app.inject({
         method: 'PATCH',
-        url: '/api/merchant/me/restaurants/restaurant-001/pricing',
+        url: '/api/merchant/me/restaurants/rst_a13c5f20/pricing',
         headers: { cookie },
         payload: {
           driverPayoutRule: { baseAmount: 12.5, includedDistanceKm: 2, additionalPerKm: 1.25 },
@@ -92,7 +92,7 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
 
       const trackingUpdate = await app.inject({
         method: 'PATCH',
-        url: '/api/merchant/me/restaurants/restaurant-001/tracking-settings',
+        url: '/api/merchant/me/restaurants/rst_a13c5f20/tracking-settings',
         headers: { cookie },
         payload: { showPickedUpAsInTransit: false, showDriverEtaToPickup: true, showDestinationEta: false },
       });
@@ -142,7 +142,7 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
 
       const pricingUpdate = await app.inject({
         method: 'PATCH',
-        url: '/api/admin/restaurants/restaurant-001/pricing',
+        url: '/api/admin/restaurants/rst_a13c5f20/pricing',
         headers: { cookie },
         payload: {
           driverPayoutRule: { baseAmount: 8.25, includedDistanceKm: 1.5, additionalPerKm: 1 },
@@ -153,15 +153,15 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
 
       const dispatchUpdate = await app.inject({
         method: 'PATCH',
-        url: '/api/admin/drivers/driver-001/dispatch-policy',
+        url: '/api/admin/drivers/drv_1f2c9a44/dispatch-policy',
         headers: { cookie },
-        payload: { mode: 'allowListOnly', restaurantIds: ['restaurant-001'], merchantIds: [] },
+        payload: { mode: 'allowListOnly', restaurantIds: ['rst_a13c5f20'], merchantIds: [] },
       });
       assert.equal(dispatchUpdate.statusCode, 200);
 
       const capacityUpdate = await app.inject({
         method: 'PATCH',
-        url: '/api/admin/drivers/driver-001/capacity',
+        url: '/api/admin/drivers/drv_1f2c9a44/capacity',
         headers: { cookie },
         payload: { maxActiveOrders: 2 },
       });
@@ -169,7 +169,7 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
 
       const trackingUpdate = await app.inject({
         method: 'PATCH',
-        url: '/api/admin/restaurants/restaurant-001/tracking-settings',
+        url: '/api/admin/restaurants/rst_a13c5f20/tracking-settings',
         headers: { cookie },
         payload: { showPickedUpAsInTransit: true, showDriverEtaToPickup: true, showDestinationEta: true },
       });
@@ -193,5 +193,6 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
     await app.close();
   }
 }
+
 
 

@@ -60,6 +60,7 @@ model Restaurant {
   merchantBillingRule      Json     @map("merchant_billing_rule")
   currency                 String
   trackingSettings         Json     @map("tracking_settings")
+  driverOfferSettings      Json     @map("driver_offer_settings")
   staffUsers               Json     @map("staff_users") @default("[]")
   merchant                 Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   orders                   Order[]
@@ -89,6 +90,9 @@ model Order {
   distanceKm                  Float      @map("distance_km")
   estimatedKm                 Float      @map("estimated_km")
   estimatedMinutes            Int        @map("estimated_minutes")
+  driverDisplayDistanceKm     Float      @map("driver_display_distance_km")
+  driverDisplayMinutes        Int        @map("driver_display_minutes")
+  driverDisplayMode           String     @map("driver_display_mode")
   tripEarnings                Float      @map("trip_earnings")
   companyCharge               Float      @map("company_charge")
   createdAt                   DateTime   @map("created_at") @db.Timestamptz(6)

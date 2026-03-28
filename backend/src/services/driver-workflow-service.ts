@@ -97,11 +97,18 @@ export class DriverWorkflowService {
   }
 
   async getIncomingOrder(driverId: string): Promise<OrderRecord | null> {
-    return this.runtime.withOperationalDb(async (state) => this.dispatchService.getIncomingOrderForDriver(state as never, driverId));
+    return this.runtime.withMutableOperationalDb(async (state) => {
+      this.dispatchService.tick(state as never);
+      this.dispatchService.assignQueuedOrders(state as never);
+      return this.dispatchService.getIncomingOrderForDriver(state as never, driverId);
+    });
   }
 
   async getActiveOrder(driverId: string): Promise<OrderRecord | null> {
-    return this.runtime.withOperationalDb(async (state) => this.dispatchService.getActiveOrderForDriver(state as never, driverId));
+    return this.runtime.withMutableOperationalDb(async (state) => {
+      this.dispatchService.tick(state as never);
+      return this.dispatchService.getActiveOrderForDriver(state as never, driverId);
+    });
   }
 
   async acceptOrder(driverId: string, orderId: string): Promise<OrderRecord> {
@@ -119,10 +126,10 @@ export class DriverWorkflowService {
     });
   }
 
-  async rejectOrder(driverId: string, orderId: string): Promise<void> {
+  async rejectOrder(driverId: string, orderId: string, options?: { expired?: boolean }): Promise<void> {
     await this.runtime.withMutableOperationalDb(async (state, appendAuditLog) => {
       const order = state.orders.find((item) => item.id == orderId) ?? null;
-      this.dispatchService.rejectOrder(state as never, driverId, orderId);
+      this.dispatchService.rejectOrder(state as never, driverId, orderId, options);
       await appendAuditLog({
         actorType: 'driver',
         actorId: driverId,

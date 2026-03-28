@@ -18,6 +18,7 @@ import {
   RestaurantStaffRole,
   RestaurantStaffUserProfile,
   RestaurantTrackingSettings,
+  DriverOfferSettings,
   UserType,
 } from '../domain/models.js';
 import { AdminWorkflowService } from './admin-workflow-service.js';
@@ -245,6 +246,13 @@ export class BackendService {
     return this.adminWorkflow.updateRestaurantTrackingSettings(restaurantId, settings);
   }
 
+  updateRestaurantDriverOfferSettings(
+    restaurantId: string,
+    settings: DriverOfferSettings,
+  ): Promise<RestaurantProfile> {
+    return this.adminWorkflow.updateRestaurantDriverOfferSettings(restaurantId, settings);
+  }
+
   updateRestaurantPricing(
     restaurantId: string,
     pricing: { driverPayoutRule: DistancePricingRule; merchantBillingRule: DistancePricingRule },
@@ -317,6 +325,14 @@ export class BackendService {
     return this.merchantWorkflow.updateRestaurantTrackingSettings(merchant, restaurantId, settings);
   }
 
+  updateMerchantRestaurantDriverOfferSettings(
+    merchant: MerchantRecord,
+    restaurantId: string,
+    settings: DriverOfferSettings,
+  ): Promise<RestaurantProfile> {
+    return this.merchantWorkflow.updateRestaurantDriverOfferSettings(merchant, restaurantId, settings);
+  }
+
   updateDriverAvailability(driverId: string, isOnline: boolean): Promise<DriverProfile> {
     return this.driverWorkflow.updateDriverAvailability(driverId, isOnline);
   }
@@ -333,8 +349,8 @@ export class BackendService {
     return this.driverWorkflow.acceptOrder(driverId, orderId);
   }
 
-  rejectOrder(driverId: string, orderId: string): Promise<void> {
-    return this.driverWorkflow.rejectOrder(driverId, orderId);
+  rejectOrder(driverId: string, orderId: string, options?: { expired?: boolean }): Promise<void> {
+    return this.driverWorkflow.rejectOrder(driverId, orderId, options);
   }
 
   markArrived(driverId: string, orderId: string): Promise<OrderRecord> {
@@ -381,6 +397,7 @@ export class BackendService {
     return this.restaurantWorkflow.getRestaurantReport(restaurantId);
   }
 }
+
 
 
 

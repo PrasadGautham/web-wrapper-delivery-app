@@ -32,7 +32,7 @@ export async function runDispatchServiceTests(): Promise<void> {
       deliveryArea: 'Dubai Marina',
     });
 
-    assert.equal(order.assignedDriverId, 'driver-001');
+    assert.equal(order.assignedDriverId, 'drv_1f2c9a44');
   }
 
   {
@@ -59,7 +59,7 @@ export async function runDispatchServiceTests(): Promise<void> {
       deliveryArea: 'Dubai Marina',
     });
 
-    assert.equal(order.assignedDriverId, 'driver-002');
+    assert.equal(order.assignedDriverId, 'drv_3d8b6e21');
   }
 
   {
@@ -74,7 +74,7 @@ export async function runDispatchServiceTests(): Promise<void> {
 
     db.orders.push({
       id: 'existing-order',
-      restaurantId: 'restaurant-002',
+      restaurantId: 'rst_b72e4d11',
       restaurant: db.restaurants[1]!.pickupLocation,
       customer: {
         name: 'Existing',
@@ -87,11 +87,14 @@ export async function runDispatchServiceTests(): Promise<void> {
       distanceKm: 2,
       estimatedKm: 5,
       estimatedMinutes: 15,
+      driverDisplayDistanceKm: 5,
+      driverDisplayMinutes: 15,
+      driverDisplayMode: 'storeToCustomer',
       tripEarnings: 28,
       companyCharge: 42,
       createdAt: new Date().toISOString(),
       expiresAt: null,
-      assignedDriverId: 'driver-002',
+      assignedDriverId: 'drv_3d8b6e21',
       rejectedDriverIds: [],
       deliveredAt: null,
       pendingDispatchNotification: false,
@@ -106,6 +109,117 @@ export async function runDispatchServiceTests(): Promise<void> {
       deliveryArea: 'Downtown',
     });
 
-    assert.equal(order.assignedDriverId, 'driver-003');
+    assert.equal(order.assignedDriverId, 'drv_7a4e1c90');
+  }
+  {
+    const db = cloneDb(loadSeed());
+    const service = new DispatchService();
+
+    db.drivers[0]!.isOnline = true;
+    db.drivers[0]!.currentLocation = makeFresh(25.0764, 55.1443);
+    db.orders.push({
+      id: 'retry-order',
+      restaurantId: 'rst_a13c5f20',
+      restaurant: db.restaurants[0]!.pickupLocation,
+      customer: {
+        name: 'Retry',
+        address: 'Dubai Marina',
+        latitude: 25.0845,
+        longitude: 55.1417,
+      },
+      deliveryArea: 'Dubai Marina',
+      status: 'queued',
+      distanceKm: 1,
+      estimatedKm: 2,
+      estimatedMinutes: 8,
+      driverDisplayDistanceKm: 2,
+      driverDisplayMinutes: 8,
+      driverDisplayMode: 'storeToCustomer',
+      tripEarnings: 23.5,
+      companyCharge: 37,
+      createdAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+      expiresAt: null,
+      assignedDriverId: null,
+      rejectedDriverIds: ['drv_1f2c9a44'],
+      deliveredAt: null,
+      pendingDispatchNotification: false,
+      events: [{ type: 'offerExpired', at: new Date(Date.now() - 31 * 1000).toISOString(), actorId: 'drv_1f2c9a44' }],
+    });
+
+    const changed = service.assignQueuedOrders(db);
+    assert.equal(changed, true);
+    const retried = db.orders.find((order) => order.id === 'retry-order');
+    assert.equal(retried?.assignedDriverId, 'drv_1f2c9a44');
+    assert.equal(retried?.status, 'pending');
+  }
+  {
+    const db = cloneDb(loadSeed());
+    const service = new DispatchService();
+
+    db.drivers[0]!.isOnline = true;
+    db.drivers[0]!.currentLocation = makeFresh(25.0764, 55.1443);
+    db.orders.push({
+      id: 'manual-reject-order',
+      restaurantId: 'rst_a13c5f20',
+      restaurant: db.restaurants[0]!.pickupLocation,
+      customer: {
+        name: 'Manual Reject',
+        address: 'Dubai Marina',
+        latitude: 25.0845,
+        longitude: 55.1417,
+      },
+      deliveryArea: 'Dubai Marina',
+      status: 'queued',
+      distanceKm: 1,
+      estimatedKm: 2,
+      estimatedMinutes: 8,
+      driverDisplayDistanceKm: 2,
+      driverDisplayMinutes: 8,
+      driverDisplayMode: 'storeToCustomer',
+      tripEarnings: 23.5,
+      companyCharge: 37,
+      createdAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+      expiresAt: null,
+      assignedDriverId: null,
+      rejectedDriverIds: ['drv_1f2c9a44'],
+      deliveredAt: null,
+      pendingDispatchNotification: false,
+      events: [{ type: 'rejected', at: new Date(Date.now() - 31 * 1000).toISOString(), actorId: 'drv_1f2c9a44' }],
+    });
+
+    const changed = service.assignQueuedOrders(db);
+    assert.equal(changed, false);
+    const retried = db.orders.find((order) => order.id === 'manual-reject-order');
+    assert.equal(retried?.assignedDriverId, null);
+    assert.equal(retried?.status, 'queued');
+  }
+  {
+    const db = cloneDb(loadSeed());
+    const service = new DispatchService();
+
+    db.drivers[0]!.isOnline = true;
+    db.drivers[0]!.currentLocation = {
+      latitude: 37.4219983,
+      longitude: -122.084,
+      accuracyMeters: 5,
+      speedMetersPerSecond: 0,
+      headingDegrees: 0,
+      capturedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+    };
+
+    const order = service.createRestaurantOrder(db, db.restaurants[0]!, {
+      customerName: 'Stale dedicated',
+      customerAddress: 'Dubai Marina',
+      customerLatitude: 25.0845,
+      customerLongitude: 55.1417,
+      deliveryArea: 'Dubai Marina',
+    });
+
+    assert.equal(order.assignedDriverId, 'drv_1f2c9a44');
+    assert.equal(order.status, 'pending');
   }
 }
+
+
+
+

@@ -150,6 +150,7 @@ function syncRestaurantSettingsForm() {
   document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
+  document.getElementById('driverOfferDistanceMode').value = restaurant.driverOfferSettings?.distanceMode || 'storeToCustomer';
   if (nodes.trackingStoreHint) {
     nodes.trackingStoreHint.textContent = `Tracking display settings below apply only to ${restaurant.name}.`;
   }
@@ -160,6 +161,7 @@ function syncRestaurantSettingsForm() {
     <div>Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
     <div>Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
     <div>Tracking view: pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'}, destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
+    <div>Driver app offer view: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute to store plus delivery' : 'Store to customer only'}</div>
   `;
   updatePricingSummaries();
 }
@@ -227,6 +229,7 @@ async function refreshDashboard() {
           <div class="muted">Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
           <div class="muted">Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
           <div class="muted">Pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'} | Destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
+          <div class="muted">Driver app offer: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer only'}</div>
         </article>
       `;
     });
@@ -340,11 +343,17 @@ async function saveTrackingSettings() {
       showDestinationEta: document.getElementById('showDestinationEta').checked,
     }),
   });
-  nodes.restaurantTrackingStatus.textContent = 'Restaurant tracking display updated.';
+  await request(`/api/admin/restaurants/${restaurantId}/driver-offer-settings`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      distanceMode: document.getElementById('driverOfferDistanceMode').value,
+    }),
+  });
+  nodes.restaurantTrackingStatus.textContent = 'Restaurant tracking and driver app display updated.';
   await refreshDashboard();
 }
 
-async function saveDriverCapacity() {
+async function saveDriverSettings() {
   const driverId = nodes.driverSelect.value;
   await request(`/api/admin/drivers/${driverId}/capacity`, {
     method: 'PATCH',
@@ -352,12 +361,6 @@ async function saveDriverCapacity() {
       maxActiveOrders: Number(document.getElementById('driverCapacity').value),
     }),
   });
-  nodes.driverControlsStatus.textContent = 'Driver capacity updated.';
-  await refreshDashboard();
-}
-
-async function saveDriverDispatch() {
-  const driverId = nodes.driverSelect.value;
   await request(`/api/admin/drivers/${driverId}/dispatch-policy`, {
     method: 'PATCH',
     body: JSON.stringify({
@@ -366,7 +369,7 @@ async function saveDriverDispatch() {
       merchantIds: getSelectedValues(nodes.dispatchMerchantIds),
     }),
   });
-  nodes.driverControlsStatus.textContent = 'Driver dispatch scope updated.';
+  nodes.driverControlsStatus.textContent = 'Driver settings updated.';
   await refreshDashboard();
 }
 
@@ -377,8 +380,7 @@ document.getElementById('createMerchantUserBtn').addEventListener('click', () =>
 document.getElementById('createStaffBtn').addEventListener('click', () => createStaffUser().catch((error) => { nodes.staffStatus.textContent = error.message; }));
 document.getElementById('saveRestaurantPricingBtn').addEventListener('click', () => saveRestaurantPricing().catch((error) => { nodes.restaurantPricingStatus.textContent = error.message; }));
 document.getElementById('saveTrackingBtn').addEventListener('click', () => saveTrackingSettings().catch((error) => { nodes.restaurantTrackingStatus.textContent = error.message; }));
-document.getElementById('saveCapacityBtn').addEventListener('click', () => saveDriverCapacity().catch((error) => { nodes.driverControlsStatus.textContent = error.message; }));
-document.getElementById('saveDispatchBtn').addEventListener('click', () => saveDriverDispatch().catch((error) => { nodes.driverControlsStatus.textContent = error.message; }));
+document.getElementById('saveDriverSettingsBtn').addEventListener('click', () => saveDriverSettings().catch((error) => { nodes.driverControlsStatus.textContent = error.message; }));
 nodes.settingsRestaurantSelect.addEventListener('change', syncRestaurantSettingsForm);
 nodes.driverSelect.addEventListener('change', syncDriverControlsForm);
 ['driverPayoutBaseAmount','driverPayoutIncludedDistanceKm','driverPayoutAdditionalPerKm','merchantBillingBaseAmount','merchantBillingIncludedDistanceKm','merchantBillingAdditionalPerKm'].forEach((id) => {

@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
-import { DatabaseShape, DriverRecord, LocationSnapshot, OrderRecord, RestaurantRecord } from '../domain/models.js';
+import { DatabaseShape, DriverOfferDistanceMode, DriverRecord, LocationSnapshot, OrderRecord, RestaurantRecord } from '../domain/models.js';
 import { calculatePricingAmount } from './pricing-rules.js';
 import { haversineDistanceKm } from '../utils/geo.js';
 
 const offerWindowSeconds = 30;
 const staleLocationThresholdMinutes = Number(process.env.STALE_LOCATION_MINUTES ?? '5');
+const timedOutOfferRetryDelayMs = offerWindowSeconds * 1000;
+const manualRejectRetryDelayMs = 5 * 60 * 1000;
+const offlineRetryDelayMs = offerWindowSeconds * 1000;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -68,6 +71,7 @@ export class DispatchService {
     const estimatedKm = Number(
       haversineDistanceKm(restaurant.pickupLocation, customerLocation).toFixed(1),
     );
+    const estimatedMinutes = Math.max(10, Math.round(estimatedKm * 4));
     const order: OrderRecord = {
       id: `order-${randomUUID()}`,
       restaurantId: restaurant.id,
@@ -77,7 +81,10 @@ export class DispatchService {
       status: 'queued',
       distanceKm: Number((estimatedKm * 0.45).toFixed(1)),
       estimatedKm,
-      estimatedMinutes: Math.max(10, Math.round(estimatedKm * 4)),
+      estimatedMinutes,
+      driverDisplayDistanceKm: estimatedKm,
+      driverDisplayMinutes: estimatedMinutes,
+      driverDisplayMode: restaurant.driverOfferSettings?.distanceMode ?? 'storeToCustomer',
       tripEarnings: calculatePricingAmount(restaurant.pricing.driverPayoutRule, estimatedKm),
       companyCharge: calculatePricingAmount(restaurant.pricing.merchantBillingRule, estimatedKm),
       createdAt: nowIso(),
@@ -124,6 +131,15 @@ export class DispatchService {
     for (const queued of db.orders.filter((item) => item.status === 'queued')) {
       if (this.assignBestDriver(db, queued)) {
         changed = true;
+        continue;
+      }
+      if (this.shouldRetryRejectedDrivers(queued)) {
+        queued.rejectedDriverIds = [];
+        queued.events.push({ type: 'offerPoolReset', at: nowIso() });
+        changed = true;
+        if (this.assignBestDriver(db, queued)) {
+          changed = true;
+        }
       }
     }
     return changed;
@@ -166,7 +182,7 @@ export class DispatchService {
     return order;
   }
 
-  rejectOrder(db: DatabaseShape, driverId: string, orderId: string): void {
+  rejectOrder(db: DatabaseShape, driverId: string, orderId: string, options?: { expired?: boolean }): void {
     const order = this.requireOrder(db, orderId);
     if (order.assignedDriverId !== driverId || order.status !== 'pending') {
       return;
@@ -177,7 +193,11 @@ export class DispatchService {
     order.expiresAt = null;
     order.status = 'queued';
     order.pendingDispatchNotification = false;
-    order.events.push({ type: 'rejected', at: nowIso(), actorId: driverId });
+    order.events.push({
+      type: options?.expired ? 'offerExpiredAck' : 'rejected',
+      at: nowIso(),
+      actorId: driverId,
+    });
     this.assignBestDriver(db, order);
   }
 
@@ -208,20 +228,11 @@ export class DispatchService {
   }
 
   getIncomingOrderForDriver(db: DatabaseShape, driverId: string): OrderRecord | null {
-    this.tick(db);
-    return (
-      db.orders.find((order) => order.status === 'pending' && order.assignedDriverId === driverId) ??
-      null
-    );
+    return db.orders.find((order) => order.status === 'pending' && order.assignedDriverId === driverId) ?? null;
   }
 
   getActiveOrderForDriver(db: DatabaseShape, driverId: string): OrderRecord | null {
-    this.tick(db);
-    return (
-      db.orders.find(
-        (order) => order.assignedDriverId === driverId && isActiveStatus(order.status),
-      ) ?? null
-    );
+    return db.orders.find((order) => order.assignedDriverId === driverId && isActiveStatus(order.status)) ?? null;
   }
 
   getOrdersNeedingDispatchNotification(db: DatabaseShape): Array<{ driver: DriverRecord; order: OrderRecord }> {
@@ -264,9 +275,13 @@ export class DispatchService {
     }
 
     const distanceKm = haversineDistanceKm(selectedDriver.currentLocation, restaurant.pickupLocation);
+    const driverDisplay = this.buildDriverDisplayMetrics(restaurant, order, selectedDriver);
     order.assignedDriverId = selectedDriver.id;
     order.status = 'pending';
     order.expiresAt = new Date(Date.now() + offerWindowSeconds * 1000).toISOString();
+    order.driverDisplayDistanceKm = driverDisplay.distanceKm;
+    order.driverDisplayMinutes = driverDisplay.minutes;
+    order.driverDisplayMode = driverDisplay.mode;
     order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm);
     order.companyCharge = calculatePricingAmount(restaurant.pricing.merchantBillingRule, order.estimatedKm);
     order.pendingDispatchNotification = true;
@@ -279,6 +294,31 @@ export class DispatchService {
     return true;
   }
 
+  private buildDriverDisplayMetrics(
+    restaurant: RestaurantRecord,
+    order: OrderRecord,
+    driver: DriverRecord,
+  ): { distanceKm: number; minutes: number; mode: DriverOfferDistanceMode } {
+    const configuredMode = restaurant.driverOfferSettings?.distanceMode ?? 'storeToCustomer';
+    if (configuredMode === 'includeCommuteToStore') {
+      const commuteKm = haversineDistanceKm(driver.currentLocation, restaurant.pickupLocation);
+      if (Number.isFinite(commuteKm) && commuteKm >= 0) {
+        const totalKm = Number((commuteKm + order.estimatedKm).toFixed(1));
+        return {
+          distanceKm: totalKm,
+          minutes: Math.max(10, Math.round(totalKm * 4)),
+          mode: configuredMode,
+        };
+      }
+    }
+
+    return {
+      distanceKm: order.estimatedKm,
+      minutes: order.estimatedMinutes,
+      mode: 'storeToCustomer',
+    };
+  }
+
   private rankDispatchCandidates(
     db: DatabaseShape,
     restaurant: RestaurantRecord,
@@ -287,12 +327,16 @@ export class DispatchService {
     const baseCandidates = db.drivers
       .filter((driver) => driver.isOnline)
       .filter((driver) => !rejectedDriverIds.includes(driver.id))
-      .filter((driver) => this.driverHasCapacity(db, driver.id))
-      .filter((driver) => this.getLocationFreshness(driver) === 'fresh');
+      .filter((driver) => this.driverHasCapacity(db, driver.id));
 
-    const assignedCandidates = baseCandidates.filter((driver) => this.matchesAllowList(driver, restaurant));
-    const openCandidates = baseCandidates.filter((driver) => driver.dispatchPolicy.mode === 'open');
-    const fallbackCandidates = baseCandidates.filter(
+    const freshCandidates = baseCandidates.filter((driver) => this.getLocationFreshness(driver) === 'fresh');
+    const staleAllowListCandidates = baseCandidates.filter(
+      (driver) => this.getLocationFreshness(driver) !== 'fresh' && this.matchesAllowList(driver, restaurant),
+    );
+
+    const assignedCandidates = freshCandidates.filter((driver) => this.matchesAllowList(driver, restaurant));
+    const openCandidates = freshCandidates.filter((driver) => driver.dispatchPolicy.mode === 'open');
+    const fallbackCandidates = freshCandidates.filter(
       (driver) =>
         driver.dispatchPolicy.mode === 'allowListWithFallback' &&
         !this.matchesAllowList(driver, restaurant),
@@ -302,6 +346,7 @@ export class DispatchService {
       ...this.sortDriversByDistance(assignedCandidates, restaurant),
       ...this.sortDriversByDistance(openCandidates, restaurant),
       ...this.sortDriversByDistance(fallbackCandidates, restaurant),
+      ...this.sortDriversByDistance(staleAllowListCandidates, restaurant),
     ];
 
     return this.uniqueDrivers(ranked);
@@ -326,6 +371,27 @@ export class DispatchService {
     });
   }
 
+  private shouldRetryRejectedDrivers(order: OrderRecord): boolean {
+    if (order.status !== 'queued' || order.rejectedDriverIds.length === 0) {
+      return false;
+    }
+    const lastEvent = order.events[order.events.length - 1];
+    if (!lastEvent) {
+      return false;
+    }
+    const elapsedMs = Date.now() - new Date(lastEvent.at).getTime();
+    if (lastEvent.type === 'rejected') {
+      return elapsedMs >= manualRejectRetryDelayMs;
+    }
+    if (lastEvent.type === 'offerExpired' || lastEvent.type === 'offerExpiredAck') {
+      return elapsedMs >= timedOutOfferRetryDelayMs;
+    }
+    if (lastEvent.type === 'driverWentOffline') {
+      return elapsedMs >= offlineRetryDelayMs;
+    }
+    return false;
+  }
+
   private matchesAllowList(driver: DriverRecord, restaurant: RestaurantRecord): boolean {
     const policy = driver.dispatchPolicy;
     return (
@@ -336,7 +402,7 @@ export class DispatchService {
 
   private describeDispatchTier(driver: DriverRecord, restaurant: RestaurantRecord): string {
     if (this.matchesAllowList(driver, restaurant)) {
-      return 'allow-list';
+      return this.getLocationFreshness(driver) === 'fresh' ? 'allow-list' : 'allow-list-stale';
     }
     if (driver.dispatchPolicy.mode === 'open') {
       return 'open';
@@ -377,4 +443,3 @@ export class DispatchService {
     return restaurant;
   }
 }
-
