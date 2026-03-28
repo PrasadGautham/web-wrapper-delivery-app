@@ -2,76 +2,67 @@
 
 ## Purpose
 
-This guide is for local development and day-to-day setup of the current system in `C:\dev\DriverApp`.
+Use this guide for local development and local business demos.
 
-It covers:
+Canonical path:
+- `C:\dev\DriverApp`
 
-- backend
-- Flutter driver app
-- local web portals
+## Prerequisites
 
-For business-facing feature walkthroughs, deployment, and production env values, use:
-
-- [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
-- [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
-- [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
-
-## 1. Prerequisites
-
-Install locally:
-
-- Flutter stable
-- Android Studio and Android SDK
-- Node.js LTS
+Backend:
+- Node.js
 - npm
-- PostgreSQL if you want to use Postgres locally
-- Xcode only if you are working on iOS from macOS
 
-Windows note:
+Flutter:
+- Flutter SDK at `C:\flutter`
+- Android SDK and ADB
+- Android Studio or a working Android emulator/device
 
-- enable Developer Mode so Flutter plugin symlinks work correctly
+Optional for full local backend features:
+- Firebase Admin service account JSON for backend FCM
+- Local PostgreSQL if you want to test database-backed mode instead of file-store mode
+- Create `backend/.env.local-postgres` from `backend/.env.local-postgres.example` if you want local Postgres startup through `start-local-postgres.ps1`
 
-```powershell
-start ms-settings:developers
-```
+## Local Start Order
 
-## 2. Working Folder
+### 1. Start backend
 
-Use only:
-
-```text
-C:\dev\DriverApp
-```
-
-Do not build or edit from the old OneDrive copy.
-
-## 3. Backend Local Setup
-
-From [backend](/c:/dev/DriverApp/backend):
+Optional legacy local mode: file-store
 
 ```powershell
 cd C:\dev\DriverApp\backend
 npm install
 npm run prisma:generate
+.\start-local-file-store.ps1
 ```
 
-If you are using Postgres locally:
+Local Postgres-backed mode:
 
 ```powershell
-npm run prisma:migrate:deploy
+cd C:\dev\DriverApp\backend
+Copy-Item .env.local-postgres.example .env.local-postgres
+# edit DATABASE_URL in .env.local-postgres first
+.\start-local-postgres.ps1
 ```
 
-Start backend in local mode:
+Expected:
+- backend listens on `http://127.0.0.1:8080`
+
+### 2. Open portals
+
+- Admin: `http://127.0.0.1:8080/admin`
+- Merchant: `http://127.0.0.1:8080/merchant`
+- Restaurant: `http://127.0.0.1:8080/restaurant`
+
+### 3. Start Android emulator or connect Android phone
+
+Check devices:
 
 ```powershell
-.\start-local.ps1
+C:\flutter\bin\flutter.bat devices
 ```
 
-That script is the preferred local backend entry point.
-
-## 4. Flutter Driver App Local Setup
-
-From the repo root:
+### 4. Start Flutter driver app
 
 ```powershell
 cd C:\dev\DriverApp
@@ -79,80 +70,22 @@ C:\flutter\bin\flutter.bat pub get
 C:\flutter\bin\flutter.bat run
 ```
 
-If you need to verify tooling first:
+If multiple devices are connected:
 
 ```powershell
-C:\flutter\bin\flutter.bat doctor -v
+C:\flutter\bin\flutter.bat run -d emulator-5556
 ```
 
-## 5. Local Portal URLs
+Use the actual device id shown by `flutter devices`.
 
-Once backend is running:
-
-- Admin portal: `http://127.0.0.1:8080/admin`
-- Merchant portal: `http://127.0.0.1:8080/merchant`
-- Restaurant portal: `http://127.0.0.1:8080/restaurant`
-- Backend health: `http://127.0.0.1:8080/api/health`
-
-## 6. Current Backend Modes
-
-### File-store mode
-
-Good for:
-
-- quick local demos
-- frontend and integration development
-
-Runtime file:
-
-- [db.json](/c:/dev/DriverApp/backend/data/db.json)
-
-Seed source:
-
-- [seed.json](/c:/dev/DriverApp/backend/data/seed.json)
-
-### Postgres mode
-
-Good for:
-
-- production-shaped local development
-- realistic persistence testing
-
-Enable by setting `DATABASE_URL`.
-
-## 7. Current Demo Accounts
+## Demo Accounts
 
 - Admin: `admin@demo.com` / `Password123`
 - Merchant: `falafel.group@demo.com` / `Password123`
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
 - Driver: `driver@demo.com` / `Password123`
 
-## 8. Firebase / Push Notes
-
-Android:
-
-- `google-services.json` should exist locally under `android/app/`
-
-Backend:
-
-- `FIREBASE_SERVICE_ACCOUNT_PATH` is required for backend-driven FCM offers
-
-iOS:
-
-- `GoogleService-Info.plist` exists, but iOS native validation still requires macOS/Xcode
-
-## 9. Maps Notes
-
-The driver app currently uses external Google Maps deep links.
-
-That means:
-
-- no embedded `google_maps_flutter` dependency is required for the core delivery flow
-- current driver navigation does not need an in-app maps SDK view
-
-Traffic-aware ETA on the backend is optional and controlled separately by `GOOGLE_MAPS_API_KEY`.
-
-## 10. Daily Verification Commands
+## Local Verification
 
 Backend:
 
@@ -161,6 +94,7 @@ cd C:\dev\DriverApp\backend
 npm run check
 npm test
 npm run test:e2e:web
+npm run smoke:deploy
 ```
 
 Flutter:
@@ -171,14 +105,11 @@ C:\flutter\bin\flutter.bat analyze
 C:\flutter\bin\flutter.bat test
 ```
 
-## 11. What This Guide Does Not Cover
+## Notes
 
-This file intentionally does not duplicate:
+- File-store local mode is acceptable for quick demos.
+- For production-like local testing, use Postgres and production-style env values.
+- Android is the current supported launch track from this Windows environment.
+- iOS native validation still requires macOS.
 
-- business feature walkthroughs
-- deployment hosting steps
-- production env and secrets policy
-- full go-live business checklist
-- iOS release completion steps
 
-Use the other docs for those.

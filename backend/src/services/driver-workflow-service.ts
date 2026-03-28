@@ -15,6 +15,7 @@ function startOfDay(date: Date): Date {
 }
 
 const averageKmPerMinute = 0.55;
+const maxReasonableStaticEtaDistanceKm = 80;
 
 function summarizeOrders(orders: OrderRecord[]): Map<string, string> {
   return new Map(orders.map((order) => [order.id, `${order.status}|${order.assignedDriverId ?? ''}|${order.expiresAt ?? ''}`]));
@@ -243,8 +244,12 @@ export class DriverWorkflowService {
     if (googleEstimate) {
       return googleEstimate;
     }
+    const distanceKm = haversineDistanceKm(origin, destination);
+    if (!Number.isFinite(distanceKm) || distanceKm > maxReasonableStaticEtaDistanceKm) {
+      return null;
+    }
     return {
-      minutes: Math.max(3, Math.round(haversineDistanceKm(origin, destination) / averageKmPerMinute)),
+      minutes: Math.max(3, Math.round(distanceKm / averageKmPerMinute)),
       source: 'static-estimate',
     };
   }

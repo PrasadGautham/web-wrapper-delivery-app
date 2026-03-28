@@ -203,6 +203,7 @@ export async function buildApp(
     passwordResetNotifier,
     restaurantRealtime,
     backofficeReadService,
+    app.log,
   );
   const cspHeaderValue = buildCspHeader(config);
 
@@ -358,5 +359,6 @@ export async function buildApp(
 
   return { app, backendService, observability };
 }
+
 
 

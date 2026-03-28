@@ -67,6 +67,7 @@ backend/dist-test/
 backend/data/db.json
 backend/.env
 backend/.env.local
+backend/.env.local-postgres
 secrets/
 *.service-account.json
 backend/.env.production

@@ -14,7 +14,8 @@
                     "prisma:migrate:dev":  "prisma migrate dev",
                     "prisma:migrate:deploy":  "prisma migrate deploy",
                     "prisma:studio":  "prisma studio",
-                    "test:e2e:web":  "tsx e2e/portal-e2e.ts"
+                    "test:e2e:web":  "tsx e2e/portal-e2e.ts",
+                    "seed:postgres":  "tsx scripts/seed-postgres.ts"
                 },
     "dependencies":  {
                          "@fastify/cors":  "^10.0.2",

@@ -4,6 +4,7 @@ let refreshingSession = null;
 let merchants = [];
 let restaurants = [];
 let drivers = [];
+let adminUsers = [];
 
 const nodes = {
   merchantSelect: document.getElementById('merchantSelect'),
@@ -22,10 +23,20 @@ const nodes = {
   statAdmins: document.getElementById('statAdmins'),
   selectedRestaurantSummary: document.getElementById('selectedRestaurantSummary'),
   selectedDriverSummary: document.getElementById('selectedDriverSummary'),
+  trackingStoreHint: document.getElementById('trackingStoreHint'),
+  dispatchRestaurantIds: document.getElementById('dispatchRestaurantIds'),
+  dispatchMerchantIds: document.getElementById('dispatchMerchantIds'),
 };
 
-function parseCommaSeparatedIds(value) {
-  return value.split(',').map((item) => item.trim()).filter(Boolean);
+function getSelectedValues(selectNode) {
+  return Array.from(selectNode.selectedOptions).map((option) => option.value).filter(Boolean);
+}
+
+function setSelectedValues(selectNode, values) {
+  const selected = new Set(values);
+  for (const option of selectNode.options) {
+    option.selected = selected.has(option.value);
+  }
 }
 
 function formatMoney(value, currency = 'AED') {
@@ -102,6 +113,15 @@ function renderCollection(nodeId, items, renderItem) {
   node.innerHTML = items.map(renderItem).join('') || '<div class="muted">No records.</div>';
 }
 
+function populateDispatchSelectors() {
+  nodes.dispatchRestaurantIds.innerHTML = restaurants
+    .map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`)
+    .join('');
+  nodes.dispatchMerchantIds.innerHTML = merchants
+    .map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`)
+    .join('');
+}
+
 function populateSelects() {
   const merchantOptions = merchants.map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`).join('');
   const restaurantOptions = restaurants.map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`).join('');
@@ -110,6 +130,7 @@ function populateSelects() {
   nodes.restaurantSelect.innerHTML = restaurantOptions;
   nodes.settingsRestaurantSelect.innerHTML = restaurantOptions;
   nodes.driverSelect.innerHTML = driverOptions;
+  populateDispatchSelectors();
   syncRestaurantSettingsForm();
   syncDriverControlsForm();
 }
@@ -118,6 +139,9 @@ function syncRestaurantSettingsForm() {
   const restaurant = restaurants.find((item) => item.id === nodes.settingsRestaurantSelect.value) || restaurants[0];
   if (!restaurant) {
     nodes.selectedRestaurantSummary.textContent = 'Select a store to view its current commercial and tracking setup.';
+    if (nodes.trackingStoreHint) {
+      nodes.trackingStoreHint.textContent = 'Choose a store above. The tracking view settings saved here apply only to that one store.';
+    }
     return;
   }
   nodes.settingsRestaurantSelect.value = restaurant.id;
@@ -126,11 +150,15 @@ function syncRestaurantSettingsForm() {
   document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
+  if (nodes.trackingStoreHint) {
+    nodes.trackingStoreHint.textContent = `Tracking display settings below apply only to ${restaurant.name}.`;
+  }
+  const merchantName = merchants.find((merchant) => merchant.id === restaurant.merchantId)?.name || restaurant.merchantId;
   nodes.selectedRestaurantSummary.innerHTML = `
     <strong>${restaurant.name}</strong>
-    <div>Merchant ID: ${restaurant.merchantId}</div>
-    <div>Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
-    <div>Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
+    <div>Restaurant group: ${merchantName}</div>
+    <div>Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
+    <div>Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
     <div>Tracking view: pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'}, destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
   `;
   updatePricingSummaries();
@@ -145,12 +173,20 @@ function syncDriverControlsForm() {
   nodes.driverSelect.value = driver.id;
   document.getElementById('driverCapacity').value = String(driver.maxActiveOrders);
   document.getElementById('dispatchModeSelect').value = driver.dispatchPolicy.mode;
-  document.getElementById('dispatchRestaurantIds').value = driver.dispatchPolicy.restaurantIds.join(', ');
-  document.getElementById('dispatchMerchantIds').value = driver.dispatchPolicy.merchantIds.join(', ');
+  setSelectedValues(nodes.dispatchRestaurantIds, driver.dispatchPolicy.restaurantIds);
+  setSelectedValues(nodes.dispatchMerchantIds, driver.dispatchPolicy.merchantIds);
+  const assignedRestaurantNames = restaurants
+    .filter((restaurant) => driver.dispatchPolicy.restaurantIds.includes(restaurant.id))
+    .map((restaurant) => restaurant.name);
+  const assignedMerchantNames = merchants
+    .filter((merchant) => driver.dispatchPolicy.merchantIds.includes(merchant.id))
+    .map((merchant) => merchant.name);
   nodes.selectedDriverSummary.innerHTML = `
     <strong>${driver.name}</strong>
     <div>${driver.isOnline ? 'Online' : 'Offline'} | Load ${driver.currentLoad}/${driver.maxActiveOrders}</div>
     <div>Dispatch mode: ${driver.dispatchPolicy.mode}</div>
+    <div>Allowed stores: ${assignedRestaurantNames.join(', ') || 'None selected'}</div>
+    <div>Allowed restaurant groups: ${assignedMerchantNames.join(', ') || 'None selected'}</div>
     <div>Location freshness: ${driver.locationFreshness}</div>
   `;
 }
@@ -168,6 +204,7 @@ async function refreshDashboard() {
     merchants = merchantRows;
     restaurants = restaurantRows;
     drivers = driverRows;
+    adminUsers = adminRows;
     populateSelects();
     nodes.sessionStatus.textContent = `Logged in as ${session.name} (${session.role})`;
     nodes.statMerchants.textContent = String(merchantRows.length);
@@ -181,24 +218,39 @@ async function refreshDashboard() {
         <div class="muted">${merchant.users.map((user) => `${user.name} (${user.role})`).join(', ') || 'No merchant users'}</div>
       </article>
     `);
-    renderCollection('restaurants', restaurantRows, (restaurant) => `
-      <article class="card">
-        <div class="eyebrow">${restaurant.merchantId}</div>
-        <h4>${restaurant.name}</h4>
-        <div class="muted">Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
-        <div class="muted">Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
-        <div class="muted">Pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'} | Destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
-      </article>
-    `);
-    renderCollection('drivers', driverRows, (driver) => `
-      <article class="card">
-        <div><strong>${driver.name}</strong></div>
-        <div class="muted">${driver.email}</div>
-        <div class="muted">${driver.isOnline ? 'Online' : 'Offline'} | Capacity ${driver.maxActiveOrders} | Load ${driver.currentLoad}</div>
-        <div class="muted">Dispatch mode: ${driver.dispatchPolicy.mode}</div>
-      </article>
-    `);
-    renderCollection('admins', adminRows, (admin) => `
+    renderCollection('restaurants', restaurantRows, (restaurant) => {
+      const merchantName = merchantRows.find((merchant) => merchant.id === restaurant.merchantId)?.name || restaurant.merchantId;
+      return `
+        <article class="card">
+          <div class="eyebrow">${merchantName}</div>
+          <h4>${restaurant.name}</h4>
+          <div class="muted">Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
+          <div class="muted">Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
+          <div class="muted">Pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'} | Destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
+        </article>
+      `;
+    });
+    renderCollection('drivers', driverRows, (driver) => {
+      const assignedRestaurantNames = restaurantRows
+        .filter((restaurant) => driver.dispatchPolicy.restaurantIds.includes(restaurant.id))
+        .map((restaurant) => restaurant.name)
+        .join(', ') || 'None selected';
+      const assignedMerchantNames = merchantRows
+        .filter((merchant) => driver.dispatchPolicy.merchantIds.includes(merchant.id))
+        .map((merchant) => merchant.name)
+        .join(', ') || 'None selected';
+      return `
+        <article class="card">
+          <div><strong>${driver.name}</strong></div>
+          <div class="muted">${driver.email}</div>
+          <div class="muted">${driver.isOnline ? 'Online' : 'Offline'} | Capacity ${driver.maxActiveOrders} | Load ${driver.currentLoad}</div>
+          <div class="muted">Dispatch mode: ${driver.dispatchPolicy.mode}</div>
+          <div class="muted">Stores: ${assignedRestaurantNames}</div>
+          <div class="muted">Restaurant groups: ${assignedMerchantNames}</div>
+        </article>
+      `;
+    });
+    renderCollection('admins', adminUsers, (admin) => `
       <article class="card">
         <div><strong>${admin.name}</strong></div>
         <div class="muted">${admin.email}</div>
@@ -310,8 +362,8 @@ async function saveDriverDispatch() {
     method: 'PATCH',
     body: JSON.stringify({
       mode: document.getElementById('dispatchModeSelect').value,
-      restaurantIds: parseCommaSeparatedIds(document.getElementById('dispatchRestaurantIds').value),
-      merchantIds: parseCommaSeparatedIds(document.getElementById('dispatchMerchantIds').value),
+      restaurantIds: getSelectedValues(nodes.dispatchRestaurantIds),
+      merchantIds: getSelectedValues(nodes.dispatchMerchantIds),
     }),
   });
   nodes.driverControlsStatus.textContent = 'Driver dispatch scope updated.';
@@ -335,3 +387,5 @@ nodes.driverSelect.addEventListener('change', syncDriverControlsForm);
 
 refreshDashboard().catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);
+
+

@@ -33,6 +33,39 @@ function summarizePricingRule(rule, code) {
   return `${currency(rule.baseAmount, code)} includes ${Number(rule.includedDistanceKm || 0).toFixed(1)} km, then ${currency(rule.additionalPerKm, code)} per extra km`;
 }
 
+function formatStatus(value) {
+  if (!value) {
+    return 'Unknown';
+  }
+  if (value === 'inTransit') {
+    return 'In transit';
+  }
+  return value.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function formatMinutes(value) {
+  if (value == null) {
+    return 'Not available';
+  }
+  return `${value} min`;
+}
+
+function formatEtaSource(value) {
+  if (!value || value === 'not-available') {
+    return 'Not available';
+  }
+  if (value === 'static-estimate') {
+    return 'Static estimate';
+  }
+  if (value === 'live-driver-location') {
+    return 'Live driver location';
+  }
+  if (value === 'google-routes') {
+    return 'Google traffic routing';
+  }
+  return value;
+}
+
 function setRuleInputs(prefix, rule) {
   document.getElementById(`${prefix}BaseAmount`).value = String(rule.baseAmount ?? 0);
   document.getElementById(`${prefix}IncludedDistanceKm`).value = String(rule.includedDistanceKm ?? 0);
@@ -172,10 +205,10 @@ function renderOrders(groups) {
   const rows = groups.flatMap((group) => group.orders.map((order) => ({ order, restaurant: group.restaurant })));
   nodes.orders.innerHTML = rows.map(({ order, restaurant }) => `
     <article class="card">
-      <div class="section-head"><strong>${restaurant.name}</strong><span class="pill">${order.tracking.displayStatus}</span></div>
+      <div class="section-head"><strong>${restaurant.name}</strong><span class="pill">${formatStatus(order.tracking.displayStatus)}</span></div>
       <div>${order.customer.name}</div>
       <div class="muted">${order.customer.address}</div>
-      <div class="muted">Driver: ${order.tracking.assignedDriverName || 'Waiting'} | Pickup ETA: ${order.tracking.driverEtaToPickupMinutes ?? 'n/a'} min | Destination ETA: ${order.tracking.destinationEtaMinutes ?? 'n/a'} min</div>
+      <div class="muted">Driver: ${order.tracking.assignedDriverName || 'Waiting'} | Pickup ETA: ${formatMinutes(order.tracking.driverEtaToPickupMinutes)} | Destination ETA: ${formatMinutes(order.tracking.destinationEtaMinutes)} | ETA source: ${formatEtaSource(order.tracking.etaSource)}</div>
     </article>
   `).join('') || '<div class="muted">No merchant-wide orders yet.</div>';
 }

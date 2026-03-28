@@ -92,6 +92,18 @@
       .inline { display: flex; gap: 10px }
       .triple { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px }
       .compact { display: grid; gap: 8px }
+      .hint {
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(31,92,69,0.08);
+        color: var(--accent-strong);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .multi-select {
+        min-height: 128px;
+        padding: 10px;
+      }
       input, select, button {
         width: 100%;
         padding: 12px 14px;
@@ -197,14 +209,14 @@
             <div class="section-headline">
               <div>
                 <div class="eyebrow">Commercial terms</div>
-                <h3>Driver Payout And Store Billing</h3>
-                <p class="section-copy">Set what the courier earns and what your fleet company bills the store. These are separate values and the driver never sees the store billing side.</p>
+                <h3>Driver Pay And Store Charges</h3>
+                <p class="section-copy">Set what your fleet company pays the driver and what your fleet company charges the store. These are separate values and the driver never sees the store-charge side.</p>
               </div>
               <span class="pill">Commercial</span>
             </div>
             <div class="card stack">
-              <div class="eyebrow">Driver payout to courier</div>
-              <h4>What the driver earns</h4>
+              <div class="eyebrow">Driver pay</div>
+              <h4>What your fleet company pays the driver</h4>
               <div class="triple">
                 <label>Base amount<input id="driverPayoutBaseAmount" type="number" min="0" step="0.01" /></label>
                 <label>Included km<input id="driverPayoutIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
@@ -213,8 +225,8 @@
               <div id="driverPayoutSummary" class="muted"></div>
             </div>
             <div class="card stack">
-              <div class="eyebrow">Merchant billing to store</div>
-              <h4>What the store is billed</h4>
+              <div class="eyebrow">Store charge</div>
+              <h4>What your fleet company charges the store</h4>
               <div class="triple">
                 <label>Base amount<input id="merchantBillingBaseAmount" type="number" min="0" step="0.01" /></label>
                 <label>Included km<input id="merchantBillingIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
@@ -231,10 +243,11 @@
               <div>
                 <div class="eyebrow">Restaurant portal view</div>
                 <h3>Tracking Display</h3>
-                <p class="section-copy">These settings only change what restaurant staff see during dispatch and delivery tracking.</p>
+                <p class="section-copy">These settings apply only to the selected store above and change what that store's staff see during dispatch and delivery tracking.</p>
               </div>
               <span class="pill">Experience</span>
             </div>
+            <div class="hint" id="trackingStoreHint">Choose a store above. The tracking view settings saved here apply only to that one store.</div>
             <label class="toggle"><input id="showPickedUpAsInTransit" type="checkbox" /> Show status as "In transit" after pickup</label>
             <label class="toggle"><input id="showDriverEtaToPickup" type="checkbox" /> Show driver ETA to pickup</label>
             <label class="toggle"><input id="showDestinationEta" type="checkbox" /> Show destination ETA after pickup</label>
@@ -247,23 +260,28 @@
               <div>
                 <div class="eyebrow">Selected driver</div>
                 <h3>Driver Snapshot</h3>
-                <p class="section-copy">Adjust driver capacity and assignment scope without exposing these controls to stores or drivers.</p>
+                <p class="section-copy">Set how many live jobs this driver can hold and which stores or restaurant groups they are allowed to receive orders from.</p>
               </div>
               <span class="pill">Fleet</span>
             </div>
             <select id="driverSelect"></select>
             <div id="selectedDriverSummary" class="compact muted">Select a driver to review capacity and assignment scope.</div>
-            <label>Max active orders<input id="driverCapacity" type="number" min="1" max="5" step="1" /></label>
-            <label>Dispatch behavior
+            <label>Maximum live deliveries this driver can hold at one time<input id="driverCapacity" type="number" min="1" max="5" step="1" /></label>
+            <label>How assignment should work for this driver
               <select id="dispatchModeSelect">
                 <option value="open">Open pool</option>
                 <option value="allowListOnly">Only assigned stores</option>
                 <option value="allowListWithFallback">Assigned stores first, then fallback</option>
               </select>
             </label>
-            <label>Restaurant allow-list (IDs, comma separated)<input id="dispatchRestaurantIds" placeholder="restaurant-001, restaurant-002" /></label>
-            <label>Merchant allow-list (IDs, comma separated)<input id="dispatchMerchantIds" placeholder="merchant-001" /></label>
-            <div class="inline"><button id="saveCapacityBtn" type="button">Save Capacity</button><button id="saveDispatchBtn" type="button" class="secondary">Save Dispatch Scope</button></div>
+            <div class="hint">Choose named stores and restaurant groups here. The backend saves their internal IDs for you, so you do not need to type raw IDs.</div>
+            <label>Allowed stores
+              <select id="dispatchRestaurantIds" class="multi-select" multiple></select>
+            </label>
+            <label>Allowed restaurant groups
+              <select id="dispatchMerchantIds" class="multi-select" multiple></select>
+            </label>
+            <div class="hint">Use one save action below to store both the driver workload limit and the assignment scope together.</div><button id="saveDriverSettingsBtn" type="button">Save Driver Settings</button>
             <div id="driverControlsStatus" class="muted"></div>
           </section>
         </aside>
@@ -329,3 +347,4 @@
     <script type="module" src="/admin.js"></script>
   </body>
 </html>
+

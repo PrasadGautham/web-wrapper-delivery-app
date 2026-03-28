@@ -182,14 +182,14 @@
             <div class="section-head">
               <div>
                 <div class="eyebrow">Commercial terms</div>
-                <h3>Driver Payout And Store Billing</h3>
-                <p class="section-copy">Change what the driver earns and what your fleet company bills the store. The courier only sees the payout side.</p>
+                <h3>Driver Pay And Store Charges</h3>
+                <p class="section-copy">Change what your fleet company pays the driver and what your fleet company charges the store. The courier only sees the driver-pay side.</p>
               </div>
               <span class="pill">Commercial</span>
             </div>
             <div class="card stack">
-              <div class="eyebrow">Driver payout to courier</div>
-              <strong>What the driver earns</strong>
+              <div class="eyebrow">Driver pay</div>
+              <strong>What your fleet company pays the driver</strong>
               <div class="triple">
                 <label>Base amount<input id="driverPayoutBaseAmount" type="number" min="0" step="0.01" /></label>
                 <label>Included km<input id="driverPayoutIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
@@ -198,8 +198,8 @@
               <div id="driverPayoutSummary" class="muted"></div>
             </div>
             <div class="card stack">
-              <div class="eyebrow">Merchant billing to store</div>
-              <strong>What the store is billed</strong>
+              <div class="eyebrow">Store charge</div>
+              <strong>What your fleet company charges the store</strong>
               <div class="triple">
                 <label>Base amount<input id="merchantBillingBaseAmount" type="number" min="0" step="0.01" /></label>
                 <label>Included km<input id="merchantBillingIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
@@ -266,3 +266,4 @@
     <script type="module" src="/merchant.js"></script>
   </body>
 </html>
+

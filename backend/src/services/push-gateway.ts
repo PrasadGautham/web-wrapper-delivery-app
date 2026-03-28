@@ -34,11 +34,21 @@ export class PushGateway {
       return false;
     }
 
+    const restaurantName = order.restaurant?.name ?? 'New delivery offer';
+    const estimatedKm =
+      typeof order.estimatedKm === 'number' && Number.isFinite(order.estimatedKm)
+        ? order.estimatedKm
+        : 0;
+    const tripEarnings =
+      typeof order.tripEarnings === 'number' && Number.isFinite(order.tripEarnings)
+        ? order.tripEarnings
+        : 0;
+
     await getMessaging().send({
       token: driver.deviceToken,
       notification: {
-        title: order.restaurant.name,
-        body: `${order.deliveryArea} | ${order.estimatedKm.toFixed(1)} km | AED ${order.tripEarnings.toFixed(2)}`,
+        title: restaurantName,
+        body: `${order.deliveryArea} | ${estimatedKm.toFixed(1)} km | AED ${tripEarnings.toFixed(2)}`,
       },
       data: {
         type: 'incoming_order_offer',

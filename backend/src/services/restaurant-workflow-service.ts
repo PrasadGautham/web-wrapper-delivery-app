@@ -94,9 +94,11 @@ export class RestaurantWorkflowService {
       ? db.drivers.find((item) => item.id === order.assignedDriverId) ?? null
       : null;
 
+    const beforePickup = order.status === 'pending' || order.status === 'accepted' || order.status === 'atRestaurant';
     const canUseLiveDriverLocation = Boolean(driver && this.driverWorkflowService.isDriverLocationFresh(driver.currentLocation));
+
     const pickupEta =
-      restaurant.trackingSettings.showDriverEtaToPickup && driver
+      beforePickup && restaurant.trackingSettings.showDriverEtaToPickup && driver
         ? await this.driverWorkflowService.estimateRouteMinutes(driver.currentLocation, restaurant.pickupLocation)
         : null;
 
@@ -119,7 +121,7 @@ export class RestaurantWorkflowService {
         destinationEtaMinutes: destinationEta?.minutes ?? null,
         assignedDriverName: driver?.name ?? null,
         assignedDriverPhoneHint: driver ? driver.email : null,
-        etaSource: pickupEta?.source ?? destinationEta?.source ?? 'not-available',
+        etaSource: destinationEta?.source ?? pickupEta?.source ?? 'not-available',
       },
     };
   }

@@ -9,6 +9,7 @@ import {
   UserType,
 } from '../domain/models.js';
 import { DispatchService } from './dispatch-service.js';
+import { calculatePricingAmount } from './pricing-rules.js';
 import { PushGateway } from './push-gateway.js';
 import { hasOperationalStateStore, StoreContract } from './store-contract.js';
 
@@ -18,11 +19,13 @@ export class BackendRuntime {
     private readonly dispatchService: DispatchService,
     private readonly pushGateway: PushGateway,
     private readonly sessionHours: number,
+    private readonly logger?: { warn: (message: unknown) => void },
   ) {}
 
   async withDb<T>(callback: (db: DatabaseShape) => Promise<T> | T): Promise<T> {
     const db = await this.store.read();
     this.cleanupExpiredSessions(db);
+    this.normalizeOperationalState(db);
     db.auditLogs ??= [];
     return callback(db);
   }
@@ -30,6 +33,7 @@ export class BackendRuntime {
   async withMutableDb<T>(callback: (db: DatabaseShape) => Promise<T> | T): Promise<T> {
     const db = await this.store.read();
     this.cleanupExpiredSessions(db);
+    this.normalizeOperationalState(db);
     db.auditLogs ??= [];
     const result = await callback(db);
     await this.flushPendingNotifications(db);
@@ -41,7 +45,10 @@ export class BackendRuntime {
     callback: (state: Pick<DatabaseShape, 'drivers' | 'restaurants' | 'orders'>) => Promise<T> | T,
   ): Promise<T> {
     if (hasOperationalStateStore(this.store)) {
-      return this.store.withOperationalReadContext(async (context) => callback(context.state));
+      return this.store.withOperationalReadContext(async (context) => {
+        this.normalizeOperationalState(context.state as DatabaseShape);
+        return callback(context.state);
+      });
     }
     return this.withDb((db) =>
       callback({
@@ -60,6 +67,7 @@ export class BackendRuntime {
   ): Promise<T> {
     if (hasOperationalStateStore(this.store)) {
       return this.store.withOperationalWriteContext(async (context) => {
+        this.normalizeOperationalState(context.state as DatabaseShape);
         const result = await callback(context.state, async (input) => {
           await context.appendAuditLog({
             id: `audit-${randomUUID()}`,
@@ -142,12 +150,36 @@ export class BackendRuntime {
     db.sessions = db.sessions.filter((session) => new Date(session.expiresAt).getTime() > now);
   }
 
+  private normalizeOperationalState(db: Pick<DatabaseShape, 'restaurants' | 'orders'>): void {
+    for (const order of db.orders) {
+      const restaurant = db.restaurants.find((item) => item.id === order.restaurantId);
+      if (!restaurant) {
+        continue;
+      }
+      if (typeof order.tripEarnings !== 'number' || !Number.isFinite(order.tripEarnings)) {
+        order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm ?? 0);
+      }
+      if (typeof order.companyCharge !== 'number' || !Number.isFinite(order.companyCharge)) {
+        order.companyCharge = calculatePricingAmount(restaurant.pricing.merchantBillingRule, order.estimatedKm ?? 0);
+      }
+    }
+  }
+
   private async flushPendingNotifications(db: Pick<DatabaseShape, 'drivers' | 'orders'>): Promise<void> {
     const notifications = this.dispatchService.getOrdersNeedingDispatchNotification(db as DatabaseShape);
     for (const { driver, order } of notifications) {
-      const sent = await this.pushGateway.sendIncomingOrderOffer(driver, order);
-      if (sent) {
-        this.dispatchService.markDispatchNotificationSent(order);
+      try {
+        const sent = await this.pushGateway.sendIncomingOrderOffer(driver, order);
+        if (sent) {
+          this.dispatchService.markDispatchNotificationSent(order);
+        }
+      } catch (error) {
+        this.logger?.warn({
+          message: 'Failed to send incoming order offer.',
+          orderId: order.id,
+          driverId: driver.id,
+          error,
+        });
       }
     }
   }

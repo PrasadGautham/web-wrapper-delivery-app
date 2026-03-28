@@ -10,6 +10,13 @@ async function waitForSessionText(page: Page, expectedSnippet: string) {
   );
 }
 
+async function waitForOptions(page: Page, selector: string, minimumCount = 1) {
+  await page.waitForFunction(
+    ([query, count]) => (document.querySelector(query) as HTMLSelectElement | null)?.options.length >= count,
+    [selector, minimumCount],
+  );
+}
+
 async function run() {
   process.env.WEB_SESSION_COOKIE_SECURE = 'false';
   process.env.WEB_SESSION_COOKIE_SAME_SITE = 'Strict';
@@ -53,7 +60,24 @@ async function run() {
   }
 
   try {
-    await loginAndLogout('/admin', 'admin@demo.com', 'Password123', 'driverapp_admin_session', 'Logged in as');
+    await page.goto(`${baseUrl}/admin`, { waitUntil: 'networkidle' });
+    await page.fill('#email', 'admin@demo.com');
+    await page.fill('#password', 'Password123');
+    await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
+      page.click('#loginBtn'),
+    ]);
+    await waitForSessionText(page, 'Logged in as');
+    await waitForOptions(page, '#settingsRestaurantSelect');
+    await waitForOptions(page, '#driverSelect');
+    await waitForOptions(page, '#dispatchRestaurantIds');
+    await waitForOptions(page, '#dispatchMerchantIds');
+    await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith('/logout') && response.request().method() === 'POST' && response.ok()),
+      page.click('#logoutBtn'),
+    ]);
+    await waitForSessionText(page, 'Not logged in');
+
     await loginAndLogout('/merchant', 'falafel.group@demo.com', 'Password123', 'driverapp_merchant_session', 'Logged in as');
     await loginAndLogout('/restaurant', 'falafel.dispatch@demo.com', 'Password123', 'driverapp_restaurant_session', 'Logged in as');
     console.log('PASS portal-e2e');

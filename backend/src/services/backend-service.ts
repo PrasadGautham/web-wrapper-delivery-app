@@ -52,8 +52,9 @@ export class BackendService {
     passwordResetNotifier: PasswordResetNotifier,
     restaurantRealtime: RestaurantRealtimeService,
     backofficeReadService: BackofficeReadService | null = null,
+    logger?: { warn: (message: unknown) => void },
   ) {
-    this.runtime = new BackendRuntime(store, dispatchService, pushGateway, defaultSessionHours);
+    this.runtime = new BackendRuntime(store, dispatchService, pushGateway, defaultSessionHours, logger);
     const workflowStore = hasWorkflowStore(store) ? store : null;
     this.authWorkflow = new AuthWorkflowService(
       this.runtime,
@@ -380,5 +381,6 @@ export class BackendService {
     return this.restaurantWorkflow.getRestaurantReport(restaurantId);
   }
 }
+
 
 

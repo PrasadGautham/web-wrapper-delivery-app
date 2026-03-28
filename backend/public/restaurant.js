@@ -39,9 +39,25 @@ function formatStatus(value) {
 
 function formatMinutes(value) {
   if (value == null) {
-    return 'Not enabled';
+    return 'Not available';
   }
   return `${value} min`;
+}
+
+function formatEtaSource(value) {
+  if (!value || value === 'not-available') {
+    return 'Not available';
+  }
+  if (value === 'static-estimate') {
+    return 'Static estimate';
+  }
+  if (value === 'live-driver-location') {
+    return 'Live driver location';
+  }
+  if (value === 'google-routes') {
+    return 'Google traffic routing';
+  }
+  return value;
 }
 
 async function request(path, options = {}, attemptRefresh = true) {
@@ -135,7 +151,7 @@ function renderOrders(orders) {
         </div>
         <div class="meta">
           <div><strong>ETA source</strong></div>
-          <div>${order.tracking.etaSource}</div>
+          <div>${formatEtaSource(order.tracking.etaSource)}</div>
         </div>
         <div class="meta">
           <div><strong>Driver payout</strong></div>
@@ -258,61 +274,31 @@ async function createOrder() {
 }
 
 async function requestPasswordReset() {
+  const email = document.getElementById('email').value.trim();
+  if (!email) {
+    nodes.resetStatus.textContent = 'Enter your restaurant email first.';
+    return;
+  }
   const result = await request('/api/auth/password-reset/request', {
     method: 'POST',
-    body: JSON.stringify({
-      userType: 'restaurant',
-      email: document.getElementById('resetEmail').value.trim(),
-    }),
+    body: JSON.stringify({ userType: 'restaurant', email }),
   }, false);
   nodes.resetStatus.textContent = result.debugToken
-    ? `Reset requested. Debug token: ${result.debugToken}`
-    : 'Reset requested. Check email if SMTP delivery is configured.';
+    ? `Reset token for local use: ${result.debugToken}`
+    : 'Password reset request submitted.';
 }
 
-async function confirmPasswordReset() {
-  await request('/api/auth/password-reset/confirm', {
-    method: 'POST',
-    body: JSON.stringify({
-      userType: 'restaurant',
-      token: document.getElementById('resetToken').value.trim(),
-      newPassword: document.getElementById('newPassword').value,
-    }),
-  }, false);
-  nodes.resetStatus.textContent = 'Password reset complete. You can now log in with the new password.';
-}
+document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => {
+  nodes.sessionStatus.textContent = error.message;
+}));
+document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => {
+  nodes.sessionStatus.textContent = error.message;
+}));
+document.getElementById('createOrderBtn').addEventListener('click', () => createOrder().catch((error) => {
+  nodes.sessionStatus.textContent = error.message;
+}));
+document.getElementById('requestResetBtn').addEventListener('click', () => requestPasswordReset().catch((error) => {
+  nodes.resetStatus.textContent = error.message;
+}));
 
-document.getElementById('loginBtn').addEventListener('click', () => {
-  login().catch((error) => alert(error.message));
-});
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  logout().catch((error) => alert(error.message));
-});
-document.getElementById('createOrderBtn').addEventListener('click', () => {
-  createOrder().catch((error) => alert(error.message));
-});
-document.getElementById('manualRefreshBtn').addEventListener('click', () => {
-  refreshDashboard().catch((error) => { if (hasSession) alert(error.message); });
-});
-document.getElementById('showResetBtn').addEventListener('click', () => {
-  nodes.resetPanel.classList.toggle('hidden');
-});
-document.getElementById('requestResetBtn').addEventListener('click', () => {
-  requestPasswordReset().catch((error) => {
-    nodes.resetStatus.textContent = error.message;
-  });
-});
-document.getElementById('confirmResetBtn').addEventListener('click', () => {
-  confirmPasswordReset().catch((error) => {
-    nodes.resetStatus.textContent = error.message;
-  });
-});
-
-refreshDashboard().then(() => connectStream()).catch(() => {});
-setInterval(() => {
-  if (hasSession) {
-    refreshSession().catch(() => {});
-  }
-}, 10 * 60 * 1000);
-
-
+refreshDashboard().catch(() => {});

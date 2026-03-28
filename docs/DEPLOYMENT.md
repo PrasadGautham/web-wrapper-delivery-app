@@ -2,145 +2,81 @@
 
 ## Goal
 
-This backend is designed to be deployable on:
+This guide explains how to move from local mode to deployed mode without changing code.
 
-- Cloud Run
-- Railway
-- Render
-- Fly.io
-- a VM or container host you manage yourself
+The system is designed so production deployment is mainly an environment and infrastructure step.
 
-Cloud Run is included here as a concrete reference because it is a good low-cost default, but the runtime contract is intentionally provider-neutral.
+## Local Mode Versus Deployed Mode
 
-Use these companion checklists together:
+Local mode can run with:
+- file-store adapter
+- in-memory rate limiter
+- noop password-reset notifier
 
-- [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
-- [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
+Production mode should run with:
+- Postgres
+- production secrets
+- production web origins
+- secure cookie settings
+- production Firebase Admin credential
+- optional SMTP
+- optional Redis only if multi-instance shared rate limiting is needed
 
-## Deployment Shape
+## Minimum Production-Shaped Deployment Inputs
 
-Recommended production shape:
-
-- Flutter driver app distributed separately
-- backend container running Node.js service from `backend/`
-- Postgres as the primary database
-- Firebase Admin service account injected as a secret file or secret value
-- optional Google Maps API key for traffic-aware ETA
-- optional Redis for shared rate limiting across multiple backend instances
-
-## Required Environment Variables
-
-Use [backend/.env.example](/c:/dev/DriverApp/backend/.env.example) as the baseline. For production-style file-driven config you can also copy [backend/.env.production.example](/c:/dev/DriverApp/backend/.env.production.example) and start with ENV_FILE=.env.production.
-
-Production-critical:
-
-- `HOST`
-- `PORT`
+Required:
 - `DATABASE_URL`
-- `SESSION_TTL_HOURS`
-- `STALE_LOCATION_MINUTES`
-- `DISPATCH_INTERVAL_MS`
+- `SESSION_SECRET`
 - `FIREBASE_SERVICE_ACCOUNT_PATH`
-- `ADMIN_API_KEY`
-- `ALLOW_ADMIN_API_KEY_FALLBACK`
 - `ALLOWED_WEB_ORIGINS`
+- secure cookie envs
 
-Operationally recommended:
-
+Recommended:
 - `METRICS_API_KEY`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USER`
-- `SMTP_PASSWORD`
-- `SMTP_FROM_EMAIL`
-- `PASSWORD_RESET_BASE_URL`
-- `GOOGLE_MAPS_API_KEY`
-- `ALERT_WEBHOOK_URL`
+- SMTP settings
+- alert webhook settings
 
-Optional:
+## Runtime Model
 
-- `REDIS_URL`
+You can keep the same codebase and switch deployment behavior by env only.
 
-## Database Strategy
+No code change should be required to go from local file-store mode to Postgres-backed mode. For local Windows testing, keep your real DATABASE_URL in backend/.env.local-postgres and use start-local-postgres.ps1.
 
-Use Postgres for deployed environments.
+## Basic Deployment Steps
 
-Why:
+1. provision Postgres
+2. set environment variables
+3. run Prisma generate and migrations
+4. start backend in deployed mode
+5. verify health, auth, and portal flows
+6. verify driver app against deployed backend
 
-- real transactional persistence
-- safer concurrent writes than file-backed storage
-- easier backup/restore
-- easier multi-instance deployment later
-
-## Prisma Role
-
-Prisma is included for:
-
-- schema definition
-- migrations
-- generated typed client for standard CRUD-style administration/reporting paths
-
-Prisma is not forced into the dispatch engine.
-
-That is deliberate. Dispatch, reassignment, and capacity filtering are latency-sensitive and domain-heavy. Those code paths are better kept in repository-controlled persistence where raw SQL remains available when needed.
-
-Recommended rule:
-
-- use Prisma for schema management and standard table access
-- keep dispatch-heavy queries under explicit repositories
-
-## Generic Container Workflow
-
-From `backend/`:
+## Commands
 
 ```powershell
+cd C:\dev\DriverApp\backend
 npm install
 npm run prisma:generate
-npm run prisma:migrate:deploy
 npm run check
 npm test
-npm start
+npm run smoke:deploy
 ```
 
-## Cloud Run Example
+## Final Hosted Checks
 
-Cloud Run is optional, not required.
+- admin login works
+- merchant login works
+- restaurant login works
+- SSE updates work over hosted origin
+- driver app can log in and go online
+- order created in restaurant portal reaches eligible driver
+- delivery completion updates merchant and restaurant views
 
-Typical setup:
+## Notes
 
-1. Build a container from `backend/`.
-2. Attach a managed Postgres instance or external Postgres.
-3. Inject environment variables and secrets.
-4. Mount the Firebase service account secret or provide it via secret manager.
-5. Set the service port to match `PORT`.
+- Cloud Run is one valid deployment target, but not mandatory
+- Redis is not required for single-instance production
+- Android-first go-live is acceptable
+- iOS validation remains separate
 
-Important:
-
-- do not rely on local file-backed storage in Cloud Run
-- use Postgres only
-- keep `ADMIN_API_KEY`, `METRICS_API_KEY`, and Firebase credentials in secrets, not repo files
-
-## If You Do Not Use Cloud Run
-
-The same environment contract still works.
-
-You only need:
-
-- a Node.js runtime
-- Postgres connectivity
-- secret injection for Firebase Admin and runtime secrets
-- outbound internet access for FCM and optional Google Routes
-
-## Pre-Go-Live Commands
-
-- `npm run check`
-- `npm test`
-- `npm run smoke:deploy`
-- if you have an isolated Postgres test database: `npm run test:postgres`
-
-## Current Deployment Notes
-
-- in-memory rate limiting is fine for one backend instance but not ideal for horizontally scaled abuse control; set `REDIS_URL` only when scale requires shared distributed limiting
-- background location handling still needs full iOS validation on macOS hardware; see `docs/IOS_BACKGROUND_VALIDATION.md`
-- the backend code is in much better shape now, but real production confidence still depends on the staged and live validation steps in [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
 
