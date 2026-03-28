@@ -128,6 +128,10 @@
       .muted { color: var(--muted); }
       .multi-select { min-height: 120px; padding: 10px; }
       .hidden { display: none !important; }
+      .auth-gate { margin-top: 22px; }
+      .auth-gate-card { max-width: 560px; margin: 0 auto; }
+      .session-meta { display: grid; gap: 6px; }
+      .session-meta strong { font-size: 18px; }
       .mono { font-family: Consolas, "SFMono-Regular", monospace; font-size: 12px; }
       @media (max-width: 1200px) {
         .layout { grid-template-columns: 1fr; }
@@ -142,11 +146,11 @@
         <div class="hero-top">
           <div>
             <div class="eyebrow" style="color: rgba(255,255,255,0.72)">Platform operations</div>
-            <h1>Platform Control Center</h1>
-            <p>Use this workspace to provision client tenants, support them across the fleet platform, and oversee cross-tenant operations. This is the internal platform console for your company, not the client-facing tenant workspace.</p>
+            <h1>Tenant Control Center</h1>
+            <p>Use this workspace to operate your fleet platform cleanly across multiple client tenants. Platform admins provision tenants and support them. Tenant admins manage only their own drivers, merchant groups, stores, staffing, pricing, and dispatch rules.</p>
           </div>
           <div class="hero-badge">
-            Surface
+            Current mode
             <strong id="heroModeLabel">Signed out</strong>
           </div>
         </div>
@@ -159,20 +163,37 @@
         </div>
       </section>
 
-      <div class="layout">
+      <section id="authGate" class="panel auth-gate">
+        <div class="auth-gate-card stack">
+          <div class="section-headline"><div><div class="eyebrow">Admin sign in</div><h2 style="margin:0">Access The Admin Workspace</h2><p class="section-copy">Sign in first to load tenant, merchant, store, driver, and staffing data. The admin workspace stays hidden until the session is valid.</p></div><span class="pill">Secure</span></div>
+          <label>Email<input id="gateEmail" /></label>
+          <label>Password<input id="gatePassword" type="password" /></label>
+          <button id="gateLoginBtn" type="button">Login To Admin Workspace</button>
+          <div id="gateStatus" class="muted">Not logged in</div>
+        </div>
+      </section>
+
+      <div id="mainLayout" class="layout hidden">
         <aside class="panel stack">
           <section class="section stack">
             <div class="section-headline">
               <div>
                 <div class="eyebrow">Session</div>
                 <h3 style="margin:0">Admin Access</h3>
-                <p class="section-copy">Use this page only for internal company operations. Client-facing tenant admins should use the separate tenant-admin workspace.</p>
+                <p class="section-copy">Platform admins manage all tenants. Tenant admins are locked to one client workspace.</p>
               </div>
               <span class="pill">Internal</span>
             </div>
-            <label>Email<input id="email" /></label>
-            <label>Password<input id="password" type="password" /></label>
-            <div class="inline"><button id="loginBtn">Login</button><button id="logoutBtn" class="secondary" type="button">Logout</button></div>
+            <div id="loginControls" class="stack">
+              <label>Email<input id="email" /></label>
+              <label>Password<input id="password" type="password" /></label>
+              <button id="loginBtn" type="button">Login</button>
+            </div>
+            <div id="activeSessionCard" class="card hidden">
+              <div class="eyebrow">Signed in</div>
+              <div id="activeSessionMeta" class="session-meta"></div>
+              <button id="logoutBtn" class="secondary" type="button">Logout</button>
+            </div>
             <div id="sessionStatus" class="muted">Not logged in</div>
           </section>
 
@@ -405,8 +426,8 @@
             <div class="section-headline">
               <div>
                 <div class="eyebrow">Operations overview</div>
-                <h2 style="margin:0">Platform Workspace Data</h2>
-                <p class="section-copy">Platform admins can switch tenant workspaces while still retaining cross-tenant visibility and provisioning responsibilities.</p>
+                <h2 style="margin:0">Current Workspace Data</h2>
+                <p class="section-copy">Everything below is filtered to the active tenant workspace for safer day-to-day operations.</p>
               </div>
               <span id="workspaceModePill" class="pill">Awaiting session</span>
             </div>

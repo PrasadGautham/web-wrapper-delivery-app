@@ -49,6 +49,11 @@ const nodes = {
   reportStartDate: document.getElementById('reportStartDate'),
   reportEndDate: document.getElementById('reportEndDate'),
   reportRangeNote: document.getElementById('reportRangeNote'),
+  authGate: document.getElementById('authGate'),
+  mainLayout: document.getElementById('mainLayout'),
+  gateEmail: document.getElementById('gateEmail'),
+  gatePassword: document.getElementById('gatePassword'),
+  gateStatus: document.getElementById('gateStatus'),
 };
 
 function currentRestaurant() {
@@ -188,6 +193,8 @@ function renderEmpty(target, message) {
 }
 
 function setSessionUi() {
+  nodes.authGate.classList.toggle('hidden', hasSession);
+  nodes.mainLayout.classList.toggle('hidden', !hasSession);
   nodes.loginControls.classList.toggle('hidden', hasSession);
   nodes.activeSessionCard.classList.toggle('hidden', !hasSession);
   if (!hasSession || !currentProfile) {
@@ -272,6 +279,7 @@ function clearSessionState(message = 'Merchant session expired. Please log in ag
   latestReport = null;
   latestOrderGroups = [];
   nodes.sessionStatus.textContent = message;
+  nodes.gateStatus.textContent = message;
   nodes.billingSummary.textContent = 'Select a store to review its billing terms.';
   nodes.trackingStatus.textContent = 'Update how restaurant staff see delivery progress for this store.';
   nodes.staffStatus.textContent = 'Create and review staff users for the selected store.';
@@ -498,6 +506,7 @@ async function refreshDashboard() {
     latestReport = report;
     latestOrderGroups = orderGroups;
     nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
+    nodes.gateStatus.textContent = `Logged in as ${profile.name}`;
     setSessionUi();
     populateRestaurantSelect();
     renderRestaurantCards(orderGroups, report);
@@ -538,13 +547,19 @@ async function connectStream() {
   };
 }
 
+function getLoginCredentials() {
+  const useGate = !hasSession && !nodes.authGate.classList.contains('hidden');
+  return {
+    email: (useGate ? nodes.gateEmail.value : document.getElementById('email').value).trim(),
+    password: useGate ? nodes.gatePassword.value.trim() : document.getElementById('password').value.trim(),
+  };
+}
+
 async function login() {
+  const credentials = getLoginCredentials();
   await request('/api/auth/merchant/login', {
     method: 'POST',
-    body: JSON.stringify({
-      email: document.getElementById('email').value.trim(),
-      password: document.getElementById('password').value.trim(),
-    }),
+    body: JSON.stringify(credentials),
   }, false);
   hasSession = true;
   await refreshDashboard();
@@ -615,7 +630,8 @@ function exportReport() {
   window.location.href = `/api/merchant/me/report-export.csv${rangeQueryString()}`;
 }
 
-document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; }));
+document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
+document.getElementById('gateLoginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
 document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => { nodes.sessionStatus.textContent = error.message; }));
 document.getElementById('refreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => { if (hasSession) nodes.sessionStatus.textContent = error.message; }));
 document.getElementById('saveTrackingBtn').addEventListener('click', () => saveTracking().catch((error) => { nodes.trackingStatus.textContent = error.message; }));

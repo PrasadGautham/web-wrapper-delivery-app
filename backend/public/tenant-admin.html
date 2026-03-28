@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tenant Admin Workspace</title>
+    <title>Platform Admin Portal</title>
     <style>
       :root {
         --surface: rgba(255, 255, 255, 0.94);
@@ -128,6 +128,10 @@
       .muted { color: var(--muted); }
       .multi-select { min-height: 120px; padding: 10px; }
       .hidden { display: none !important; }
+      .auth-gate { margin-top: 22px; }
+      .auth-gate-card { max-width: 560px; margin: 0 auto; }
+      .session-meta { display: grid; gap: 6px; }
+      .session-meta strong { font-size: 18px; }
       .mono { font-family: Consolas, "SFMono-Regular", monospace; font-size: 12px; }
       @media (max-width: 1200px) {
         .layout { grid-template-columns: 1fr; }
@@ -141,12 +145,12 @@
       <section class="hero">
         <div class="hero-top">
           <div>
-            <div class="eyebrow" style="color: rgba(255,255,255,0.72)">Tenant operations</div>
-            <h1>Tenant Admin Workspace</h1>
-            <p>Use this workspace to operate one client tenant only. Create and manage merchant groups, stores, drivers, staffing, pricing, tracking, and dispatch rules inside your assigned tenant. This page is intended for the client operations team, not your internal platform staff.</p>
+            <div class="eyebrow" style="color: rgba(255,255,255,0.72)">Platform operations</div>
+            <h1>Tenant Control Center</h1>
+            <p>Use this workspace to operate your fleet platform cleanly across multiple client tenants. Platform admins provision tenants and support them. Tenant admins manage only their own drivers, merchant groups, stores, staffing, pricing, and dispatch rules.</p>
           </div>
           <div class="hero-badge">
-            Surface
+            Current mode
             <strong id="heroModeLabel">Signed out</strong>
           </div>
         </div>
@@ -159,20 +163,37 @@
         </div>
       </section>
 
-      <div class="layout">
+      <section id="authGate" class="panel auth-gate">
+        <div class="auth-gate-card stack">
+          <div class="section-headline"><div><div class="eyebrow">Admin sign in</div><h2 style="margin:0">Access The Admin Workspace</h2><p class="section-copy">Sign in first to load tenant, merchant, store, driver, and staffing data. The admin workspace stays hidden until the session is valid.</p></div><span class="pill">Secure</span></div>
+          <label>Email<input id="gateEmail" /></label>
+          <label>Password<input id="gatePassword" type="password" /></label>
+          <button id="gateLoginBtn" type="button">Login To Admin Workspace</button>
+          <div id="gateStatus" class="muted">Not logged in</div>
+        </div>
+      </section>
+
+      <div id="mainLayout" class="layout hidden">
         <aside class="panel stack">
           <section class="section stack">
             <div class="section-headline">
               <div>
                 <div class="eyebrow">Session</div>
                 <h3 style="margin:0">Admin Access</h3>
-                <p class="section-copy">This workspace is tenant-scoped. You can operate only the businesses, stores, drivers, and staff inside your assigned tenant.</p>
+                <p class="section-copy">Platform admins manage all tenants. Tenant admins are locked to one client workspace.</p>
               </div>
-              <span class="pill">Client workspace</span>
+              <span class="pill">Internal</span>
             </div>
-            <label>Email<input id="email" /></label>
-            <label>Password<input id="password" type="password" /></label>
-            <div class="inline"><button id="loginBtn">Login</button><button id="logoutBtn" class="secondary" type="button">Logout</button></div>
+            <div id="loginControls" class="stack">
+              <label>Email<input id="email" /></label>
+              <label>Password<input id="password" type="password" /></label>
+              <button id="loginBtn" type="button">Login</button>
+            </div>
+            <div id="activeSessionCard" class="card hidden">
+              <div class="eyebrow">Signed in</div>
+              <div id="activeSessionMeta" class="session-meta"></div>
+              <button id="logoutBtn" class="secondary" type="button">Logout</button>
+            </div>
             <div id="sessionStatus" class="muted">Not logged in</div>
           </section>
 
@@ -317,8 +338,8 @@
             <div class="section-headline">
               <div>
                 <div class="eyebrow">Provisioning</div>
-                <h2 style="margin:0">Tenant Operations Setup</h2>
-                <p class="section-copy">Onboard merchant groups, stores, drivers, and staff inside this tenant. Platform-only tenant provisioning is intentionally separate.</p>
+                <h2 style="margin:0">Tenant And Workspace Setup</h2>
+                <p class="section-copy">Create new tenants, assign tenant admins, and onboard merchant groups, stores, and drivers cleanly inside the right workspace.</p>
               </div>
               <div class="inline"><button id="refreshBtn" type="button">Refresh Data</button></div>
             </div>
@@ -405,8 +426,8 @@
             <div class="section-headline">
               <div>
                 <div class="eyebrow">Operations overview</div>
-                <h2 style="margin:0">Tenant Workspace Data</h2>
-                <p class="section-copy">Everything below is restricted to this tenant so the client team can work safely without seeing platform-level controls.</p>
+                <h2 style="margin:0">Current Workspace Data</h2>
+                <p class="section-copy">Everything below is filtered to the active tenant workspace for safer day-to-day operations.</p>
               </div>
               <span id="workspaceModePill" class="pill">Awaiting session</span>
             </div>

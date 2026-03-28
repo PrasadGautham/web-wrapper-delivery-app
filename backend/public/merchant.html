@@ -60,6 +60,8 @@
       .empty { padding: 18px; border-radius: 18px; border: 1px dashed rgba(31,39,44,0.18); color: var(--muted); background: rgba(255,255,255,0.72); }
       .accent-value { color: var(--accent-strong); font-weight: 800; }
       .hidden { display: none; }
+      .auth-gate { margin-top: 22px; }
+      .auth-gate-card { max-width: 540px; margin: 0 auto; text-align: left; }
       .session-meta { display: grid; gap: 6px; }
       .session-meta strong { font-size: 18px; }
       @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } .store-grid, .report-grid, .stats-grid, .grid-four { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hero-top, .hero-bar { flex-direction: column; align-items: stretch; } }
@@ -86,7 +88,17 @@
           </div>
         </div>
       </section>
-      <div class="layout">
+      <section id="authGate" class="panel auth-gate">
+        <div class="auth-gate-card stack">
+          <div class="section-head"><div><div class="eyebrow">Merchant sign in</div><h2 style="margin: 6px 0 0;">Access Your Merchant Workspace</h2><p class="section-copy">Sign in first to load store operations, merchant-wide reports, and Excel exports. No operational data is shown until the session is active.</p></div><span class="pill">Secure</span></div>
+          <label>Email<input id="gateEmail" /></label>
+          <label>Password<input id="gatePassword" type="password" /></label>
+          <button id="gateLoginBtn" type="button">Login To Merchant Workspace</button>
+          <div id="gateStatus" class="muted">Not logged in</div>
+        </div>
+      </section>
+
+      <div id="mainLayout" class="layout hidden">
         <aside class="panel stack">
           <section class="section stack">
             <div class="section-head"><div><div class="eyebrow">Session</div><h3>Merchant Access</h3><p class="section-copy">Use a merchant owner, manager, dispatcher, or viewer account. Once signed in, the login controls collapse into a clean session summary.</p></div><span class="pill">Live</span></div>

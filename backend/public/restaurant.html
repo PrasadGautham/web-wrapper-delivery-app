@@ -57,6 +57,8 @@
       .order-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
       .success { color: var(--success); }
       .hidden { display: none; }
+      .auth-gate { margin-top: 22px; }
+      .auth-gate-card { max-width: 540px; margin: 0 auto; text-align: left; }
       .session-meta { display: grid; gap: 6px; }
       .session-meta strong { font-size: 18px; }
       @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } .stats-grid, .report-grid, .grid-two, .order-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hero-top, .hero-bar { flex-direction: column; align-items: stretch; } }
@@ -69,7 +71,17 @@
         <div class="hero-top"><div><div class="eyebrow" style="color: rgba(255,255,255,0.74);">Store workspace</div><h1>Restaurant Delivery Desk</h1><p>Create orders, watch delivery progress live, review store-facing billing, and understand how today’s delivery activity is performing without exposing fleet-company internal payout controls.</p></div><div class="hero-note">Store-facing control<strong>Daily operations and reporting with less clutter and better clarity</strong></div></div>
         <div class="hero-bar"><div><span class="status-dot" id="connectionDot"></span><span id="connectionText">Waiting for restaurant session.</span></div><div class="hero-actions"><button class="tab-button active" data-view="dashboard" type="button">Dashboard</button><button class="tab-button" data-view="reports" type="button">Reports</button><button class="tab-button" data-view="create-order" type="button">Create Order</button></div></div>
       </section>
-      <div class="layout">
+      <section id="authGate" class="panel auth-gate">
+        <div class="auth-gate-card stack">
+          <div class="section-head"><div><div class="eyebrow">Store sign in</div><h2 style="margin: 6px 0 0;">Access The Restaurant Delivery Desk</h2><p class="section-copy">Sign in first to create orders, watch live deliveries, review reports, and export the current report range. Store data stays hidden until the session is active.</p></div><span class="pill">Secure</span></div>
+          <label>Email<input id="gateEmail" /></label>
+          <label>Password<input id="gatePassword" type="password" /></label>
+          <button id="gateLoginBtn" type="button">Login To Store Workspace</button>
+          <div id="gateStatus" class="muted">Not logged in</div>
+        </div>
+      </section>
+
+      <div id="mainLayout" class="layout hidden">
         <aside class="panel stack">
           <section class="section stack"><div class="section-head"><div><div class="eyebrow">Session</div><h3>Store Access</h3><p class="section-copy">Use your restaurant credentials. Once signed in, the login form collapses into a clear store-session summary.</p></div><span class="pill">Secure</span></div><div id="loginControls" class="stack"><label>Email<input id="email" /></label><label>Password<input id="password" type="password" /></label><button id="loginBtn" type="button">Login</button></div><div id="activeSessionCard" class="session-card hidden"><div class="eyebrow">Signed in</div><div id="activeSessionMeta" class="session-meta"></div><div class="inline"><button id="logoutBtn" class="secondary" type="button">Logout</button><button id="showResetBtn" class="secondary" type="button">Password help</button></div></div><div class="muted" id="sessionStatus">Not logged in</div></section>
           <section class="section highlight stack"><div class="section-head"><div><div class="eyebrow">Current store</div><h3>Store Snapshot</h3><p class="section-copy">See the live store profile, billing context, and tracking display rules that your team uses during dispatch.</p></div><span class="pill">Overview</span></div><div id="storeSummary" class="muted">Log in to see your store profile and billing view.</div><div id="trackingSettings" class="muted">No active store session.</div></section>

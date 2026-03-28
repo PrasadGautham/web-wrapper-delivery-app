@@ -128,6 +128,10 @@
       .muted { color: var(--muted); }
       .multi-select { min-height: 120px; padding: 10px; }
       .hidden { display: none !important; }
+      .auth-gate { margin-top: 22px; }
+      .auth-gate-card { max-width: 560px; margin: 0 auto; }
+      .session-meta { display: grid; gap: 6px; }
+      .session-meta strong { font-size: 18px; }
       .mono { font-family: Consolas, "SFMono-Regular", monospace; font-size: 12px; }
       @media (max-width: 1200px) {
         .layout { grid-template-columns: 1fr; }
@@ -159,7 +163,17 @@
         </div>
       </section>
 
-      <div class="layout">
+      <section id="authGate" class="panel auth-gate">
+        <div class="auth-gate-card stack">
+          <div class="section-headline"><div><div class="eyebrow">Admin sign in</div><h2 style="margin:0">Access The Admin Workspace</h2><p class="section-copy">Sign in first to load tenant, merchant, store, driver, and staffing data. The admin workspace stays hidden until the session is valid.</p></div><span class="pill">Secure</span></div>
+          <label>Email<input id="gateEmail" /></label>
+          <label>Password<input id="gatePassword" type="password" /></label>
+          <button id="gateLoginBtn" type="button">Login To Admin Workspace</button>
+          <div id="gateStatus" class="muted">Not logged in</div>
+        </div>
+      </section>
+
+      <div id="mainLayout" class="layout hidden">
         <aside class="panel stack">
           <section class="section stack">
             <div class="section-headline">
@@ -170,9 +184,16 @@
               </div>
               <span class="pill">Internal</span>
             </div>
-            <label>Email<input id="email" /></label>
-            <label>Password<input id="password" type="password" /></label>
-            <div class="inline"><button id="loginBtn">Login</button><button id="logoutBtn" class="secondary" type="button">Logout</button></div>
+            <div id="loginControls" class="stack">
+              <label>Email<input id="email" /></label>
+              <label>Password<input id="password" type="password" /></label>
+              <button id="loginBtn" type="button">Login</button>
+            </div>
+            <div id="activeSessionCard" class="card hidden">
+              <div class="eyebrow">Signed in</div>
+              <div id="activeSessionMeta" class="session-meta"></div>
+              <button id="logoutBtn" class="secondary" type="button">Logout</button>
+            </div>
             <div id="sessionStatus" class="muted">Not logged in</div>
           </section>
 

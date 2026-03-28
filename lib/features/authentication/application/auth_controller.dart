@@ -46,6 +46,11 @@ class AuthState {
   }
 }
 
+String _friendlyError(Object error) {
+  final raw = error.toString();
+  return raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+}
+
 class AuthController extends StateNotifier<AuthState> {
   AuthController(
     this._loginUseCase,
@@ -77,19 +82,24 @@ class AuthController extends StateNotifier<AuthState> {
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: false,
-        errorMessage: error.toString(),
+        errorMessage: _friendlyError(error),
       );
     }
   }
 
   Future<void> restoreSession() async {
     state = state.copyWith(isLoading: true, clearError: true, clearInfo: true);
-    final driver = await _restoreSessionUseCase();
-    state = state.copyWith(
-      isLoading: false,
-      isAuthenticated: driver != null,
-      driver: driver,
-    );
+    try {
+      final driver = await _restoreSessionUseCase();
+      state = state.copyWith(
+        isLoading: false,
+        isAuthenticated: driver != null,
+        driver: driver,
+        clearError: true,
+      );
+    } catch (_) {
+      state = AuthState.initial();
+    }
   }
 
   Future<void> logout() async {
@@ -113,7 +123,7 @@ class AuthController extends StateNotifier<AuthState> {
     } catch (error) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: error.toString(),
+        errorMessage: _friendlyError(error),
       );
     }
   }
@@ -130,7 +140,7 @@ class AuthController extends StateNotifier<AuthState> {
     } catch (error) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: error.toString(),
+        errorMessage: _friendlyError(error),
       );
     }
   }

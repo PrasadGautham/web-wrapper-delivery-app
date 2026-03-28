@@ -195,10 +195,22 @@ class AppStartup {
       onSessionExpired: () => _ref.read(authControllerProvider.notifier).clearSession(),
     );
     await _ref.read(authControllerProvider.notifier).restoreSession();
-    _ref.read(dashboardControllerProvider.notifier).initialize();
-    _ref.read(orderControllerProvider.notifier).initialize();
+    _setupControllersForAuth(_ref.read(authControllerProvider));
+    _ref.listen<AuthState>(authControllerProvider, (_, next) {
+      _setupControllersForAuth(next);
+    });
     _setupLocationSync();
     _initialized = true;
+  }
+
+  void _setupControllersForAuth(AuthState auth) {
+    if (auth.isAuthenticated) {
+      _ref.read(dashboardControllerProvider.notifier).initialize();
+      _ref.read(orderControllerProvider.notifier).initialize();
+      return;
+    }
+    unawaited(_ref.read(dashboardControllerProvider.notifier).resetForLogout());
+    unawaited(_ref.read(orderControllerProvider.notifier).resetForLogout());
   }
 
   void _setupLocationSync() {

@@ -69,7 +69,7 @@ class DashboardController extends StateNotifier<DashboardState> {
         clearError: true,
       );
     } catch (error) {
-      state = state.copyWith(isLoading: false, errorMessage: error.toString());
+      state = state.copyWith(isLoading: false, errorMessage: state.driver == null ? null : error.toString());
     }
   }
 

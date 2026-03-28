@@ -107,7 +107,7 @@ class OrderController extends StateNotifier<OrderState> {
         clearActive: activeOrder == null,
       );
     } catch (error) {
-      state = state.copyWith(isLoading: false, errorMessage: error.toString());
+      state = state.copyWith(isLoading: false, errorMessage: state.incomingOrder == null && state.activeOrder == null ? null : error.toString());
     }
   }
 

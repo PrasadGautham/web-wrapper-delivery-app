@@ -17,6 +17,14 @@ const KILOMETERS_PER_MILE = 1.609344;
 const nodes = {
   email: document.getElementById('email'),
   password: document.getElementById('password'),
+  gateEmail: document.getElementById('gateEmail'),
+  gatePassword: document.getElementById('gatePassword'),
+  gateStatus: document.getElementById('gateStatus'),
+  loginControls: document.getElementById('loginControls'),
+  activeSessionCard: document.getElementById('activeSessionCard'),
+  activeSessionMeta: document.getElementById('activeSessionMeta'),
+  authGate: document.getElementById('authGate'),
+  mainLayout: document.getElementById('mainLayout'),
   sessionStatus: document.getElementById('sessionStatus'),
   heroModeLabel: document.getElementById('heroModeLabel'),
   workspaceModePill: document.getElementById('workspaceModePill'),
@@ -247,6 +255,64 @@ async function refreshSession() {
   }
   return refreshingSession;
 }
+
+function setSessionUi() {
+  nodes.authGate.classList.toggle('hidden', hasSession);
+  nodes.mainLayout.classList.toggle('hidden', !hasSession);
+  nodes.loginControls.classList.toggle('hidden', hasSession);
+  nodes.activeSessionCard.classList.toggle('hidden', !hasSession);
+  if (!hasSession || !sessionInfo) {
+    nodes.activeSessionMeta.innerHTML = '';
+    nodes.gateStatus.textContent = 'Not logged in';
+    return;
+  }
+  const scopeLabel = isPlatformAdmin() ? 'Platform admin' : `${sessionInfo.role} for ${tenantName(sessionInfo.tenantId)}`;
+  nodes.activeSessionMeta.innerHTML = `<strong>${sessionInfo.name}</strong><div class="muted">${scopeLabel}</div>`;
+  nodes.gateStatus.textContent = `Logged in as ${sessionInfo.name}`;
+}
+
+function clearWorkspace() {
+  tenants = [];
+  merchants = [];
+  restaurants = [];
+  drivers = [];
+  adminUsers = [];
+  nodes.statTenants.textContent = '0';
+  nodes.statMerchants.textContent = '0';
+  nodes.statRestaurants.textContent = '0';
+  nodes.statOnlineDrivers.textContent = '0';
+  nodes.statAdmins.textContent = '0';
+  nodes.tenantContextSelect.innerHTML = '';
+  nodes.tenantAdminTenantSelect.innerHTML = '';
+  nodes.createMerchantTenantSelect.innerHTML = '';
+  nodes.createDriverTenantSelect.innerHTML = '';
+  nodes.createRestaurantTenantSelect.innerHTML = '';
+  nodes.createRestaurantMerchantSelect.innerHTML = '';
+  nodes.merchantSelect.innerHTML = '';
+  nodes.restaurantSelect.innerHTML = '';
+  nodes.settingsRestaurantSelect.innerHTML = '';
+  nodes.driverSelect.innerHTML = '';
+  nodes.dispatchRestaurantIds.innerHTML = '';
+  nodes.dispatchMerchantIds.innerHTML = '';
+  nodes.selectedRestaurantSummary.textContent = 'Choose a store in the current workspace.';
+  nodes.selectedDriverSummary.textContent = 'Choose a driver in the current workspace.';
+  nodes.tenantContextSummary.textContent = 'Sign in to load tenant context.';
+  nodes.architectureSummary.textContent = '';
+  document.getElementById('tenants').innerHTML = '<div class="muted">Sign in to load tenant data.</div>';
+  document.getElementById('admins').innerHTML = '<div class="muted">Sign in to load admin data.</div>';
+  document.getElementById('merchants').innerHTML = '<div class="muted">Sign in to load merchant groups.</div>';
+  document.getElementById('restaurants').innerHTML = '<div class="muted">Sign in to load stores.</div>';
+  document.getElementById('drivers').innerHTML = '<div class="muted">Sign in to load drivers.</div>';
+}
+
+function getLoginCredentials() {
+  const useGate = !hasSession && !nodes.authGate.classList.contains('hidden');
+  return {
+    email: (useGate ? nodes.gateEmail.value : nodes.email.value).trim(),
+    password: useGate ? nodes.gatePassword.value.trim() : nodes.password.value.trim(),
+  };
+}
+
 function renderCollection(nodeId, items, renderItem) {
   const node = document.getElementById(nodeId);
   node.innerHTML = items.map(renderItem).join('') || '<div class="muted">No records in this workspace.</div>';
@@ -435,6 +501,7 @@ function syncSessionSummary() {
     nodes.sessionStatus.textContent = 'Not logged in';
     nodes.heroModeLabel.textContent = 'Signed out';
     nodes.workspaceModePill.textContent = 'Awaiting session';
+    setSessionUi();
     return;
   }
   const scopeLabel = isPlatformAdmin() ? 'Platform admin' : `${sessionInfo.role} for ${tenantName(sessionInfo.tenantId)}`;
@@ -483,13 +550,15 @@ async function refreshDashboard() {
     drivers = [];
     adminUsers = [];
     syncSessionSummary();
+    clearWorkspace();
+    setSessionUi();
     throw error;
   }
 }
 async function login() {
   await request('/api/auth/admin/login', {
     method: 'POST',
-    body: JSON.stringify({ email: nodes.email.value.trim(), password: nodes.password.value.trim() }),
+    body: JSON.stringify(getLoginCredentials()),
   }, false);
   hasSession = true;
   await refreshDashboard();
@@ -504,6 +573,7 @@ async function logout() {
     hasSession = false;
     sessionInfo = null;
     selectedTenantId = '';
+    clearWorkspace();
     syncSessionSummary();
   }
 }
@@ -675,8 +745,9 @@ function runAction(fn, statusNode) {
   return () => fn().catch((error) => setStatus(statusNode, error.message, true));
 }
 
-document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => alert(error.message)));
-document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => alert(error.message)));
+document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
+document.getElementById('gateLoginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
+document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
 document.getElementById('refreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => { if (hasSession) alert(error.message); }));
 document.getElementById('createTenantBtn').addEventListener('click', runAction(createTenant, nodes.tenantStatus));
 document.getElementById('createTenantAdminBtn').addEventListener('click', runAction(createTenantAdmin, nodes.tenantAdminStatus));
@@ -708,5 +779,7 @@ document.getElementById('distanceUnit').addEventListener('change', () => {
 ['driverPayoutBaseAmount','driverPayoutIncludedDistanceKm','driverPayoutAdditionalPerKm','merchantBillingBaseAmount','merchantBillingIncludedDistanceKm','merchantBillingAdditionalPerKm'].forEach((id) => document.getElementById(id).addEventListener('input', updatePricingSummaries));
 
 applySurfaceBranding();
+clearWorkspace();
+setSessionUi();
 refreshDashboard().catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);

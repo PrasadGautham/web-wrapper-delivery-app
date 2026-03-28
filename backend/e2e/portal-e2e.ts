@@ -45,12 +45,12 @@ async function run() {
 
   async function loginAndLogout(path: string, email: string, password: string, cookieName: string, loggedInSnippet: string) {
     await page.goto(`${baseUrl}${path}`, { waitUntil: 'networkidle' });
-    await page.fill('#email', email);
-    await page.fill('#password', password);
+    await page.fill('#gateEmail', email);
+    await page.fill('#gatePassword', password);
 
     await Promise.all([
       page.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
-      page.click('#loginBtn'),
+      page.click('#gateLoginBtn'),
     ]);
     if (path.includes('admin')) {
       await waitForOptions(page, '#settingsRestaurantSelect');
@@ -63,26 +63,38 @@ async function run() {
       throw new Error(`${cookieName} was not set.`);
     }
 
+    if (path.includes('admin')) {
+      await context.clearCookies();
+      await page.reload({ waitUntil: 'networkidle' });
+      await waitForSessionText(page, 'Not logged in');
+      await page.waitForFunction(() => document.querySelector('#mainLayout')?.classList.contains('hidden') ?? false);
+      await page.waitForFunction(() => !(document.querySelector('#authGate')?.classList.contains('hidden') ?? true));
+      return;
+    }
+
     await Promise.all([
       page.waitForResponse((response) => response.url().endsWith('/logout') && response.request().method() === 'POST' && response.ok()),
       page.click('#logoutBtn'),
     ]);
     await waitForSessionText(page, 'Not logged in');
+    await page.waitForFunction(() => document.querySelector('#mainLayout')?.classList.contains('hidden') ?? false);
+    await page.waitForFunction(() => !(document.querySelector('#authGate')?.classList.contains('hidden') ?? true));
   }
 
   try {
     await page.goto(`${baseUrl}/platform-admin`, { waitUntil: 'networkidle' });
-    await page.fill('#email', 'admin@demo.com');
-    await page.fill('#password', 'Password123');
+    await page.fill('#gateEmail', 'admin@demo.com');
+    await page.fill('#gatePassword', 'Password123');
     await Promise.all([
       page.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
-      page.click('#loginBtn'),
+      page.click('#gateLoginBtn'),
     ]);
     await waitForOptions(page, '#tenantContextSelect');
     await waitForOptions(page, '#settingsRestaurantSelect');
     await waitForOptions(page, '#driverSelect');
     await waitForOptions(page, '#dispatchRestaurantIds');
     await waitForOptions(page, '#dispatchMerchantIds');
+    await context.clearCookies();
 
     await loginAndLogout('/merchant', 'falafel.group@demo.com', 'Password123', 'driverapp_merchant_session', 'Logged in as');
     await loginAndLogout('/restaurant', 'falafel.dispatch@demo.com', 'Password123', 'driverapp_restaurant_session', 'Logged in as');
@@ -92,20 +104,20 @@ async function run() {
     const restaurantPage = await context.newPage();
 
     await merchantPage.goto(`${baseUrl}/merchant`, { waitUntil: 'networkidle' });
-    await merchantPage.fill('#email', 'falafel.group@demo.com');
-    await merchantPage.fill('#password', 'Password123');
+    await merchantPage.fill('#gateEmail', 'falafel.group@demo.com');
+    await merchantPage.fill('#gatePassword', 'Password123');
     await Promise.all([
       merchantPage.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
-      merchantPage.click('#loginBtn'),
+      merchantPage.click('#gateLoginBtn'),
     ]);
     await waitForSessionText(merchantPage, 'Logged in as');
 
     await restaurantPage.goto(`${baseUrl}/restaurant`, { waitUntil: 'networkidle' });
-    await restaurantPage.fill('#email', 'falafel.dispatch@demo.com');
-    await restaurantPage.fill('#password', 'Password123');
+    await restaurantPage.fill('#gateEmail', 'falafel.dispatch@demo.com');
+    await restaurantPage.fill('#gatePassword', 'Password123');
     await Promise.all([
       restaurantPage.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
-      restaurantPage.click('#loginBtn'),
+      restaurantPage.click('#gateLoginBtn'),
     ]);
     await waitForSessionText(restaurantPage, 'Logged in as');
     await restaurantPage.click('[data-view="create-order"]');

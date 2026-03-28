@@ -38,6 +38,11 @@ const nodes = {
   reportStartDate: document.getElementById('reportStartDate'),
   reportEndDate: document.getElementById('reportEndDate'),
   reportRangeNote: document.getElementById('reportRangeNote'),
+  authGate: document.getElementById('authGate'),
+  mainLayout: document.getElementById('mainLayout'),
+  gateEmail: document.getElementById('gateEmail'),
+  gatePassword: document.getElementById('gatePassword'),
+  gateStatus: document.getElementById('gateStatus'),
 };
 
 function currency(value, code = 'AED') {
@@ -65,6 +70,8 @@ function setView(view) {
 }
 
 function setSessionUi() {
+  nodes.authGate.classList.toggle('hidden', hasSession);
+  nodes.mainLayout.classList.toggle('hidden', !hasSession);
   nodes.loginControls.classList.toggle('hidden', hasSession);
   nodes.activeSessionCard.classList.toggle('hidden', !hasSession);
   if (!hasSession || !currentProfile) {
@@ -231,6 +238,7 @@ function clearDashboard() {
   currentReport = null;
   currentOrders = [];
   nodes.sessionStatus.textContent = 'Not logged in';
+  nodes.gateStatus.textContent = 'Not logged in';
   nodes.storeSummary.textContent = 'No active store session.';
   renderTrackingSettings(null);
   nodes.statTotal.textContent = '0';
@@ -262,6 +270,7 @@ async function refreshDashboard() {
     currentReport = report;
     currentOrders = orders;
     nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
+    nodes.gateStatus.textContent = `Logged in as ${profile.name}`;
     nodes.storeSummary.innerHTML = `<div><strong>${escapeHtml(profile.name)}</strong></div><div>${escapeHtml(profile.pickupLocation.address)}</div><div>Commercial currency: ${String(profile.currency || 'AED').toUpperCase()}</div><div>Distance unit: ${profile.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)'}</div><div class="success">Store charge visibility only. Courier pay remains private to the fleet company.</div>`;
     nodes.statTotal.textContent = String(report.totalOrders || 0);
     nodes.statActive.textContent = String(report.activeOrders || 0);
@@ -296,8 +305,16 @@ async function connectStream() {
   }
 }
 
+function getLoginCredentials() {
+  const useGate = !hasSession && !nodes.authGate.classList.contains('hidden');
+  return {
+    email: (useGate ? nodes.gateEmail.value : document.getElementById('email').value).trim(),
+    password: useGate ? nodes.gatePassword.value.trim() : document.getElementById('password').value.trim(),
+  };
+}
+
 async function login() {
-  await request('/api/auth/restaurant/login', { method: 'POST', body: JSON.stringify({ email: document.getElementById('email').value.trim(), password: document.getElementById('password').value.trim() }) }, false);
+  await request('/api/auth/restaurant/login', { method: 'POST', body: JSON.stringify(getLoginCredentials()) }, false);
   hasSession = true;
   await refreshDashboard();
   await connectStream();
@@ -359,7 +376,8 @@ function exportReport() {
   window.location.href = `/api/restaurants/me/report-export.csv${rangeQueryString()}`;
 }
 
-document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; }));
+document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
+document.getElementById('gateLoginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
 document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => { nodes.sessionStatus.textContent = error.message; }));
 document.getElementById('manualRefreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => { nodes.sessionStatus.textContent = error.message; }));
 document.getElementById('createOrderBtn').addEventListener('click', () => createOrder().catch((error) => { nodes.sessionStatus.textContent = error.message; }));
