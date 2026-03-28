@@ -3,6 +3,23 @@ let hasSession = false;
 let refreshingSession = null;
 let merchants = [];
 let restaurants = [];
+let drivers = [];
+
+const nodes = {
+  merchantSelect: document.getElementById('merchantSelect'),
+  restaurantSelect: document.getElementById('restaurantSelect'),
+  settingsRestaurantSelect: document.getElementById('settingsRestaurantSelect'),
+  driverSelect: document.getElementById('driverSelect'),
+  sessionStatus: document.getElementById('sessionStatus'),
+  merchantUserStatus: document.getElementById('merchantUserStatus'),
+  staffStatus: document.getElementById('staffStatus'),
+  restaurantSettingsStatus: document.getElementById('restaurantSettingsStatus'),
+  driverControlsStatus: document.getElementById('driverControlsStatus'),
+};
+
+function parseCommaSeparatedIds(value) {
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
 
 async function request(path, options = {}, attemptRefresh = true) {
   const headers = {
@@ -47,8 +64,40 @@ function renderCollection(nodeId, items, renderItem) {
 }
 
 function populateSelects() {
-  document.getElementById('merchantSelect').innerHTML = merchants.map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`).join('');
-  document.getElementById('restaurantSelect').innerHTML = restaurants.map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`).join('');
+  const merchantOptions = merchants.map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`).join('');
+  const restaurantOptions = restaurants.map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`).join('');
+  const driverOptions = drivers.map((driver) => `<option value="${driver.id}">${driver.name}</option>`).join('');
+  nodes.merchantSelect.innerHTML = merchantOptions;
+  nodes.restaurantSelect.innerHTML = restaurantOptions;
+  nodes.settingsRestaurantSelect.innerHTML = restaurantOptions;
+  nodes.driverSelect.innerHTML = driverOptions;
+  syncRestaurantSettingsForm();
+  syncDriverControlsForm();
+}
+
+function syncRestaurantSettingsForm() {
+  const restaurant = restaurants.find((item) => item.id === nodes.settingsRestaurantSelect.value) || restaurants[0];
+  if (!restaurant) {
+    return;
+  }
+  nodes.settingsRestaurantSelect.value = restaurant.id;
+  document.getElementById('driverRatePerOrder').value = String(restaurant.driverRatePerOrder);
+  document.getElementById('restaurantChargePerOrder').value = String(restaurant.restaurantChargePerOrder);
+  document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
+  document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
+  document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
+}
+
+function syncDriverControlsForm() {
+  const driver = drivers.find((item) => item.id === nodes.driverSelect.value) || drivers[0];
+  if (!driver) {
+    return;
+  }
+  nodes.driverSelect.value = driver.id;
+  document.getElementById('driverCapacity').value = String(driver.maxActiveOrders);
+  document.getElementById('dispatchModeSelect').value = driver.dispatchPolicy.mode;
+  document.getElementById('dispatchRestaurantIds').value = driver.dispatchPolicy.restaurantIds.join(', ');
+  document.getElementById('dispatchMerchantIds').value = driver.dispatchPolicy.merchantIds.join(', ');
 }
 
 async function refreshDashboard() {
@@ -63,8 +112,9 @@ async function refreshDashboard() {
     hasSession = true;
     merchants = merchantRows;
     restaurants = restaurantRows;
+    drivers = driverRows;
     populateSelects();
-    document.getElementById('sessionStatus').textContent = `Logged in as ${session.name} (${session.role})`;
+    nodes.sessionStatus.textContent = `Logged in as ${session.name} (${session.role})`;
     renderCollection('merchants', merchantRows, (merchant) => `
       <article class="card">
         <div><strong>${merchant.name}</strong></div>
@@ -77,13 +127,15 @@ async function refreshDashboard() {
         <div><strong>${restaurant.name}</strong></div>
         <div class="muted">Merchant: ${restaurant.merchantId}</div>
         <div class="muted">Charge ${Number(restaurant.restaurantChargePerOrder).toFixed(2)} | Driver ${Number(restaurant.driverRatePerOrder).toFixed(2)}</div>
+        <div class="muted">Picked up as in transit: ${restaurant.trackingSettings.showPickedUpAsInTransit ? 'On' : 'Off'} | Pickup ETA: ${restaurant.trackingSettings.showDriverEtaToPickup ? 'On' : 'Off'} | Destination ETA: ${restaurant.trackingSettings.showDestinationEta ? 'On' : 'Off'}</div>
       </article>
     `);
     renderCollection('drivers', driverRows, (driver) => `
       <article class="card">
         <div><strong>${driver.name}</strong></div>
         <div class="muted">${driver.email}</div>
-        <div class="muted">${driver.isOnline ? 'Online' : 'Offline'} | capacity ${driver.maxActiveOrders}</div>
+        <div class="muted">${driver.isOnline ? 'Online' : 'Offline'} | capacity ${driver.maxActiveOrders} | load ${driver.currentLoad}</div>
+        <div class="muted">Dispatch: ${driver.dispatchPolicy.mode}</div>
       </article>
     `);
     renderCollection('admins', adminRows, (admin) => `
@@ -95,7 +147,7 @@ async function refreshDashboard() {
     `);
   } catch (error) {
     hasSession = false;
-    document.getElementById('sessionStatus').textContent = 'Not logged in';
+    nodes.sessionStatus.textContent = 'Not logged in';
     throw error;
   }
 }
@@ -119,12 +171,12 @@ async function logout() {
     }
   } finally {
     hasSession = false;
-    document.getElementById('sessionStatus').textContent = 'Not logged in';
+    nodes.sessionStatus.textContent = 'Not logged in';
   }
 }
 
 async function createMerchantUser() {
-  const merchantId = document.getElementById('merchantSelect').value;
+  const merchantId = nodes.merchantSelect.value;
   await request(`/api/admin/merchants/${merchantId}/users`, {
     method: 'POST',
     body: JSON.stringify({
@@ -134,12 +186,12 @@ async function createMerchantUser() {
       role: document.getElementById('merchantUserRole').value,
     }),
   });
-  document.getElementById('merchantUserStatus').textContent = 'Merchant user created.';
+  nodes.merchantUserStatus.textContent = 'Merchant user created.';
   await refreshDashboard();
 }
 
 async function createStaffUser() {
-  const restaurantId = document.getElementById('restaurantSelect').value;
+  const restaurantId = nodes.restaurantSelect.value;
   await request(`/api/admin/restaurants/${restaurantId}/staff-users`, {
     method: 'POST',
     body: JSON.stringify({
@@ -149,15 +201,74 @@ async function createStaffUser() {
       role: document.getElementById('staffRole').value,
     }),
   });
-  document.getElementById('staffStatus').textContent = 'Store staff account created.';
+  nodes.staffStatus.textContent = 'Store staff account created.';
+  await refreshDashboard();
+}
+
+async function saveRestaurantPricing() {
+  const restaurantId = nodes.settingsRestaurantSelect.value;
+  await request(`/api/admin/restaurants/${restaurantId}/pricing`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      driverRatePerOrder: Number(document.getElementById('driverRatePerOrder').value),
+      restaurantChargePerOrder: Number(document.getElementById('restaurantChargePerOrder').value),
+    }),
+  });
+  nodes.restaurantSettingsStatus.textContent = 'Restaurant pricing updated.';
+  await refreshDashboard();
+}
+
+async function saveTrackingSettings() {
+  const restaurantId = nodes.settingsRestaurantSelect.value;
+  await request(`/api/admin/restaurants/${restaurantId}/tracking-settings`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      showPickedUpAsInTransit: document.getElementById('showPickedUpAsInTransit').checked,
+      showDriverEtaToPickup: document.getElementById('showDriverEtaToPickup').checked,
+      showDestinationEta: document.getElementById('showDestinationEta').checked,
+    }),
+  });
+  nodes.restaurantSettingsStatus.textContent = 'Restaurant tracking settings updated.';
+  await refreshDashboard();
+}
+
+async function saveDriverCapacity() {
+  const driverId = nodes.driverSelect.value;
+  await request(`/api/admin/drivers/${driverId}/capacity`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      maxActiveOrders: Number(document.getElementById('driverCapacity').value),
+    }),
+  });
+  nodes.driverControlsStatus.textContent = 'Driver capacity updated.';
+  await refreshDashboard();
+}
+
+async function saveDriverDispatch() {
+  const driverId = nodes.driverSelect.value;
+  await request(`/api/admin/drivers/${driverId}/dispatch-policy`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      mode: document.getElementById('dispatchModeSelect').value,
+      restaurantIds: parseCommaSeparatedIds(document.getElementById('dispatchRestaurantIds').value),
+      merchantIds: parseCommaSeparatedIds(document.getElementById('dispatchMerchantIds').value),
+    }),
+  });
+  nodes.driverControlsStatus.textContent = 'Driver dispatch policy updated.';
   await refreshDashboard();
 }
 
 document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => alert(error.message)));
 document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => alert(error.message)));
 document.getElementById('refreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => { if (hasSession) alert(error.message); }));
-document.getElementById('createMerchantUserBtn').addEventListener('click', () => createMerchantUser().catch((error) => { document.getElementById('merchantUserStatus').textContent = error.message; }));
-document.getElementById('createStaffBtn').addEventListener('click', () => createStaffUser().catch((error) => { document.getElementById('staffStatus').textContent = error.message; }));
+document.getElementById('createMerchantUserBtn').addEventListener('click', () => createMerchantUser().catch((error) => { nodes.merchantUserStatus.textContent = error.message; }));
+document.getElementById('createStaffBtn').addEventListener('click', () => createStaffUser().catch((error) => { nodes.staffStatus.textContent = error.message; }));
+document.getElementById('saveRestaurantPricingBtn').addEventListener('click', () => saveRestaurantPricing().catch((error) => { nodes.restaurantSettingsStatus.textContent = error.message; }));
+document.getElementById('saveTrackingBtn').addEventListener('click', () => saveTrackingSettings().catch((error) => { nodes.restaurantSettingsStatus.textContent = error.message; }));
+document.getElementById('saveCapacityBtn').addEventListener('click', () => saveDriverCapacity().catch((error) => { nodes.driverControlsStatus.textContent = error.message; }));
+document.getElementById('saveDispatchBtn').addEventListener('click', () => saveDriverDispatch().catch((error) => { nodes.driverControlsStatus.textContent = error.message; }));
+nodes.settingsRestaurantSelect.addEventListener('change', syncRestaurantSettingsForm);
+nodes.driverSelect.addEventListener('change', syncDriverControlsForm);
 
 refreshDashboard().catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);

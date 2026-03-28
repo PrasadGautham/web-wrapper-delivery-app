@@ -338,7 +338,7 @@ export async function buildApp(
     return observability.metrics();
   });
 
-  await registerAdminRoutes(app, backendService);
+  await registerAdminRoutes(app, backendService, restaurantRealtime);
   await registerDriverRoutes(app, backendService);
   await registerMerchantRoutes(app, backendService, restaurantRealtime);
   await registerRestaurantRoutes(app, backendService, restaurantRealtime);
@@ -358,4 +358,5 @@ export async function buildApp(
 
   return { app, backendService, observability };
 }
+
 

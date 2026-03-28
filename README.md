@@ -28,6 +28,7 @@ It includes:
 - separate driver payout and restaurant billing values per order
 - restaurant staff accounts per store
 - merchant users who can see and manage all restaurants under one merchant
+- admin and merchant controls for restaurant pricing and tracking settings
 - platform admin users for cross-platform operations
 - optional traffic-aware ETA through Google Routes
 - password reset flow with SMTP support

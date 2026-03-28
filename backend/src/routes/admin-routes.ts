@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { DriverDispatchMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
 import { BackendService } from '../services/backend-service.js';
+import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
 import {
   AuthTransport,
   clearWebSessionCookie,
@@ -47,6 +48,7 @@ function isMerchantUserRole(value: unknown): value is MerchantUserRole {
 export async function registerAdminRoutes(
   app: FastifyInstance,
   backendService: BackendService,
+  restaurantRealtime: RestaurantRealtimeService,
 ): Promise<void> {
   app.addHook('preHandler', async (request, reply) => {
     const isAdminSessionRoute =
@@ -285,6 +287,32 @@ export async function registerAdminRoutes(
     }
   });
 
+  app.patch('/api/admin/restaurants/:restaurantId/pricing', async (request, reply) => {
+    const params = request.params as { restaurantId: string };
+    const body = request.body as { driverRatePerOrder?: number; restaurantChargePerOrder?: number };
+    if (
+      typeof body.driverRatePerOrder !== 'number' ||
+      Number.isNaN(body.driverRatePerOrder) ||
+      body.driverRatePerOrder < 0 ||
+      typeof body.restaurantChargePerOrder !== 'number' ||
+      Number.isNaN(body.restaurantChargePerOrder) ||
+      body.restaurantChargePerOrder < 0
+    ) {
+      return reply.status(400).send({ message: 'driverRatePerOrder and restaurantChargePerOrder must be non-negative numbers.' });
+    }
+
+    try {
+      const updated = await backendService.updateRestaurantPricing(params.restaurantId, {
+        driverRatePerOrder: Number(body.driverRatePerOrder.toFixed(2)),
+        restaurantChargePerOrder: Number(body.restaurantChargePerOrder.toFixed(2)),
+      });
+      restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
+      return updated;
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
   app.patch('/api/admin/restaurants/:restaurantId/tracking-settings', async (request, reply) => {
     const params = request.params as { restaurantId: string };
     const body = request.body as {
@@ -302,11 +330,13 @@ export async function registerAdminRoutes(
     }
 
     try {
-      return await backendService.updateRestaurantTrackingSettings(params.restaurantId, {
+      const updated = await backendService.updateRestaurantTrackingSettings(params.restaurantId, {
         showPickedUpAsInTransit: body.showPickedUpAsInTransit,
         showDriverEtaToPickup: body.showDriverEtaToPickup,
         showDestinationEta: body.showDestinationEta,
       });
+      restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
+      return updated;
     } catch (error) {
       return reply.status(400).send({ message: (error as Error).message });
     }

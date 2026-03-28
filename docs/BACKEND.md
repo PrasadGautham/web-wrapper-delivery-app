@@ -25,6 +25,7 @@ Use these companion docs for the broader picture:
 - driver eligibility rules by store and merchant
 - per-driver capacity via `maxActiveOrders`
 - restaurant tracking settings for status wording and ETA visibility
+- admin and merchant pricing management for restaurants
 - merchant-wide visibility across multiple restaurants
 - multiple store staff users per restaurant
 - platform admin and merchant user management
@@ -145,6 +146,8 @@ npm start
 - `GET /api/merchant/me/restaurants/:restaurantId/staff-users`
 - `POST /api/merchant/me/restaurants/:restaurantId/staff-users`
 - `PATCH /api/merchant/me/restaurants/:restaurantId/staff-users/:staffUserId`
+- `PATCH /api/merchant/me/restaurants/:restaurantId/pricing`
+- `PATCH /api/merchant/me/restaurants/:restaurantId/tracking-settings`
 
 ### Admin
 
@@ -166,6 +169,7 @@ npm start
 - `PATCH /api/admin/restaurants/:restaurantId/staff-users/:staffUserId`
 - `PATCH /api/admin/drivers/:driverId/dispatch-policy`
 - `PATCH /api/admin/drivers/:driverId/capacity`
+- `PATCH /api/admin/restaurants/:restaurantId/pricing`
 - `PATCH /api/admin/restaurants/:restaurantId/tracking-settings`
 
 ## Current Demo Accounts

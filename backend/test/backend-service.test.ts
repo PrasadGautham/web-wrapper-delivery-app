@@ -146,4 +146,38 @@ export async function runBackendServiceTests(): Promise<void> {
     assert.equal(profile.currentLoad, 1);
     assert.equal(profile.locationFreshness, 'fresh');
   }
+  {
+    const store = new InMemoryStore(loadSeed());
+    const service = createService(store);
+
+    const restaurant = await service.updateRestaurantPricing('restaurant-001', {
+      driverRatePerOrder: 9.5,
+      restaurantChargePerOrder: 16.75,
+    });
+    assert.equal(restaurant.driverRatePerOrder, 9.5);
+    assert.equal(restaurant.restaurantChargePerOrder, 16.75);
+
+    const trackingUpdated = await service.updateRestaurantTrackingSettings('restaurant-001', {
+      showPickedUpAsInTransit: false,
+      showDriverEtaToPickup: true,
+      showDestinationEta: false,
+    });
+    assert.equal(trackingUpdated.trackingSettings.showPickedUpAsInTransit, false);
+
+    const merchant = await service.requireMerchantFromToken((await service.loginMerchant('falafel.group@demo.com', 'Password123')).token);
+    const merchantPricing = await service.updateMerchantRestaurantPricing(merchant, 'restaurant-001', {
+      driverRatePerOrder: 11,
+      restaurantChargePerOrder: 19,
+    });
+    assert.equal(merchantPricing.driverRatePerOrder, 11);
+    assert.equal(merchantPricing.restaurantChargePerOrder, 19);
+
+    const merchantTracking = await service.updateMerchantRestaurantTrackingSettings(merchant, 'restaurant-001', {
+      showPickedUpAsInTransit: true,
+      showDriverEtaToPickup: true,
+      showDestinationEta: true,
+    });
+    assert.equal(merchantTracking.trackingSettings.showDestinationEta, true);
+  }
 }
+

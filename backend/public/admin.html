@@ -7,23 +7,24 @@
     <style>
       :root { --bg:#e6ece6; --surface:rgba(255,255,255,0.95); --ink:#15201a; --muted:#647268; --accent:#1f5c45; --accent-strong:#15382e; --line:rgba(21,32,26,0.12); }
       *{box-sizing:border-box} body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:var(--ink);background:linear-gradient(150deg,#edf4ee 0%,#d8e5da 100%)}
-      .shell{max-width:1280px;margin:0 auto;padding:24px}.hero{padding:28px;border-radius:28px;color:#fff;background:linear-gradient(135deg,rgba(31,92,69,.96),rgba(21,56,46,.96))}
-      .layout{display:grid;grid-template-columns:360px 1fr;gap:20px;margin-top:20px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 14px 34px rgba(20,29,33,.08)}
-      .stack{display:grid;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cards{display:grid;gap:12px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px}.inline{display:flex;gap:10px}
+      .shell{max-width:1380px;margin:0 auto;padding:24px}.hero{padding:28px;border-radius:28px;color:#fff;background:linear-gradient(135deg,rgba(31,92,69,.96),rgba(21,56,46,.96))}
+      .layout{display:grid;grid-template-columns:390px 1fr;gap:20px;margin-top:20px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 14px 34px rgba(20,29,33,.08)}
+      .stack{display:grid;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cards{display:grid;gap:12px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px}.inline{display:flex;gap:10px}.triple{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
       input,select,button{width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--line);font:inherit}button{background:linear-gradient(135deg,var(--accent),var(--accent-strong));color:#fff;border:0;font-weight:700;cursor:pointer}button.secondary{background:transparent;color:var(--accent-strong);border:1px solid rgba(21,56,46,.24)}
+      label.toggle{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink)} label.toggle input{width:auto}
       .muted{color:var(--muted)}.pill{display:inline-flex;padding:5px 10px;border-radius:999px;background:#dff1e7;color:var(--accent-strong);font-size:12px;font-weight:800;text-transform:uppercase}
-      @media (max-width:980px){.layout{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+      @media (max-width:1100px){.layout{grid-template-columns:1fr}.grid,.triple{grid-template-columns:1fr}}
     </style>
   </head>
   <body>
     <div class="shell">
       <section class="hero">
         <h1>Platform Admin Portal</h1>
-        <p>Create merchant users, create store staff accounts, and review the operational topology from a single internal surface.</p>
+        <p>Manage merchant access, store staff, pricing, tracking behavior, and driver dispatch controls from one internal surface.</p>
       </section>
       <div class="layout">
         <aside class="panel stack">
-          <div><h2>Admin Session</h2><p class="muted">Use an admin account or keep the `x-admin-key` fallback for emergency access only.</p></div>
+          <div><h2>Admin Session</h2><p class="muted">Use an admin account for platform operations and onboarding.</p></div>
           <input id="email" value="admin@demo.com" />
           <input id="password" type="password" value="Password123" />
           <div class="inline"><button id="loginBtn">Login</button><button id="logoutBtn" class="secondary" type="button">Logout</button></div>
@@ -59,6 +60,35 @@
             </select>
             <button id="createStaffBtn" type="button">Create Store Staff</button>
             <div id="staffStatus" class="muted"></div>
+          </section>
+
+          <section class="stack">
+            <h3>Restaurant Pricing And Tracking</h3>
+            <select id="settingsRestaurantSelect"></select>
+            <div class="inline">
+              <input id="driverRatePerOrder" type="number" min="0" step="0.01" placeholder="Driver rate" />
+              <input id="restaurantChargePerOrder" type="number" min="0" step="0.01" placeholder="Store charge" />
+            </div>
+            <label class="toggle"><input id="showPickedUpAsInTransit" type="checkbox" /> Show picked up as In transit</label>
+            <label class="toggle"><input id="showDriverEtaToPickup" type="checkbox" /> Show driver ETA to pickup</label>
+            <label class="toggle"><input id="showDestinationEta" type="checkbox" /> Show destination ETA</label>
+            <div class="inline"><button id="saveRestaurantPricingBtn" type="button">Save Pricing</button><button id="saveTrackingBtn" type="button" class="secondary">Save Tracking</button></div>
+            <div id="restaurantSettingsStatus" class="muted"></div>
+          </section>
+
+          <section class="stack">
+            <h3>Driver Dispatch Controls</h3>
+            <select id="driverSelect"></select>
+            <input id="driverCapacity" type="number" min="1" max="5" step="1" placeholder="Capacity" />
+            <select id="dispatchModeSelect">
+              <option value="open">Open</option>
+              <option value="allowListOnly">Allow-list only</option>
+              <option value="allowListWithFallback">Allow-list with fallback</option>
+            </select>
+            <input id="dispatchRestaurantIds" placeholder="Restaurant IDs, comma separated" />
+            <input id="dispatchMerchantIds" placeholder="Merchant IDs, comma separated" />
+            <div class="inline"><button id="saveCapacityBtn" type="button">Save Capacity</button><button id="saveDispatchBtn" type="button" class="secondary">Save Dispatch</button></div>
+            <div id="driverControlsStatus" class="muted"></div>
           </section>
         </aside>
         <main class="stack">

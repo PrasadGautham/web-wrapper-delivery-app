@@ -243,6 +243,13 @@ export class BackendService {
     return this.adminWorkflow.updateRestaurantTrackingSettings(restaurantId, settings);
   }
 
+  updateRestaurantPricing(
+    restaurantId: string,
+    pricing: { driverRatePerOrder: number; restaurantChargePerOrder: number },
+  ): Promise<RestaurantProfile> {
+    return this.adminWorkflow.updateRestaurantPricing(restaurantId, pricing);
+  }
+
   runDispatchCycle(): Promise<void> {
     return this.driverWorkflow.runDispatchCycle();
   }
@@ -290,6 +297,22 @@ export class BackendService {
     input: { name?: string; password?: string; role?: RestaurantStaffRole; isActive?: boolean },
   ): Promise<RestaurantStaffUserProfile> {
     return this.merchantWorkflow.updateRestaurantStaffUser(merchant, restaurantId, staffUserId, input);
+  }
+
+  updateMerchantRestaurantPricing(
+    merchant: MerchantRecord,
+    restaurantId: string,
+    pricing: { driverRatePerOrder: number; restaurantChargePerOrder: number },
+  ): Promise<RestaurantProfile> {
+    return this.merchantWorkflow.updateRestaurantPricing(merchant, restaurantId, pricing);
+  }
+
+  updateMerchantRestaurantTrackingSettings(
+    merchant: MerchantRecord,
+    restaurantId: string,
+    settings: RestaurantTrackingSettings,
+  ): Promise<RestaurantProfile> {
+    return this.merchantWorkflow.updateRestaurantTrackingSettings(merchant, restaurantId, settings);
   }
 
   updateDriverAvailability(driverId: string, isOnline: boolean): Promise<DriverProfile> {
@@ -356,3 +379,4 @@ export class BackendService {
     return this.restaurantWorkflow.getRestaurantReport(restaurantId);
   }
 }
+

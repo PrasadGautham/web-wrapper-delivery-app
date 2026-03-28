@@ -52,7 +52,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
     }
   });
 
-  await registerAdminRoutes(app, service);
+  await registerAdminRoutes(app, service, realtime);
   await registerMerchantRoutes(app, service, realtime);
   await registerRestaurantRoutes(app, service, realtime);
   return app;
@@ -77,6 +77,23 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
 
       const streamTicket = await app.inject({ method: 'POST', url: '/api/auth/merchant/stream-ticket', headers: { cookie } });
       assert.equal(streamTicket.statusCode, 200);
+
+      const pricingUpdate = await app.inject({
+        method: 'PATCH',
+        url: '/api/merchant/me/restaurants/restaurant-001/pricing',
+        headers: { cookie },
+        payload: { driverRatePerOrder: 12.5, restaurantChargePerOrder: 18.75 },
+      });
+      assert.equal(pricingUpdate.statusCode, 200);
+      assert.equal(JSON.parse(pricingUpdate.body).driverRatePerOrder, 12.5);
+
+      const trackingUpdate = await app.inject({
+        method: 'PATCH',
+        url: '/api/merchant/me/restaurants/restaurant-001/tracking-settings',
+        headers: { cookie },
+        payload: { showPickedUpAsInTransit: false, showDriverEtaToPickup: true, showDestinationEta: false },
+      });
+      assert.equal(trackingUpdate.statusCode, 200);
 
       const refresh = await app.inject({ method: 'POST', url: '/api/auth/merchant/refresh', headers: { cookie, 'x-portal-client': 'web' } });
       assert.equal(refresh.statusCode, 200);
@@ -119,6 +136,38 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
 
       const session = await app.inject({ method: 'GET', url: '/api/auth/admin/session', headers: { cookie } });
       assert.equal(session.statusCode, 200);
+
+      const pricingUpdate = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/restaurants/restaurant-001/pricing',
+        headers: { cookie },
+        payload: { driverRatePerOrder: 8.25, restaurantChargePerOrder: 15.5 },
+      });
+      assert.equal(pricingUpdate.statusCode, 200);
+
+      const dispatchUpdate = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/drivers/driver-001/dispatch-policy',
+        headers: { cookie },
+        payload: { mode: 'allowListOnly', restaurantIds: ['restaurant-001'], merchantIds: [] },
+      });
+      assert.equal(dispatchUpdate.statusCode, 200);
+
+      const capacityUpdate = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/drivers/driver-001/capacity',
+        headers: { cookie },
+        payload: { maxActiveOrders: 2 },
+      });
+      assert.equal(capacityUpdate.statusCode, 200);
+
+      const trackingUpdate = await app.inject({
+        method: 'PATCH',
+        url: '/api/admin/restaurants/restaurant-001/tracking-settings',
+        headers: { cookie },
+        payload: { showPickedUpAsInTransit: true, showDriverEtaToPickup: true, showDestinationEta: true },
+      });
+      assert.equal(trackingUpdate.statusCode, 200);
 
       const logout = await app.inject({ method: 'POST', url: '/api/auth/admin/logout', headers: { cookie, 'x-portal-client': 'web' } });
       assert.equal(logout.statusCode, 200);

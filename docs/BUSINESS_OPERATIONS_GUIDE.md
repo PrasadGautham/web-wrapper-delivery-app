@@ -11,6 +11,7 @@ It explains:
 - what features exist for each user type
 - how to start the system locally
 - how to test each role end to end
+- how to present the product to a business stakeholder
 
 This guide is intended for product, operations, business review, and acceptance testing.
 
@@ -32,32 +33,53 @@ It also has one shared backend that handles:
 - earnings and restaurant billing snapshots
 - realtime updates
 
+## Who The Admin Portal Is For
+
+The admin side is for platform operations, business support, and internal superusers.
+
+It is not meant for drivers or restaurant staff.
+
+Typical admin users are:
+
+- support team
+- operations manager
+- implementation team
+- platform owner
+
+It can also be used during onboarding of new merchants and restaurants.
+
 ## Current User Roles
 
 ### Admin
 
 Platform-wide operations user.
 
-Can:
+Current admin UI can:
 
+- log in and maintain session
 - see all merchants
 - see all restaurants
 - see all drivers
-- create and manage admin users
-- create and manage merchant users
-- create and manage restaurant staff users
-- update driver dispatch policy
-- update driver capacity
+- see all admin users
+- create merchant users
+- create restaurant staff users
+- update restaurant pricing
 - update restaurant tracking settings
+- update driver capacity
+- update driver dispatch policy
+- review restaurant charge and driver payout values per restaurant
+- review current driver capacity and dispatch mode values
 
 ### Merchant
 
 Franchise or multi-store business user.
 
-Can:
+Current merchant UI can:
 
 - see all restaurants under that merchant
 - see merchant-wide orders and reporting
+- update pricing values for owned restaurants
+- update tracking settings for owned restaurants
 - create and manage store staff users for owned restaurants
 - monitor live status updates for all owned restaurants
 
@@ -128,6 +150,22 @@ Can:
 - different restaurants can have different rates
 - historical orders keep their own rate snapshots even if rates change later
 
+### Current Pricing Ownership
+
+Current source of pricing values:
+
+- pricing is stored on each restaurant configuration in the backend
+- the restaurant has:
+  - `driverRatePerOrder`
+  - `restaurantChargePerOrder`
+
+Current edit paths:
+
+- admin can update restaurant pricing from the admin portal
+- merchant can update pricing for owned restaurants from the merchant portal
+- pricing changes affect future dispatches and future orders
+- existing orders keep their snapped values
+
 ### Security And Access
 
 - passwords are hashed
@@ -137,6 +175,39 @@ Can:
 - session refresh and rotation exist
 - audit logs exist
 - rate limiting exists
+
+## Current Configuration Controls
+
+These are the important settings that can be controlled today.
+
+### Per driver
+
+Admin can change:
+
+- dispatch policy
+- max active orders or capacity
+
+### Per restaurant
+
+Admin can change:
+
+- tracking settings
+- driver payout per order
+- restaurant charge per order
+
+Merchant can change for owned restaurants:
+
+- tracking settings
+- driver payout per order
+- restaurant charge per order
+
+### Per merchant
+
+Supported by current product:
+
+- multiple merchant users
+- multiple restaurants under one merchant
+- merchant-wide order and report visibility
 
 ## Local Start Instructions
 
@@ -199,6 +270,14 @@ Expected:
 - drivers list loads
 - admin users list loads
 
+### Review merchant and restaurant setup
+
+Expected:
+
+- each restaurant shows merchant association
+- each restaurant shows driver payout and store charge values
+- driver list shows current capacity and dispatch information
+
 ### Create a merchant user
 
 1. Select a merchant
@@ -219,22 +298,37 @@ Expected:
 
 - new restaurant staff user is created successfully
 
-### Change driver capacity
+### Update restaurant pricing
 
-Use the admin API or admin controls if exposed in the current UI.
-
-Expected:
-
-- driver capacity changes
-- driver can be skipped once capacity is full
-
-### Change restaurant tracking settings
-
-Use the admin API or admin controls if exposed in the current UI.
+1. Select a restaurant in the settings section
+2. Change driver rate and store charge
+3. Save pricing
 
 Expected:
 
-- merchant and restaurant views reflect configured tracking behavior
+- updated values appear in the restaurant cards
+- merchant view shows the new values for that restaurant
+
+### Update restaurant tracking settings
+
+1. Select a restaurant in the settings section
+2. change one or more tracking toggles
+3. Save tracking
+
+Expected:
+
+- merchant and restaurant views reflect the changed tracking behavior
+
+### Update driver dispatch controls
+
+1. Select a driver
+2. Change capacity and or dispatch policy
+3. Save
+
+Expected:
+
+- driver settings update successfully
+- dispatch behavior uses the new driver settings
 
 ## Merchant Testing
 
@@ -257,6 +351,27 @@ Check that the merchant sees all restaurants belonging to that merchant and no r
 Expected:
 
 - cross-store visibility only within merchant scope
+
+### Update store pricing
+
+1. Select a store
+2. Change driver payout or store charge
+3. Save pricing
+
+Expected:
+
+- updated values appear in the merchant store view
+- backend uses the new pricing for future orders
+
+### Update store tracking settings
+
+1. Select a store
+2. Change tracking toggles
+3. Save tracking
+
+Expected:
+
+- merchant order display and restaurant display follow the new tracking settings
 
 ### Create a store staff user
 
@@ -356,17 +471,80 @@ Use this as the main business demo:
 1. Start backend
 2. Open admin, merchant, and restaurant portals
 3. Start Android driver app
-4. Log in as driver and go online
-5. Log in as restaurant staff and create an order
-6. Confirm the driver receives the order
-7. Accept the order on the driver app
-8. Confirm restaurant and merchant portals update live
-9. Progress the driver through arrived, pickup, and delivered
-10. Confirm:
+4. Log in as admin and show:
+- merchants
+- restaurants
+- pricing values
+- drivers, capacity, and dispatch policy controls
+5. Update one restaurant pricing value from admin
+6. Log in as merchant and show:
+- multi-store visibility
+- store pricing and tracking controls
+- create staff user
+7. Log in as restaurant staff and create an order
+8. Confirm the driver receives the order
+9. Accept the order on the driver app
+10. Confirm restaurant and merchant portals update live
+11. Progress the driver through arrived, pickup, and delivered
+12. Confirm:
 - restaurant sees status changes
 - merchant sees status changes
 - driver earnings update
 - reporting totals update
+
+## Presentation Demo Script
+
+Use this short scripted flow during a stakeholder presentation.
+
+### Demo objective
+
+Show that the platform supports:
+
+- platform administration
+- merchant or franchise visibility
+- store-level operations
+- live driver dispatch and completion
+
+### Suggested speaking flow
+
+1. Start with admin.
+Explain that admin is for platform operations and onboarding, not for restaurant staff.
+Show all merchants, restaurants, drivers, pricing controls, and driver dispatch controls.
+
+2. Move to merchant.
+Explain that a merchant can see all restaurants under one brand or franchise group.
+Show multi-store visibility, store pricing controls, tracking settings, and store staff creation.
+
+3. Move to restaurant.
+Explain that restaurant staff is store-scoped and can create delivery orders.
+Create a real sample order.
+
+4. Move to driver.
+Show the Android driver app online.
+Receive the order, accept it, and move through the delivery steps.
+
+5. Return to restaurant and merchant.
+Show that both views update live and that the driver earnings and reporting move correctly.
+
+## Suggested Screenshots Checklist
+
+Capture these for business review or documentation:
+
+- Admin login screen
+- Admin dashboard with merchants, restaurants, and drivers visible
+- Admin settings section showing pricing, tracking, and driver dispatch controls
+- Merchant dashboard showing multiple restaurants
+- Merchant store settings section
+- Merchant staff creation section
+- Restaurant dashboard before order creation
+- Restaurant order created and waiting for driver
+- Driver incoming order screen
+- Driver accepted order screen
+- Restaurant view after acceptance
+- Merchant view after acceptance
+- Driver delivered confirmation or updated earnings view
+- Restaurant view after delivery
+- Merchant report view after delivery
 
 ## What Is Included In The Current Android-Only Release Scope
 

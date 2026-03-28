@@ -186,6 +186,62 @@ export async function registerMerchantRoutes(
     }
   });
 
+  app.patch('/api/merchant/me/restaurants/:restaurantId/pricing', async (request, reply) => {
+    const authedRequest = request as MerchantAuthedRequest;
+    const merchant = await backendService.requireMerchantFromToken(authedRequest.authToken);
+    const params = request.params as { restaurantId: string };
+    const body = request.body as { driverRatePerOrder?: number; restaurantChargePerOrder?: number };
+    if (
+      typeof body.driverRatePerOrder !== 'number' ||
+      Number.isNaN(body.driverRatePerOrder) ||
+      body.driverRatePerOrder < 0 ||
+      typeof body.restaurantChargePerOrder !== 'number' ||
+      Number.isNaN(body.restaurantChargePerOrder) ||
+      body.restaurantChargePerOrder < 0
+    ) {
+      return reply.status(400).send({ message: 'driverRatePerOrder and restaurantChargePerOrder must be non-negative numbers.' });
+    }
+    try {
+      const updated = await backendService.updateMerchantRestaurantPricing(merchant, params.restaurantId, {
+        driverRatePerOrder: Number(body.driverRatePerOrder.toFixed(2)),
+        restaurantChargePerOrder: Number(body.restaurantChargePerOrder.toFixed(2)),
+      });
+      restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
+      return updated;
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.patch('/api/merchant/me/restaurants/:restaurantId/tracking-settings', async (request, reply) => {
+    const authedRequest = request as MerchantAuthedRequest;
+    const merchant = await backendService.requireMerchantFromToken(authedRequest.authToken);
+    const params = request.params as { restaurantId: string };
+    const body = request.body as {
+      showPickedUpAsInTransit?: boolean;
+      showDriverEtaToPickup?: boolean;
+      showDestinationEta?: boolean;
+    };
+    if (
+      typeof body.showPickedUpAsInTransit !== 'boolean' ||
+      typeof body.showDriverEtaToPickup !== 'boolean' ||
+      typeof body.showDestinationEta !== 'boolean'
+    ) {
+      return reply.status(400).send({ message: 'Tracking settings must all be boolean values.' });
+    }
+    try {
+      const updated = await backendService.updateMerchantRestaurantTrackingSettings(merchant, params.restaurantId, {
+        showPickedUpAsInTransit: body.showPickedUpAsInTransit,
+        showDriverEtaToPickup: body.showDriverEtaToPickup,
+        showDestinationEta: body.showDestinationEta,
+      });
+      restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
+      return updated;
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
   app.patch('/api/merchant/me/restaurants/:restaurantId/staff-users/:staffUserId', async (request, reply) => {
     const authedRequest = request as MerchantAuthedRequest;
     const merchant = await backendService.requireMerchantFromToken(authedRequest.authToken);

@@ -22,6 +22,7 @@ Current state:
 - backend-driven FCM dispatch implemented
 - live driver location ingestion implemented
 - admin, merchant, and restaurant scoped web portals implemented
+- admin and merchant UI controls for pricing and operational settings implemented
 - password reset, session rotation, rate limiting, audit logs, metrics, and CSP reporting implemented
 
 ### Flutter Driver App
@@ -45,6 +46,7 @@ Current state:
 - portals are served by the backend
 - browser portals use HttpOnly cookie sessions
 - restaurant and merchant portals use SSE for realtime updates
+- admin and merchant portals expose operational settings controls in the UI
 
 ### iOS
 

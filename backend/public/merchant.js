@@ -9,6 +9,7 @@ const nodes = {
   connectionText: document.getElementById('connectionText'),
   sessionStatus: document.getElementById('sessionStatus'),
   restaurantSelect: document.getElementById('restaurantSelect'),
+  settingsStatus: document.getElementById('settingsStatus'),
   staffStatus: document.getElementById('staffStatus'),
   staffList: document.getElementById('staffList'),
   restaurants: document.getElementById('restaurants'),
@@ -28,7 +29,8 @@ function clearSessionState(message = 'Merchant session expired. Please log in ag
   stopStream();
   restaurants = [];
   nodes.sessionStatus.textContent = message;
-  nodes.staffStatus.textContent = 'Select a store to list and create staff users.';
+  nodes.settingsStatus.textContent = 'Select a store to review or update its settings.';
+  nodes.staffStatus.textContent = 'Create and review staff users for the selected store.';
   refreshDashboard().catch((error) => console.error(error));
 }
 
@@ -93,6 +95,20 @@ async function refreshSession() {
 
 function populateRestaurantSelect() {
   nodes.restaurantSelect.innerHTML = restaurants.map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`).join('');
+  syncSelectedRestaurant();
+}
+
+function syncSelectedRestaurant() {
+  const restaurant = restaurants.find((item) => item.id === nodes.restaurantSelect.value) || restaurants[0];
+  if (!restaurant) {
+    return;
+  }
+  nodes.restaurantSelect.value = restaurant.id;
+  document.getElementById('driverRatePerOrder').value = String(restaurant.driverRatePerOrder);
+  document.getElementById('restaurantChargePerOrder').value = String(restaurant.restaurantChargePerOrder);
+  document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
+  document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
+  document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
 }
 
 function renderRestaurantCards(groups, report) {
@@ -105,6 +121,7 @@ function renderRestaurantCards(groups, report) {
       <div class="section-head"><strong>${group.restaurant.name}</strong><span class="pill">${group.orders.length} orders</span></div>
       <div class="muted">${group.restaurant.pickupLocation.address}</div>
       <div class="muted">Driver rate ${currency(group.restaurant.driverRatePerOrder)} | Store charge ${currency(group.restaurant.restaurantChargePerOrder)}</div>
+      <div class="muted">Pickup ETA visible: ${group.restaurant.trackingSettings.showDriverEtaToPickup ? 'Yes' : 'No'} | Destination ETA visible: ${group.restaurant.trackingSettings.showDestinationEta ? 'Yes' : 'No'}</div>
     </article>
   `).join('') || '<div class="muted">No stores assigned.</div>';
 }
@@ -187,14 +204,14 @@ async function connectStream() {
     setConnectionState('Realtime link unavailable. Refresh or log in again.', false);
     throw error;
   }
-  setConnectionState('Connecting to live merchant updates…', false);
+  setConnectionState('Connecting to live merchant updates...', false);
   stream.addEventListener('ready', () => setConnectionState('Live merchant updates connected.', true));
   stream.addEventListener('restaurant-updated', () => {
     refreshDashboard().catch((error) => console.error(error));
   });
   stream.addEventListener('ping', () => setConnectionState('Live merchant updates connected.', true));
   stream.onerror = () => {
-    setConnectionState('Realtime link interrupted. Reconnecting…', false);
+    setConnectionState('Realtime link interrupted. Reconnecting...', false);
     stopStream();
     setTimeout(() => connectStream().catch((error) => console.error(error)), 2000);
   };
@@ -225,6 +242,33 @@ async function logout() {
   }
 }
 
+async function savePricing() {
+  const restaurantId = nodes.restaurantSelect.value;
+  await request(`/api/merchant/me/restaurants/${restaurantId}/pricing`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      driverRatePerOrder: Number(document.getElementById('driverRatePerOrder').value),
+      restaurantChargePerOrder: Number(document.getElementById('restaurantChargePerOrder').value),
+    }),
+  });
+  nodes.settingsStatus.textContent = 'Store pricing updated.';
+  await refreshDashboard();
+}
+
+async function saveTracking() {
+  const restaurantId = nodes.restaurantSelect.value;
+  await request(`/api/merchant/me/restaurants/${restaurantId}/tracking-settings`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      showPickedUpAsInTransit: document.getElementById('showPickedUpAsInTransit').checked,
+      showDriverEtaToPickup: document.getElementById('showDriverEtaToPickup').checked,
+      showDestinationEta: document.getElementById('showDestinationEta').checked,
+    }),
+  });
+  nodes.settingsStatus.textContent = 'Store tracking settings updated.';
+  await refreshDashboard();
+}
+
 async function createStaffUser() {
   const restaurantId = nodes.restaurantSelect.value;
   await request(`/api/merchant/me/restaurants/${restaurantId}/staff-users`, {
@@ -243,8 +287,13 @@ async function createStaffUser() {
 document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => alert(error.message)));
 document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => alert(error.message)));
 document.getElementById('refreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => { if (hasSession) alert(error.message); }));
+document.getElementById('savePricingBtn').addEventListener('click', () => savePricing().catch((error) => { nodes.settingsStatus.textContent = error.message; }));
+document.getElementById('saveTrackingBtn').addEventListener('click', () => saveTracking().catch((error) => { nodes.settingsStatus.textContent = error.message; }));
 document.getElementById('createStaffBtn').addEventListener('click', () => createStaffUser().catch((error) => { nodes.staffStatus.textContent = error.message; }));
-document.getElementById('restaurantSelect').addEventListener('change', () => refreshStaffList().catch((error) => { nodes.staffStatus.textContent = error.message; }));
+nodes.restaurantSelect.addEventListener('change', () => {
+  syncSelectedRestaurant();
+  refreshStaffList().catch((error) => { nodes.staffStatus.textContent = error.message; });
+});
 
 refreshDashboard().then(() => connectStream()).catch(() => {});
 setInterval(() => {

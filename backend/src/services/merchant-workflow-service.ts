@@ -135,6 +135,46 @@ export class MerchantWorkflowService {
     });
   }
 
+  async updateRestaurantPricing(
+    merchant: MerchantRecord,
+    restaurantId: string,
+    pricing: { driverRatePerOrder: number; restaurantChargePerOrder: number },
+  ): Promise<RestaurantProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      const restaurant = this.requireMerchantRestaurant(db.restaurants, merchant.id, restaurantId);
+      restaurant.driverRatePerOrder = pricing.driverRatePerOrder;
+      restaurant.restaurantChargePerOrder = pricing.restaurantChargePerOrder;
+      this.runtime.appendAuditLog(db, {
+        actorType: 'merchant',
+        actorId: merchant.id,
+        action: 'merchant.restaurant-pricing.updated',
+        entityType: 'restaurant',
+        entityId: restaurantId,
+        metadata: pricing as unknown as Record<string, unknown>,
+      });
+      return toRestaurantProfile(restaurant);
+    });
+  }
+
+  async updateRestaurantTrackingSettings(
+    merchant: MerchantRecord,
+    restaurantId: string,
+    settings: RestaurantRecord['trackingSettings'],
+  ): Promise<RestaurantProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      const restaurant = this.requireMerchantRestaurant(db.restaurants, merchant.id, restaurantId);
+      restaurant.trackingSettings = { ...settings };
+      this.runtime.appendAuditLog(db, {
+        actorType: 'merchant',
+        actorId: merchant.id,
+        action: 'merchant.restaurant-tracking-settings.updated',
+        entityType: 'restaurant',
+        entityId: restaurantId,
+        metadata: settings as unknown as Record<string, unknown>,
+      });
+      return toRestaurantProfile(restaurant);
+    });
+  }
   private requireMerchantRestaurant(restaurants: RestaurantRecord[], merchantId: string, restaurantId: string): RestaurantRecord {
     const restaurant = restaurants.find((item) => item.id === restaurantId && item.merchantId === merchantId);
     if (!restaurant) {
@@ -143,3 +183,4 @@ export class MerchantWorkflowService {
     return restaurant;
   }
 }
+

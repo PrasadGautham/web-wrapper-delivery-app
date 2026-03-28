@@ -374,6 +374,39 @@ export class AdminWorkflowService {
     });
   }
 
+  async updateRestaurantPricing(
+    restaurantId: string,
+    pricing: { driverRatePerOrder: number; restaurantChargePerOrder: number },
+  ): Promise<RestaurantProfile> {
+    if (!this.workflowStore) {
+      return this.runtime.withMutableDb(async (db) => {
+        const restaurant = this.runtime.requireRestaurant(db, restaurantId);
+        restaurant.driverRatePerOrder = pricing.driverRatePerOrder;
+        restaurant.restaurantChargePerOrder = pricing.restaurantChargePerOrder;
+        this.runtime.appendAuditLog(db, {
+          actorType: 'admin',
+          actorId: 'admin-api',
+          action: 'restaurant.pricing.updated',
+          entityType: 'restaurant',
+          entityId: restaurantId,
+          metadata: pricing as unknown as Record<string, unknown>,
+        });
+        return toRestaurantProfile(restaurant);
+      });
+    }
+
+    return this.workflowStore.withWorkflowWriteContext(async (context) => {
+      const restaurant = await context.findRestaurantById(restaurantId);
+      if (!restaurant) {
+        throw new Error('Restaurant not found.');
+      }
+      restaurant.driverRatePerOrder = pricing.driverRatePerOrder;
+      restaurant.restaurantChargePerOrder = pricing.restaurantChargePerOrder;
+      await context.saveRestaurant(restaurant);
+      await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: 'admin-api', action: 'restaurant.pricing.updated', entityType: 'restaurant', entityId: restaurantId, metadata: pricing as unknown as Record<string, unknown> }));
+      return toRestaurantProfile(restaurant);
+    });
+  }
   private requireMerchant(merchants: MerchantRecord[], merchantId: string): MerchantRecord {
     const merchant = merchants.find((item) => item.id === merchantId);
     if (!merchant) {
@@ -410,3 +443,4 @@ export class AdminWorkflowService {
     };
   }
 }
+
