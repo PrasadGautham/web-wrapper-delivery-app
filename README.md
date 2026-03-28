@@ -64,6 +64,7 @@ Admin controls those market settings. Merchant users can view them but cannot ch
 
 ## Docs Map
 
+- Documentation index: [DOCS_INDEX.md](/c:/dev/DriverApp/docs/DOCS_INDEX.md)
 - Business-facing feature and testing guide: [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
 - Current platform status: [PROJECT_STATUS.md](/c:/dev/DriverApp/docs/PROJECT_STATUS.md)
 - Local setup: [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md)
@@ -72,6 +73,7 @@ Admin controls those market settings. Merchant users can view them but cannot ch
 - Deployment: [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
 - Environment checklist: [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
 - Go-live checklist: [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
+- Deployment check matrix: [DEPLOY_CHECKS.md](/c:/dev/DriverApp/docs/DEPLOY_CHECKS.md)
 - Final go-live gaps: [FINAL_GO_LIVE_GAPS.md](/c:/dev/DriverApp/docs/FINAL_GO_LIVE_GAPS.md)
 - Production readiness: [PRODUCTION_READINESS.md](/c:/dev/DriverApp/docs/PRODUCTION_READINESS.md)
 - Mobile release guide: [RELEASE.md](/c:/dev/DriverApp/docs/RELEASE.md)
