@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
+import { assertValidReportDateRange, toCsv } from '../utils/reporting.js';
 import {
   AuthTransport,
   clearWebSessionCookie,
@@ -14,6 +15,42 @@ interface RestaurantAuthedRequest extends FastifyRequest {
   restaurantId: string;
   authToken: string;
   authTransport: AuthTransport;
+}
+
+function getReportRange(request: FastifyRequest) {
+  const query = request.query as { startDate?: string; endDate?: string };
+  const range = {
+    startDate: query.startDate?.trim() || undefined,
+    endDate: query.endDate?.trim() || undefined,
+  };
+  assertValidReportDateRange(range);
+  return range;
+}
+
+function buildReportFileName(prefix: string, range: { startDate?: string; endDate?: string }) {
+  if (!range.startDate && !range.endDate) {
+    return `${prefix}-all-dates.csv`;
+  }
+  if (range.startDate && range.endDate) {
+    return `${prefix}-${range.startDate}-to-${range.endDate}.csv`;
+  }
+  if (range.startDate) {
+    return `${prefix}-from-${range.startDate}.csv`;
+  }
+  return `${prefix}-until-${range.endDate}.csv`;
+}
+
+function describeReportRange(range: { startDate?: string; endDate?: string }) {
+  if (!range.startDate && !range.endDate) {
+    return 'All available dates';
+  }
+  if (range.startDate && range.endDate) {
+    return `${range.startDate} to ${range.endDate}`;
+  }
+  if (range.startDate) {
+    return `From ${range.startDate}`;
+  }
+  return `Until ${range.endDate}`;
 }
 
 export async function registerRestaurantRoutes(
@@ -139,9 +176,14 @@ export async function registerRestaurantRoutes(
     return backendService.getRestaurantProfile(authedRequest.restaurantId);
   });
 
-  app.get('/api/restaurants/me/orders', async (request) => {
+  app.get('/api/restaurants/me/orders', async (request, reply) => {
     const authedRequest = request as RestaurantAuthedRequest;
-    return backendService.getRestaurantOrders(authedRequest.restaurantId);
+    try {
+      const range = getReportRange(request);
+      return backendService.getRestaurantOrders(authedRequest.restaurantId, range);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
   });
 
   app.post('/api/restaurants/me/orders', async (request, reply) => {
@@ -173,8 +215,62 @@ export async function registerRestaurantRoutes(
     });
   });
 
-  app.get('/api/restaurants/me/report', async (request) => {
+  app.get('/api/restaurants/me/report', async (request, reply) => {
     const authedRequest = request as RestaurantAuthedRequest;
-    return backendService.getRestaurantReport(authedRequest.restaurantId);
+    try {
+      const range = getReportRange(request);
+      return backendService.getRestaurantReport(authedRequest.restaurantId, range);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.get('/api/restaurants/me/report-export.csv', async (request, reply) => {
+    const authedRequest = request as RestaurantAuthedRequest;
+    try {
+      const range = getReportRange(request);
+      const [profile, orders] = await Promise.all([
+        backendService.getRestaurantProfile(authedRequest.restaurantId),
+        backendService.getRestaurantOrders(authedRequest.restaurantId, range),
+      ]);
+      const rows = [
+        ['Report Scope', `Store-only for ${profile.name}`],
+        ['Report Period', describeReportRange(range)],
+        [],
+        [
+        'Order ID',
+        'Created At',
+        'Delivered At',
+        'Customer',
+        'Destination Address',
+        'Delivery Area',
+        'Status',
+        'Assigned Courier',
+        'Store Charge',
+        'Currency',
+        'ETA Source',
+      ]];
+      for (const order of orders) {
+        rows.push([
+          order.id,
+          order.createdAt,
+          order.deliveredAt || '',
+          order.customer.name,
+          order.customer.address,
+          order.deliveryArea,
+          order.tracking.displayStatus,
+          order.tracking.assignedDriverName || '',
+          String(order.companyCharge),
+          order.displayCurrency || profile.currency,
+          order.tracking.etaSource || '',
+        ]);
+      }
+      reply.header('Content-Type', 'text/csv; charset=utf-8');
+      const fileName = buildReportFileName('restaurant-report', range);
+      reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
+      return toCsv(rows);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
   });
 }

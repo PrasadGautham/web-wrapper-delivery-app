@@ -5,11 +5,12 @@ import {
   RestaurantProfile,
   RestaurantReport,
 } from '../domain/models.js';
+import { ReportDateRange } from '../utils/reporting.js';
 
 export interface BackofficeReadService {
   listDrivers(): Promise<DriverProfile[]>;
   listRestaurants(): Promise<RestaurantProfile[]>;
   listMerchants(): Promise<MerchantView[]>;
-  getRestaurantReport(restaurantId: string): Promise<RestaurantReport>;
-  getMerchantReport(merchantId: string): Promise<MerchantReport>;
+  getRestaurantReport(restaurantId: string, range?: ReportDateRange): Promise<RestaurantReport>;
+  getMerchantReport(merchantId: string, range?: ReportDateRange): Promise<MerchantReport>;
 }

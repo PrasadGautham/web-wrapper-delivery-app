@@ -12,6 +12,7 @@ import { DispatchService } from './dispatch-service.js';
 import { DriverWorkflowService } from './driver-workflow-service.js';
 import { toRestaurantPortalProfile } from './profile-projections.js';
 import { RestaurantRealtimeService } from './restaurant-realtime-service.js';
+import { orderFallsWithinRange, ReportDateRange } from '../utils/reporting.js';
 
 export class RestaurantWorkflowService {
   constructor(
@@ -55,24 +56,24 @@ export class RestaurantWorkflowService {
     });
   }
 
-  async getRestaurantOrders(restaurantId: string): Promise<StoreOrderView[]> {
+  async getRestaurantOrders(restaurantId: string, range: ReportDateRange = {}): Promise<StoreOrderView[]> {
     return this.runtime.withOperationalDb(async (state) => {
       this.dispatchService.tick(state as never);
       const restaurant = this.runtime.requireRestaurant(state, restaurantId);
       const orders = state.orders
-        .filter((order) => order.restaurantId === restaurantId)
+        .filter((order) => order.restaurantId === restaurantId && orderFallsWithinRange(order.createdAt, range))
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
       return Promise.all(orders.map((order) => this.toRestaurantOrderView(state as DatabaseShape, restaurant, order)));
     });
   }
 
-  async getRestaurantReport(restaurantId: string): Promise<RestaurantReport> {
+  async getRestaurantReport(restaurantId: string, range: ReportDateRange = {}): Promise<RestaurantReport> {
     if (this.backofficeReadService) {
-      return this.backofficeReadService.getRestaurantReport(restaurantId);
+      return this.backofficeReadService.getRestaurantReport(restaurantId, range);
     }
     return this.runtime.withOperationalDb(async (state) => {
       this.dispatchService.tick(state as never);
-      const orders = state.orders.filter((order) => order.restaurantId === restaurantId);
+      const orders = state.orders.filter((order) => order.restaurantId === restaurantId && orderFallsWithinRange(order.createdAt, range));
       return {
         totalOrders: orders.length,
         activeOrders: orders.filter((order) =>

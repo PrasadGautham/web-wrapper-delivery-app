@@ -17,14 +17,15 @@ import { BackofficeReadService } from './backoffice-read-service.js';
 import { BackendRuntime } from './backend-runtime.js';
 import { DispatchService } from './dispatch-service.js';
 import { toMerchantProfile, toMerchantRestaurantProfile, toRestaurantStaffProfile } from './profile-projections.js';
+import { ReportDateRange } from '../utils/reporting.js';
 
 export class MerchantWorkflowService {
   constructor(
     private readonly runtime: BackendRuntime,
     private readonly dispatchService: DispatchService,
     private readonly restaurantWorkflowService: {
-      getRestaurantOrders(restaurantId: string): Promise<StoreOrderView[]>;
-      getRestaurantReport(restaurantId: string): Promise<RestaurantReport>;
+      getRestaurantOrders(restaurantId: string, range?: ReportDateRange): Promise<StoreOrderView[]>;
+      getRestaurantReport(restaurantId: string, range?: ReportDateRange): Promise<RestaurantReport>;
     },
     private readonly backofficeReadService: BackofficeReadService | null,
   ) {}
@@ -45,20 +46,20 @@ export class MerchantWorkflowService {
     );
   }
 
-  async getMerchantOrders(merchantId: string): Promise<Array<{ restaurant: MerchantRestaurantProfile; orders: StoreOrderView[] }>> {
+  async getMerchantOrders(merchantId: string, range: ReportDateRange = {}): Promise<Array<{ restaurant: MerchantRestaurantProfile; orders: StoreOrderView[] }>> {
     const restaurants = await this.listMerchantRestaurants(merchantId);
     return Promise.all(restaurants.map(async (restaurant) => ({
       restaurant,
-      orders: await this.restaurantWorkflowService.getRestaurantOrders(restaurant.id),
+      orders: await this.restaurantWorkflowService.getRestaurantOrders(restaurant.id, range),
     })));
   }
 
-  async getMerchantReport(merchantId: string): Promise<MerchantReport> {
+  async getMerchantReport(merchantId: string, range: ReportDateRange = {}): Promise<MerchantReport> {
     if (this.backofficeReadService) {
-      return this.backofficeReadService.getMerchantReport(merchantId);
+      return this.backofficeReadService.getMerchantReport(merchantId, range);
     }
     const restaurants = await this.listMerchantRestaurants(merchantId);
-    const reports = await Promise.all(restaurants.map((restaurant) => this.restaurantWorkflowService.getRestaurantReport(restaurant.id)));
+    const reports = await Promise.all(restaurants.map((restaurant) => this.restaurantWorkflowService.getRestaurantReport(restaurant.id, range)));
     return {
       totalRestaurants: restaurants.length,
       totalOrders: reports.reduce((sum, item) => sum + item.totalOrders, 0),

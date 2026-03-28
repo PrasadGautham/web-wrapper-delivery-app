@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { DriverOfferDistanceMode, RestaurantStaffRole } from '../domain/models.js';
 import { BackendService } from '../services/backend-service.js';
+import { assertValidReportDateRange, toCsv } from '../utils/reporting.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
 import {
   AuthTransport,
@@ -23,6 +24,42 @@ function isRestaurantStaffRole(value: unknown): value is RestaurantStaffRole {
 
 function isDriverOfferDistanceMode(value: unknown): value is DriverOfferDistanceMode {
   return value === 'storeToCustomer' || value === 'includeCommuteToStore';
+}
+
+function getReportRange(request: FastifyRequest) {
+  const query = request.query as { startDate?: string; endDate?: string };
+  const range = {
+    startDate: query.startDate?.trim() || undefined,
+    endDate: query.endDate?.trim() || undefined,
+  };
+  assertValidReportDateRange(range);
+  return range;
+}
+
+function buildReportFileName(prefix: string, range: { startDate?: string; endDate?: string }) {
+  if (!range.startDate && !range.endDate) {
+    return `${prefix}-all-dates.csv`;
+  }
+  if (range.startDate && range.endDate) {
+    return `${prefix}-${range.startDate}-to-${range.endDate}.csv`;
+  }
+  if (range.startDate) {
+    return `${prefix}-from-${range.startDate}.csv`;
+  }
+  return `${prefix}-until-${range.endDate}.csv`;
+}
+
+function describeReportRange(range: { startDate?: string; endDate?: string }) {
+  if (!range.startDate && !range.endDate) {
+    return 'All available dates';
+  }
+  if (range.startDate && range.endDate) {
+    return `${range.startDate} to ${range.endDate}`;
+  }
+  if (range.startDate) {
+    return `From ${range.startDate}`;
+  }
+  return `Until ${range.endDate}`;
 }
 
 
@@ -154,14 +191,76 @@ export async function registerMerchantRoutes(
     return backendService.listMerchantRestaurants(authedRequest.merchantId);
   });
 
-  app.get('/api/merchant/me/orders', async (request) => {
+  app.get('/api/merchant/me/orders', async (request, reply) => {
     const authedRequest = request as MerchantAuthedRequest;
-    return backendService.getMerchantOrders(authedRequest.merchantId);
+    try {
+      const range = getReportRange(request);
+      return backendService.getMerchantOrders(authedRequest.merchantId, range);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
   });
 
-  app.get('/api/merchant/me/report', async (request) => {
+  app.get('/api/merchant/me/report', async (request, reply) => {
     const authedRequest = request as MerchantAuthedRequest;
-    return backendService.getMerchantReport(authedRequest.merchantId);
+    try {
+      const range = getReportRange(request);
+      return backendService.getMerchantReport(authedRequest.merchantId, range);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.get('/api/merchant/me/report-export.csv', async (request, reply) => {
+    const authedRequest = request as MerchantAuthedRequest;
+    try {
+      const range = getReportRange(request);
+      const groups = await backendService.getMerchantOrders(authedRequest.merchantId, range);
+      const rows = [
+        ['Report Scope', 'Merchant-wide across all associated stores'],
+        ['Report Period', describeReportRange(range)],
+        [],
+        [
+        'Store',
+        'Order ID',
+        'Created At',
+        'Delivered At',
+        'Customer',
+        'Destination Address',
+        'Delivery Area',
+        'Status',
+        'Assigned Courier',
+        'Store Charge',
+        'Currency',
+        'Driver Offer Distance',
+        'Distance Unit',
+      ]];
+      for (const group of groups) {
+        for (const order of group.orders) {
+          rows.push([
+            group.restaurant.name,
+            order.id,
+            order.createdAt,
+            order.deliveredAt || '',
+            order.customer.name,
+            order.customer.address,
+            order.deliveryArea,
+            order.tracking.displayStatus,
+            order.tracking.assignedDriverName || '',
+            String(order.companyCharge),
+            order.displayCurrency || group.restaurant.currency,
+            String(order.driverDisplayDistanceKm),
+            order.driverDisplayDistanceUnit || group.restaurant.distanceUnit,
+          ]);
+        }
+      }
+      reply.header('Content-Type', 'text/csv; charset=utf-8');
+      const fileName = buildReportFileName('merchant-report', range);
+      reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
+      return toCsv(rows);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
   });
 
   app.get('/api/merchant/me/restaurants/:restaurantId/staff-users', async (request) => {

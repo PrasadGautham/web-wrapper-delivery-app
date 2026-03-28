@@ -108,6 +108,7 @@ async function run() {
       restaurantPage.click('#loginBtn'),
     ]);
     await waitForSessionText(restaurantPage, 'Logged in as');
+    await restaurantPage.click('[data-view="create-order"]');
 
     await restaurantPage.fill('#customerName', 'Portal E2E Customer');
     await restaurantPage.fill('#customerAddress', 'Dubai Marina Walk');

@@ -15,6 +15,7 @@ import {
 } from '../domain/models.js';
 import { BackofficeReadService } from './backoffice-read-service.js';
 import { toDriverProfile, toMerchantView, toRestaurantProfile } from './profile-projections.js';
+import { ReportDateRange } from '../utils/reporting.js';
 
 const capacityStatuses = ['pending', 'accepted', 'atRestaurant', 'pickedUp'] as const;
 const activeRestaurantStatuses = ['queued', 'pending', 'accepted', 'atRestaurant', 'pickedUp'] as const;
@@ -62,6 +63,14 @@ type PrismaMerchantRow = {
 export class PrismaBackofficeReadService implements BackofficeReadService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private toOrderDateWhere(range: ReportDateRange = {}) {
+    const createdAt = {
+      ...(range.startDate ? { gte: new Date(`${range.startDate}T00:00:00.000Z`) } : {}),
+      ...(range.endDate ? { lte: new Date(`${range.endDate}T23:59:59.999Z`) } : {}),
+    };
+    return Object.keys(createdAt).length ? { createdAt } : {};
+  }
+
   async listDrivers(): Promise<DriverProfile[]> {
     const [drivers, activeAssignments] = await this.prisma.$transaction([
       this.prisma.driver.findMany({ orderBy: { id: 'asc' } }),
@@ -97,17 +106,19 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
     return merchants.map((merchant) => toMerchantView(this.mapMerchant(merchant)));
   }
 
-  async getRestaurantReport(restaurantId: string): Promise<RestaurantReport> {
+  async getRestaurantReport(restaurantId: string, range: ReportDateRange = {}): Promise<RestaurantReport> {
+    const dateWhere = this.toOrderDateWhere(range);
     const [totalOrders, activeOrders, deliveredOrders, charges] = await this.prisma.$transaction([
-      this.prisma.order.count({ where: { restaurantId } }),
+      this.prisma.order.count({ where: { restaurantId, ...dateWhere } }),
       this.prisma.order.count({
         where: {
           restaurantId,
+          ...dateWhere,
           status: { in: [...activeRestaurantStatuses] },
         },
       }),
-      this.prisma.order.count({ where: { restaurantId, status: 'delivered' } }),
-      this.prisma.order.aggregate({ where: { restaurantId }, _sum: { companyCharge: true } }),
+      this.prisma.order.count({ where: { restaurantId, ...dateWhere, status: 'delivered' } }),
+      this.prisma.order.aggregate({ where: { restaurantId, ...dateWhere }, _sum: { companyCharge: true } }),
     ]);
 
     return {
@@ -118,7 +129,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
     };
   }
 
-  async getMerchantReport(merchantId: string): Promise<MerchantReport> {
+  async getMerchantReport(merchantId: string, range: ReportDateRange = {}): Promise<MerchantReport> {
     const restaurantIds = (
       await this.prisma.restaurant.findMany({
         where: { merchantId },
@@ -136,16 +147,18 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       };
     }
 
+    const dateWhere = this.toOrderDateWhere(range);
     const [totalOrders, activeOrders, deliveredOrders, charges] = await this.prisma.$transaction([
-      this.prisma.order.count({ where: { restaurantId: { in: restaurantIds } } }),
+      this.prisma.order.count({ where: { restaurantId: { in: restaurantIds }, ...dateWhere } }),
       this.prisma.order.count({
         where: {
           restaurantId: { in: restaurantIds },
+          ...dateWhere,
           status: { in: [...activeRestaurantStatuses] },
         },
       }),
-      this.prisma.order.count({ where: { restaurantId: { in: restaurantIds }, status: 'delivered' } }),
-      this.prisma.order.aggregate({ where: { restaurantId: { in: restaurantIds } }, _sum: { companyCharge: true } }),
+      this.prisma.order.count({ where: { restaurantId: { in: restaurantIds }, ...dateWhere, status: 'delivered' } }),
+      this.prisma.order.aggregate({ where: { restaurantId: { in: restaurantIds }, ...dateWhere }, _sum: { companyCharge: true } }),
     ]);
 
     return {

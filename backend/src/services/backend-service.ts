@@ -39,6 +39,7 @@ import { PushGateway } from './push-gateway.js';
 import { RestaurantRealtimeService } from './restaurant-realtime-service.js';
 import { RestaurantWorkflowService } from './restaurant-workflow-service.js';
 import { hasWorkflowStore, StoreContract } from './store-contract.js';
+import { ReportDateRange } from '../utils/reporting.js';
 
 const defaultSessionHours = Number(process.env.SESSION_TTL_HOURS ?? '12');
 
@@ -315,12 +316,12 @@ export class BackendService {
     return this.merchantWorkflow.listMerchantRestaurants(merchantId);
   }
 
-  getMerchantOrders(merchantId: string) {
-    return this.merchantWorkflow.getMerchantOrders(merchantId);
+  getMerchantOrders(merchantId: string, range: ReportDateRange = {}) {
+    return this.merchantWorkflow.getMerchantOrders(merchantId, range);
   }
 
-  getMerchantReport(merchantId: string): Promise<MerchantReport> {
-    return this.merchantWorkflow.getMerchantReport(merchantId);
+  getMerchantReport(merchantId: string, range: ReportDateRange = {}): Promise<MerchantReport> {
+    return this.merchantWorkflow.getMerchantReport(merchantId, range);
   }
 
   listMerchantRestaurantStaffUsers(merchant: MerchantRecord, restaurantId: string): Promise<RestaurantStaffUserProfile[]> {
@@ -416,12 +417,12 @@ export class BackendService {
     return this.restaurantWorkflow.createRestaurantOrder(restaurantId, input);
   }
 
-  getRestaurantOrders(restaurantId: string): Promise<StoreOrderView[]> {
-    return this.restaurantWorkflow.getRestaurantOrders(restaurantId);
+  getRestaurantOrders(restaurantId: string, range: ReportDateRange = {}): Promise<StoreOrderView[]> {
+    return this.restaurantWorkflow.getRestaurantOrders(restaurantId, range);
   }
 
-  getRestaurantReport(restaurantId: string): Promise<RestaurantReport> {
-    return this.restaurantWorkflow.getRestaurantReport(restaurantId);
+  getRestaurantReport(restaurantId: string, range: ReportDateRange = {}): Promise<RestaurantReport> {
+    return this.restaurantWorkflow.getRestaurantReport(restaurantId, range);
   }
 }
 
