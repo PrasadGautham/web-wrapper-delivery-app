@@ -11,6 +11,7 @@ The backend lives in [backend](/c:/dev/DriverApp/backend) and serves four client
 
 Use these companion docs for the broader picture:
 
+- [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
 - [SYSTEM_ARCHITECTURE.md](/c:/dev/DriverApp/docs/SYSTEM_ARCHITECTURE.md)
 - [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
 - [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
@@ -35,6 +36,7 @@ Use these companion docs for the broader picture:
 - file-store local mode and Postgres-backed mode
 - Prisma schema and migrations
 - optional Google Routes ETA provider
+- CSP reporting endpoint for browser policy violations
 
 ## Core Environment Variables
 
@@ -51,16 +53,20 @@ Most important:
 - `SESSION_TTL_HOURS`
 - `STALE_LOCATION_MINUTES`
 - `DISPATCH_INTERVAL_MS`
-- `PASSWORD_RESET_TTL_MINUTES`
 - `ALLOW_INSECURE_PASSWORD_RESET_TOKEN_RESPONSE`
 - `GOOGLE_MAPS_API_KEY`
 - `REDIS_URL`
+- `WEB_SESSION_COOKIE_SECURE`
+- `WEB_SESSION_COOKIE_SAME_SITE`
+- `CSP_REPORT_ONLY`
+- `CSP_REPORT_URI`
 
 ## Web Session Model
 
 - Flutter driver app continues to use bearer tokens in secure device storage
-- /admin, /merchant, and /restaurant now use HttpOnly cookie sessions in browser mode
-- browser portals identify themselves with X-Portal-Client: web and never need to persist API tokens in localStorage`r
+- `/admin`, `/merchant`, and `/restaurant` use HttpOnly cookie sessions in browser mode
+- browser portals identify themselves with `X-Portal-Client: web`
+- browser portals do not persist API tokens in `localStorage`
 
 ## Run Locally
 
@@ -176,6 +182,7 @@ From [backend](/c:/dev/DriverApp/backend):
 ```powershell
 npm run check
 npm test
+npm run test:e2e:web
 npm run smoke:deploy
 ```
 
@@ -190,5 +197,5 @@ npm run test:postgres
 - file-store mode is acceptable for local development only
 - deployed environments should use Postgres
 - `REDIS_URL` is optional and only needed for shared rate limiting across multiple backend instances
+- Android can be treated as the current release target
 - the iOS mobile path still needs real macOS/Xcode validation before claiming full production readiness
-

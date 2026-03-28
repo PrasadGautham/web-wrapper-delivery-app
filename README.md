@@ -31,7 +31,7 @@ It includes:
 - platform admin users for cross-platform operations
 - optional traffic-aware ETA through Google Routes
 - password reset flow with SMTP support
-- audit logs, rate limiting, and metrics endpoint
+- audit logs, rate limiting, metrics, and CSP reporting
 
 ## Current Demo Accounts
 
@@ -44,6 +44,7 @@ It includes:
 
 Start here depending on task:
 
+- Business-facing feature list and testing guide: [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
 - Current repo and platform status: [PROJECT_STATUS.md](/c:/dev/DriverApp/docs/PROJECT_STATUS.md)
 - Local setup and daily development: [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md)
 - Backend architecture and APIs: [BACKEND.md](/c:/dev/DriverApp/docs/BACKEND.md)
@@ -83,6 +84,7 @@ Current expected verification commands:
 cd C:\dev\DriverApp\backend
 npm run check
 npm test
+npm run test:e2e:web
 npm run smoke:deploy
 
 cd C:\dev\DriverApp

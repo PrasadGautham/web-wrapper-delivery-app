@@ -10,6 +10,12 @@ It covers all three surfaces together:
 - backend-served web portals
 - Flutter driver mobile app
 
+Current intended release scope can be:
+
+- Android only
+
+If that is the decision, iOS checks remain pending and should be tracked separately instead of blocking the Android rollout.
+
 ## 1. Backend Go-Live Checklist
 
 ### Configuration
@@ -28,6 +34,7 @@ It covers all three surfaces together:
 - `npm run prisma:migrate:deploy`
 - `npm run check`
 - `npm test`
+- `npm run test:e2e:web`
 - `npm run smoke:deploy`
 - if an isolated Postgres test DB exists: `npm run test:postgres`
 
@@ -38,6 +45,7 @@ It covers all three surfaces together:
 - password reset works through SMTP if enabled
 - Firebase Admin initialization works without warnings
 - dispatch cycle runs without repeating failures
+- CSP reports can be received if reporting is enabled
 
 ## 2. Admin Portal Go-Live Checklist
 
@@ -58,7 +66,7 @@ Checks:
 
 Business checks:
 
-- create at least one merchant user for each real merchant/franchise group
+- create at least one merchant user for each real merchant or franchise group
 - create at least one backup admin user
 - document who owns admin credentials operationally
 
@@ -120,14 +128,14 @@ Checks:
 - incoming order appears for the nearest eligible driver
 - accept, arrive, pickup, and deliver flows work end to end
 - earnings update after completion
-- order sound/alert behavior is correct
+- order sound or alert behavior is correct
 
 Android real-device checks:
 
 - location permission granted and behavior verified
-- foreground/background tracking verified
+- foreground and background tracking verified
 - push offer received on a real device
-- notification/vibration behavior verified
+- notification or vibration behavior verified
 - release build opens successfully
 
 iOS real-device checks:
@@ -137,7 +145,13 @@ iOS real-device checks:
 - push delivery validated
 - release signing validated
 
-## 6. Dispatch / Operations Checklist
+If the business is launching Android only:
+
+- document iOS as not in current release scope
+- complete all Android checks before release
+- keep iOS validation as a separate later milestone
+
+## 6. Dispatch And Operations Checklist
 
 Use at least two drivers and two stores while testing.
 
@@ -147,7 +161,7 @@ Checks:
 - stale-location driver is skipped
 - offline driver is skipped
 - at-capacity driver is skipped
-- driver allow-list/store tie rules behave correctly
+- driver allow-list and store tie rules behave correctly
 - merchant-level fallback behavior behaves correctly
 - reject and timeout trigger reassignment correctly
 - one restaurant’s rates do not overwrite another’s rates
@@ -156,14 +170,14 @@ Checks:
 ## 7. Security Checklist
 
 - passwords are hashed in storage
-- session tokens are not stored in plain browser local storage for the mobile app; Flutter uses secure storage
-- web portals use authenticated sessions and not query-based long-term auth
+- web portals use HttpOnly cookie sessions
+- Flutter uses secure device storage
 - insecure password reset debug mode is off
 - admin API key fallback is off unless intentionally required
 - secrets are outside git
 - metrics endpoint is protected if exposed
 - CORS is allowlisted
-- browser portals load with security headers/CSP
+- browser portals load with security headers and CSP
 
 ## 8. Monitoring Checklist
 
@@ -173,6 +187,7 @@ Checks:
 - set alerting for auth failure spikes
 - define an owner for production alerts
 - verify webhook alert destination if enabled
+- verify CSP reporting destination if CSP reporting is enabled
 
 ## 9. Rollout Plan
 
@@ -182,17 +197,17 @@ Recommended rollout:
 2. Run staging database migrations.
 3. Test admin, merchant, restaurant, and driver flows end to end.
 4. Test with real Android devices.
-5. Test iPhone from macOS/Xcode.
+5. If iOS is in scope, test iPhone from macOS/Xcode.
 6. Create production merchants, stores, and staff accounts.
 7. Deploy production backend.
-8. Release mobile app build to internal users first.
+8. Release Android build to internal users first.
 9. Observe metrics and audit logs for the first live week.
 
 ## 10. Honest Readiness Decision
 
 You can reasonably call the system business-usable when all of these are true:
 
-- backend checks/tests are green
+- backend checks and tests are green
 - Postgres production config is in place
 - admin, merchant, and restaurant scopes all behave correctly
 - Android driver flow is verified on real devices

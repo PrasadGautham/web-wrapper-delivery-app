@@ -32,7 +32,10 @@ Implemented:
 - audit logs
 - rate limiting
 - metrics endpoint
+- CSP reporting endpoint
 - admin, merchant, and restaurant role separation
+- route-level auth regression coverage
+- browser E2E portal coverage
 
 ### Web Portals
 
@@ -42,8 +45,8 @@ Implemented:
 - merchant portal for franchise-wide visibility and store staff management
 - restaurant portal for store-scoped order operations
 - SSE-based realtime updates for restaurant and merchant views
-- session-authenticated access patterns
-- basic browser security headers and CSP from the backend
+- HttpOnly cookie session access patterns
+- backend security headers and CSP
 
 ### Flutter Driver App
 
@@ -94,7 +97,7 @@ If you scale horizontally, shared rate limiting should be enabled with `REDIS_UR
 
 ### 4. Monitoring And Alert Ownership
 
-The code now exposes metrics and alert hooks, but real readiness still depends on:
+The code now exposes metrics, CSP reporting, and alert hooks, but real readiness still depends on:
 
 - who receives alerts
 - where metrics are scraped
@@ -105,8 +108,8 @@ The code now exposes metrics and alert hooks, but real readiness still depends o
 
 Reasonable claim now:
 
-- strong pilot / controlled rollout
 - business-usable with staging validation and careful rollout
+- acceptable for an Android-only production release path once deployed with production envs and real-device Android validation
 
 Not yet reasonable claim without more runtime validation:
 
@@ -114,6 +117,7 @@ Not yet reasonable claim without more runtime validation:
 
 ## Use These Docs To Close The Remaining Gap
 
+- business feature walkthroughs and testing: [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
 - environment and secrets: [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
 - staged rollout and business checks: [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
 - deployment sequence: [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
@@ -124,6 +128,7 @@ Current verification commands are clean:
 
 - backend: `npm run check`
 - backend: `npm test`
+- backend: `npm run test:e2e:web`
 - backend: `npm run smoke:deploy`
 - Flutter: `flutter analyze`
 - Flutter: `flutter test`

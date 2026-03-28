@@ -22,7 +22,7 @@ Current state:
 - backend-driven FCM dispatch implemented
 - live driver location ingestion implemented
 - admin, merchant, and restaurant scoped web portals implemented
-- password reset, session rotation, rate limiting, audit logs, and metrics implemented
+- password reset, session rotation, rate limiting, audit logs, metrics, and CSP reporting implemented
 
 ### Flutter Driver App
 
@@ -43,6 +43,7 @@ Current state:
 - Merchant portal: `/merchant`
 - Restaurant portal: `/restaurant`
 - portals are served by the backend
+- browser portals use HttpOnly cookie sessions
 - restaurant and merchant portals use SSE for realtime updates
 
 ### iOS
@@ -69,6 +70,7 @@ See:
 
 These docs are now the intended source set:
 
+- [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md): business-facing feature list and role-by-role testing guide
 - [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md): local development and daily setup
 - [BACKEND.md](/c:/dev/DriverApp/docs/BACKEND.md): backend behavior, APIs, and backend portals
 - [SYSTEM_ARCHITECTURE.md](/c:/dev/DriverApp/docs/SYSTEM_ARCHITECTURE.md): architectural decisions and layering
@@ -86,6 +88,7 @@ Backend:
 cd C:\dev\DriverApp\backend
 npm run check
 npm test
+npm run test:e2e:web
 npm run smoke:deploy
 ```
 
@@ -107,6 +110,6 @@ C:\flutter\bin\flutter.bat test
 ## Current Honest Status
 
 - backend: strong pilot / early production shape
-- Android driver app: strong pilot / controlled rollout shape
+- Android driver app: acceptable production target for an Android-only rollout after deployment validation
 - web portals: strong pilot / early production shape
 - iOS: still requires macOS and real-device validation before claiming production readiness

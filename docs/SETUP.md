@@ -10,8 +10,9 @@ It covers:
 - Flutter driver app
 - local web portals
 
-For deployment and production env values, use:
+For business-facing feature walkthroughs, deployment, and production env values, use:
 
+- [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
 - [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
 - [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
 
@@ -159,6 +160,7 @@ Backend:
 cd C:\dev\DriverApp\backend
 npm run check
 npm test
+npm run test:e2e:web
 ```
 
 Flutter:
@@ -173,6 +175,7 @@ C:\flutter\bin\flutter.bat test
 
 This file intentionally does not duplicate:
 
+- business feature walkthroughs
 - deployment hosting steps
 - production env and secrets policy
 - full go-live business checklist
