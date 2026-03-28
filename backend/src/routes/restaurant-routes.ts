@@ -2,18 +2,18 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
+import {
+  AuthTransport,
+  clearWebSessionCookie,
+  isWebPortalRequest,
+  resolveAuthSession,
+  setWebSessionCookie,
+} from './session-auth.js';
 
 interface RestaurantAuthedRequest extends FastifyRequest {
   restaurantId: string;
   authToken: string;
-}
-
-function getBearerToken(request: FastifyRequest): string {
-  const header = request.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    throw new Error('Unauthorized');
-  }
-  return header.slice('Bearer '.length);
+  authTransport: AuthTransport;
 }
 
 export async function registerRestaurantRoutes(
@@ -33,10 +33,11 @@ export async function registerRestaurantRoutes(
     }
 
     try {
-      const token = getBearerToken(request);
-      const restaurant = await backendService.requireRestaurantFromToken(token);
+      const session = resolveAuthSession(request, 'restaurant');
+      const restaurant = await backendService.requireRestaurantFromToken(session.token);
       (request as RestaurantAuthedRequest).restaurantId = restaurant.id;
-      (request as RestaurantAuthedRequest).authToken = token;
+      (request as RestaurantAuthedRequest).authToken = session.token;
+      (request as RestaurantAuthedRequest).authTransport = session.transport;
     } catch {
       return reply.status(401).send({ message: 'Unauthorized' });
     }
@@ -50,6 +51,10 @@ export async function registerRestaurantRoutes(
 
     try {
       const result = await backendService.loginRestaurant(body.email, body.password);
+      if (isWebPortalRequest(request)) {
+        setWebSessionCookie(reply, 'restaurant', result.token);
+        return { restaurant: result.restaurant, sessionTransport: 'cookie' };
+      }
       return reply.send(result);
     } catch (error) {
       return reply.status(401).send({ message: (error as Error).message });
@@ -64,15 +69,23 @@ export async function registerRestaurantRoutes(
   app.post('/api/auth/restaurant/refresh', async (request, reply) => {
     const authedRequest = request as RestaurantAuthedRequest;
     try {
-      return await backendService.refreshSession(authedRequest.authToken, 'restaurant');
+      const refreshed = await backendService.refreshSession(authedRequest.authToken, 'restaurant');
+      if (authedRequest.authTransport === 'cookie' || isWebPortalRequest(request)) {
+        setWebSessionCookie(reply, 'restaurant', refreshed.token);
+        return { sessionTransport: 'cookie' };
+      }
+      return refreshed;
     } catch (error) {
       return reply.status(401).send({ message: (error as Error).message || 'Unauthorized' });
     }
   });
 
-  app.post('/api/auth/restaurant/logout', async (request) => {
+  app.post('/api/auth/restaurant/logout', async (request, reply) => {
     const authedRequest = request as RestaurantAuthedRequest;
     await backendService.logout(authedRequest.authToken);
+    if (authedRequest.authTransport === 'cookie' || isWebPortalRequest(request)) {
+      clearWebSessionCookie(reply, 'restaurant');
+    }
     return { ok: true };
   });
 
@@ -165,4 +178,3 @@ export async function registerRestaurantRoutes(
     return backendService.getRestaurantReport(authedRequest.restaurantId);
   });
 }
-

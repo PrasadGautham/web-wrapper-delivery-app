@@ -1,3 +1,4 @@
+import { runPortalAuthRoutesTests } from './portal-auth-routes.test.js';
 import { runBackendServiceTests } from './backend-service.test.js';
 import { runConfigTests } from './config.test.js';
 import { runDispatchServiceTests } from './dispatch-service.test.js';
@@ -9,6 +10,7 @@ const suites = [
   ['store-contexts', runStoreContextsTests],
   ['backend-service', runBackendServiceTests],
   ['dispatch-service', runDispatchServiceTests],
+  ['portal-auth-routes', runPortalAuthRoutesTests],
   ['postgres-integration', runPostgresIntegrationTests],
 ] as const;
 
@@ -27,3 +29,4 @@ for (const [name, suite] of suites) {
 if (failures > 0) {
   process.exit(1);
 }
+

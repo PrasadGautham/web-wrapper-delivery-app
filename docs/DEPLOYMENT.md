@@ -30,7 +30,7 @@ Recommended production shape:
 
 ## Required Environment Variables
 
-Use [backend/.env.example](/c:/dev/DriverApp/backend/.env.example) as the baseline.
+Use [backend/.env.example](/c:/dev/DriverApp/backend/.env.example) as the baseline. For production-style file-driven config you can also copy [backend/.env.production.example](/c:/dev/DriverApp/backend/.env.production.example) and start with ENV_FILE=.env.production.
 
 Production-critical:
 
@@ -143,3 +143,4 @@ You only need:
 - in-memory rate limiting is fine for one backend instance but not ideal for horizontally scaled abuse control; set `REDIS_URL` only when scale requires shared distributed limiting
 - background location handling still needs full iOS validation on macOS hardware; see `docs/IOS_BACKGROUND_VALIDATION.md`
 - the backend code is in much better shape now, but real production confidence still depends on the staged and live validation steps in [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
+

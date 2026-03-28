@@ -121,6 +121,10 @@ export async function buildApp(
   process.env.ALLOW_ADMIN_API_KEY_FALLBACK = String(config.allowAdminApiKeyFallback);
   process.env.FIREBASE_SERVICE_ACCOUNT_PATH = config.firebaseServiceAccountPath ?? '';
   process.env.GOOGLE_MAPS_API_KEY = config.googleMapsApiKey ?? '';
+  process.env.WEB_SESSION_COOKIE_SECURE = String(config.webSessionCookieSecure);
+  process.env.WEB_SESSION_COOKIE_DOMAIN = config.webSessionCookieDomain ?? '';
+  process.env.WEB_SESSION_COOKIE_SAME_SITE = config.webSessionCookieSameSite;
+  process.env.WEB_SESSION_COOKIE_MAX_AGE_SECONDS = String(config.webSessionCookieMaxAgeSeconds);
 
   const app = Fastify({ logger: true, trustProxy: true });
   const observability = new ObservabilityService();
@@ -267,6 +271,7 @@ export async function buildApp(
 
   return { app, backendService, observability };
 }
+
 
 
 

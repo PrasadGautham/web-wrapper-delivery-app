@@ -69,3 +69,6 @@ backend/.env
 backend/.env.local
 secrets/
 *.service-account.json
+backend/.env.production
+backend/.env.staging
+backend/.env.*.local

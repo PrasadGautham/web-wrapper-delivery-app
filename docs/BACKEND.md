@@ -56,6 +56,12 @@ Most important:
 - `GOOGLE_MAPS_API_KEY`
 - `REDIS_URL`
 
+## Web Session Model
+
+- Flutter driver app continues to use bearer tokens in secure device storage
+- /admin, /merchant, and /restaurant now use HttpOnly cookie sessions in browser mode
+- browser portals identify themselves with X-Portal-Client: web and never need to persist API tokens in localStorage`r
+
 ## Run Locally
 
 From `C:\dev\DriverApp\backend`:
@@ -185,3 +191,4 @@ npm run test:postgres
 - deployed environments should use Postgres
 - `REDIS_URL` is optional and only needed for shared rate limiting across multiple backend instances
 - the iOS mobile path still needs real macOS/Xcode validation before claiming full production readiness
+

@@ -1,7 +1,7 @@
 const apiBase = '';
-let token = localStorage.getItem('merchantToken') || '';
+let hasSession = false;
 let stream = null;
-let refreshingToken = null;
+let refreshingSession = null;
 let restaurants = [];
 
 const nodes = {
@@ -24,8 +24,7 @@ function currency(value) {
 }
 
 function clearSessionState(message = 'Merchant session expired. Please log in again.') {
-  token = '';
-  localStorage.removeItem('merchantToken');
+  hasSession = false;
   stopStream();
   restaurants = [];
   nodes.sessionStatus.textContent = message;
@@ -39,15 +38,21 @@ function setConnectionState(text, live) {
 }
 
 async function request(path, options = {}, attemptRefresh = true) {
-  const headers = { ...(options.headers || {}) };
+  const headers = {
+    'X-Portal-Client': 'web',
+    ...(options.headers || {}),
+  };
   if (options.body != null && !Object.prototype.hasOwnProperty.call(headers, 'Content-Type')) {
     headers['Content-Type'] = 'application/json';
   }
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const response = await fetch(`${apiBase}${path}`, { ...options, headers });
-  if (response.status === 401 && token && attemptRefresh && !path.includes('/api/auth/merchant/refresh')) {
+
+  const response = await fetch(`${apiBase}${path}`, {
+    ...options,
+    headers,
+    credentials: 'same-origin',
+  });
+
+  if (response.status === 401 && hasSession && attemptRefresh && !path.includes('/api/auth/merchant/refresh')) {
     try {
       await refreshSession();
     } catch {
@@ -56,34 +61,34 @@ async function request(path, options = {}, attemptRefresh = true) {
     }
     return request(path, options, false);
   }
+
   if (!response.ok) {
     const body = await response.json().catch(() => ({ message: 'Request failed' }));
     throw new Error(body.message || 'Request failed');
   }
+
   const text = await response.text();
   return text ? JSON.parse(text) : {};
 }
 
 async function refreshSession() {
-  if (!token) {
+  if (!hasSession) {
     throw new Error('No active session');
   }
-  if (!refreshingToken) {
-    refreshingToken = request('/api/auth/merchant/refresh', { method: 'POST' }, false)
-      .then((result) => {
-        token = result.token;
-        localStorage.setItem('merchantToken', token);
-        return token;
+  if (!refreshingSession) {
+    refreshingSession = request('/api/auth/merchant/refresh', { method: 'POST' }, false)
+      .then(() => {
+        hasSession = true;
       })
       .catch((error) => {
         clearSessionState();
         throw error;
       })
       .finally(() => {
-        refreshingToken = null;
+        refreshingSession = null;
       });
   }
-  return refreshingToken;
+  return refreshingSession;
 }
 
 function populateRestaurantSelect() {
@@ -118,7 +123,7 @@ function renderOrders(groups) {
 
 async function refreshStaffList() {
   const restaurantId = nodes.restaurantSelect.value;
-  if (!restaurantId || !token) {
+  if (!restaurantId || !hasSession) {
     nodes.staffList.innerHTML = '';
     return;
   }
@@ -133,7 +138,22 @@ async function refreshStaffList() {
 }
 
 async function refreshDashboard() {
-  if (!token) {
+  try {
+    const [profile, report, restaurantList, orderGroups] = await Promise.all([
+      request('/api/merchant/me/profile', {}, false),
+      request('/api/merchant/me/report', {}, false),
+      request('/api/merchant/me/restaurants', {}, false),
+      request('/api/merchant/me/orders', {}, false),
+    ]);
+    hasSession = true;
+    restaurants = restaurantList;
+    nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
+    populateRestaurantSelect();
+    renderRestaurantCards(orderGroups, report);
+    renderOrders(orderGroups);
+    await refreshStaffList();
+  } catch (error) {
+    hasSession = false;
     nodes.sessionStatus.textContent = 'Not logged in';
     nodes.restaurants.innerHTML = '<div class="muted">Login to load merchant stores.</div>';
     nodes.orders.innerHTML = '';
@@ -144,20 +164,8 @@ async function refreshDashboard() {
     nodes.statCharges.textContent = 'AED 0.00';
     nodes.restaurantSelect.innerHTML = '';
     setConnectionState('Waiting for merchant session.', false);
-    return;
+    throw error;
   }
-  const [profile, report, restaurantList, orderGroups] = await Promise.all([
-    request('/api/merchant/me/profile'),
-    request('/api/merchant/me/report'),
-    request('/api/merchant/me/restaurants'),
-    request('/api/merchant/me/orders'),
-  ]);
-  restaurants = restaurantList;
-  nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
-  populateRestaurantSelect();
-  renderRestaurantCards(orderGroups, report);
-  renderOrders(orderGroups);
-  await refreshStaffList();
 }
 
 function stopStream() {
@@ -169,7 +177,7 @@ function stopStream() {
 
 async function connectStream() {
   stopStream();
-  if (!token) {
+  if (!hasSession) {
     return;
   }
   try {
@@ -193,29 +201,27 @@ async function connectStream() {
 }
 
 async function login() {
-  const result = await request('/api/auth/merchant/login', {
+  await request('/api/auth/merchant/login', {
     method: 'POST',
     body: JSON.stringify({
       email: document.getElementById('email').value.trim(),
       password: document.getElementById('password').value.trim(),
     }),
   }, false);
-  token = result.token;
-  localStorage.setItem('merchantToken', token);
+  hasSession = true;
   await refreshDashboard();
   await connectStream();
 }
 
 async function logout() {
   try {
-    if (token) {
-      await request('/api/auth/merchant/logout', { method: 'POST' });
+    if (hasSession) {
+      await request('/api/auth/merchant/logout', { method: 'POST' }, false);
     }
   } finally {
-    token = '';
-    localStorage.removeItem('merchantToken');
+    hasSession = false;
     stopStream();
-    await refreshDashboard();
+    await refreshDashboard().catch(() => {});
   }
 }
 
@@ -236,18 +242,13 @@ async function createStaffUser() {
 
 document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => alert(error.message)));
 document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => alert(error.message)));
-document.getElementById('refreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => alert(error.message)));
+document.getElementById('refreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => { if (hasSession) alert(error.message); }));
 document.getElementById('createStaffBtn').addEventListener('click', () => createStaffUser().catch((error) => { nodes.staffStatus.textContent = error.message; }));
 document.getElementById('restaurantSelect').addEventListener('change', () => refreshStaffList().catch((error) => { nodes.staffStatus.textContent = error.message; }));
 
-refreshDashboard().catch((error) => console.error(error));
-if (token) {
-  connectStream().catch((error) => console.error(error));
-}
+refreshDashboard().then(() => connectStream()).catch(() => {});
 setInterval(() => {
-  if (token) {
+  if (hasSession) {
     refreshSession().catch(() => {});
   }
 }, 10 * 60 * 1000);
-
-

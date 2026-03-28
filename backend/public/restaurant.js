@@ -1,7 +1,7 @@
 const apiBase = '';
-let token = localStorage.getItem('restaurantToken') || '';
+let hasSession = false;
 let stream = null;
-let refreshingToken = null;
+let refreshingSession = null;
 
 const nodes = {
   sessionStatus: document.getElementById('sessionStatus'),
@@ -44,16 +44,20 @@ function formatMinutes(value) {
 }
 
 async function request(path, options = {}, attemptRefresh = true) {
-  const headers = { ...(options.headers || {}) };
+  const headers = {
+    'X-Portal-Client': 'web',
+    ...(options.headers || {}),
+  };
   if (options.body != null && !Object.prototype.hasOwnProperty.call(headers, 'Content-Type')) {
     headers['Content-Type'] = 'application/json';
   }
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  const response = await fetch(`${apiBase}${path}`, { ...options, headers });
+  const response = await fetch(`${apiBase}${path}`, {
+    ...options,
+    headers,
+    credentials: 'same-origin',
+  });
 
-  if (response.status === 401 && token && attemptRefresh && !path.includes('/auth/restaurant/refresh')) {
+  if (response.status === 401 && hasSession && attemptRefresh && !path.includes('/auth/restaurant/refresh')) {
     await refreshSession();
     return request(path, options, false);
   }
@@ -68,27 +72,24 @@ async function request(path, options = {}, attemptRefresh = true) {
 }
 
 async function refreshSession() {
-  if (!token) {
+  if (!hasSession) {
     throw new Error('No active session');
   }
-  if (!refreshingToken) {
-    refreshingToken = request('/api/auth/restaurant/refresh', { method: 'POST' }, false)
-      .then((result) => {
-        token = result.token;
-        localStorage.setItem('restaurantToken', token);
-        return token;
+  if (!refreshingSession) {
+    refreshingSession = request('/api/auth/restaurant/refresh', { method: 'POST' }, false)
+      .then(() => {
+        hasSession = true;
       })
       .catch((error) => {
-        token = '';
-        localStorage.removeItem('restaurantToken');
+        hasSession = false;
         stopStream();
         throw error;
       })
       .finally(() => {
-        refreshingToken = null;
+        refreshingSession = null;
       });
   }
-  return refreshingToken;
+  return refreshingSession;
 }
 
 function renderTrackingSettings(profile) {
@@ -150,27 +151,29 @@ function renderOrders(orders) {
 }
 
 async function refreshDashboard() {
-  if (!token) {
+  try {
+    const [profile, report, orders] = await Promise.all([
+      request('/api/restaurants/me/profile', {}, false),
+      request('/api/restaurants/me/report', {}, false),
+      request('/api/restaurants/me/orders', {}, false),
+    ]);
+
+    hasSession = true;
+    nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
+    nodes.statTotal.textContent = report.totalOrders;
+    nodes.statActive.textContent = report.activeOrders;
+    nodes.statPayout.textContent = currency(report.totalDriverPayout);
+    nodes.statCharges.textContent = currency(report.totalRestaurantCharges);
+    renderTrackingSettings(profile);
+    renderOrders(orders);
+  } catch (error) {
+    hasSession = false;
     nodes.sessionStatus.textContent = 'Not logged in';
     renderTrackingSettings(null);
     renderOrders([]);
     setConnectionState('Waiting for restaurant session.', false);
-    return;
+    throw error;
   }
-
-  const [profile, report, orders] = await Promise.all([
-    request('/api/restaurants/me/profile'),
-    request('/api/restaurants/me/report'),
-    request('/api/restaurants/me/orders'),
-  ]);
-
-  nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
-  nodes.statTotal.textContent = report.totalOrders;
-  nodes.statActive.textContent = report.activeOrders;
-  nodes.statPayout.textContent = currency(report.totalDriverPayout);
-  nodes.statCharges.textContent = currency(report.totalRestaurantCharges);
-  renderTrackingSettings(profile);
-  renderOrders(orders);
 }
 
 function stopStream() {
@@ -182,7 +185,7 @@ function stopStream() {
 
 async function connectStream() {
   stopStream();
-  if (!token) {
+  if (!hasSession) {
     return;
   }
 
@@ -215,29 +218,27 @@ async function connectStream() {
 }
 
 async function login() {
-  const result = await request('/api/auth/restaurant/login', {
+  await request('/api/auth/restaurant/login', {
     method: 'POST',
     body: JSON.stringify({
       email: document.getElementById('email').value.trim(),
       password: document.getElementById('password').value.trim(),
     }),
   }, false);
-  token = result.token;
-  localStorage.setItem('restaurantToken', token);
+  hasSession = true;
   await refreshDashboard();
   await connectStream();
 }
 
 async function logout() {
   try {
-    if (token) {
-      await request('/api/auth/restaurant/logout', { method: 'POST' });
+    if (hasSession) {
+      await request('/api/auth/restaurant/logout', { method: 'POST' }, false);
     }
   } finally {
-    token = '';
-    localStorage.removeItem('restaurantToken');
+    hasSession = false;
     stopStream();
-    await refreshDashboard();
+    await refreshDashboard().catch(() => {});
   }
 }
 
@@ -290,7 +291,7 @@ document.getElementById('createOrderBtn').addEventListener('click', () => {
   createOrder().catch((error) => alert(error.message));
 });
 document.getElementById('manualRefreshBtn').addEventListener('click', () => {
-  refreshDashboard().catch((error) => alert(error.message));
+  refreshDashboard().catch((error) => { if (hasSession) alert(error.message); });
 });
 document.getElementById('showResetBtn').addEventListener('click', () => {
   nodes.resetPanel.classList.toggle('hidden');
@@ -306,14 +307,9 @@ document.getElementById('confirmResetBtn').addEventListener('click', () => {
   });
 });
 
-refreshDashboard().catch((error) => console.error(error));
-if (token) {
-  connectStream().catch((error) => console.error(error));
-}
+refreshDashboard().then(() => connectStream()).catch(() => {});
 setInterval(() => {
-  if (token) {
+  if (hasSession) {
     refreshSession().catch(() => {});
   }
 }, 10 * 60 * 1000);
-
-

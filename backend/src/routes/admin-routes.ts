@@ -2,18 +2,18 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { DriverDispatchMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
 import { BackendService } from '../services/backend-service.js';
+import {
+  AuthTransport,
+  clearWebSessionCookie,
+  isWebPortalRequest,
+  resolveAuthSession,
+  setWebSessionCookie,
+} from './session-auth.js';
 
 interface AdminAuthedRequest extends FastifyRequest {
   adminUserId?: string;
   authToken?: string;
-}
-
-function getBearerToken(request: FastifyRequest): string {
-  const header = request.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    throw new Error('Unauthorized');
-  }
-  return header.slice('Bearer '.length);
+  authTransport?: AuthTransport;
 }
 
 function ensureAdminEnabled(): string {
@@ -73,10 +73,11 @@ export async function registerAdminRoutes(
     }
 
     try {
-      const token = getBearerToken(request);
-      const adminUser = await backendService.requireAdminFromToken(token);
+      const session = resolveAuthSession(request, 'admin');
+      const adminUser = await backendService.requireAdminFromToken(session.token);
       (request as AdminAuthedRequest).adminUserId = adminUser.id;
-      (request as AdminAuthedRequest).authToken = token;
+      (request as AdminAuthedRequest).authToken = session.token;
+      (request as AdminAuthedRequest).authTransport = session.transport;
     } catch {
       return reply.status(401).send({ message: 'Unauthorized' });
     }
@@ -89,7 +90,12 @@ export async function registerAdminRoutes(
     }
 
     try {
-      return await backendService.loginAdmin(body.email, body.password);
+      const result = await backendService.loginAdmin(body.email, body.password);
+      if (isWebPortalRequest(request)) {
+        setWebSessionCookie(reply, 'admin', result.token);
+        return { adminUser: result.adminUser, sessionTransport: 'cookie' };
+      }
+      return result;
     } catch (error) {
       return reply.status(401).send({ message: (error as Error).message });
     }
@@ -111,15 +117,23 @@ export async function registerAdminRoutes(
   app.post('/api/auth/admin/refresh', async (request, reply) => {
     const authedRequest = request as AdminAuthedRequest;
     try {
-      return await backendService.refreshSession(authedRequest.authToken as string, 'admin');
+      const refreshed = await backendService.refreshSession(authedRequest.authToken as string, 'admin');
+      if (authedRequest.authTransport === 'cookie' || isWebPortalRequest(request)) {
+        setWebSessionCookie(reply, 'admin', refreshed.token);
+        return { sessionTransport: 'cookie' };
+      }
+      return refreshed;
     } catch (error) {
       return reply.status(401).send({ message: (error as Error).message || 'Unauthorized' });
     }
   });
 
-  app.post('/api/auth/admin/logout', async (request) => {
+  app.post('/api/auth/admin/logout', async (request, reply) => {
     const authedRequest = request as AdminAuthedRequest;
     await backendService.logout(authedRequest.authToken as string);
+    if (authedRequest.authTransport === 'cookie' || isWebPortalRequest(request)) {
+      clearWebSessionCookie(reply, 'admin');
+    }
     return { ok: true };
   });
 
@@ -298,4 +312,3 @@ export async function registerAdminRoutes(
     }
   });
 }
-

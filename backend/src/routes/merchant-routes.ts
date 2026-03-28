@@ -3,18 +3,18 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 import { RestaurantStaffRole } from '../domain/models.js';
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
+import {
+  AuthTransport,
+  clearWebSessionCookie,
+  isWebPortalRequest,
+  resolveAuthSession,
+  setWebSessionCookie,
+} from './session-auth.js';
 
 interface MerchantAuthedRequest extends FastifyRequest {
   merchantId: string;
   authToken: string;
-}
-
-function getBearerToken(request: FastifyRequest): string {
-  const header = request.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    throw new Error('Unauthorized');
-  }
-  return header.slice('Bearer '.length);
+  authTransport: AuthTransport;
 }
 
 function isRestaurantStaffRole(value: unknown): value is RestaurantStaffRole {
@@ -38,10 +38,11 @@ export async function registerMerchantRoutes(
     }
 
     try {
-      const token = getBearerToken(request);
-      const merchant = await backendService.requireMerchantFromToken(token);
+      const session = resolveAuthSession(request, 'merchant');
+      const merchant = await backendService.requireMerchantFromToken(session.token);
       (request as MerchantAuthedRequest).merchantId = merchant.id;
-      (request as MerchantAuthedRequest).authToken = token;
+      (request as MerchantAuthedRequest).authToken = session.token;
+      (request as MerchantAuthedRequest).authTransport = session.transport;
     } catch {
       return reply.status(401).send({ message: 'Unauthorized' });
     }
@@ -54,7 +55,12 @@ export async function registerMerchantRoutes(
     }
 
     try {
-      return await backendService.loginMerchant(body.email, body.password);
+      const result = await backendService.loginMerchant(body.email, body.password);
+      if (isWebPortalRequest(request)) {
+        setWebSessionCookie(reply, 'merchant', result.token);
+        return { merchant: result.merchant, sessionTransport: 'cookie' };
+      }
+      return result;
     } catch (error) {
       return reply.status(401).send({ message: (error as Error).message });
     }
@@ -68,15 +74,23 @@ export async function registerMerchantRoutes(
   app.post('/api/auth/merchant/refresh', async (request, reply) => {
     const authedRequest = request as MerchantAuthedRequest;
     try {
-      return await backendService.refreshSession(authedRequest.authToken, 'merchant');
+      const refreshed = await backendService.refreshSession(authedRequest.authToken, 'merchant');
+      if (authedRequest.authTransport === 'cookie' || isWebPortalRequest(request)) {
+        setWebSessionCookie(reply, 'merchant', refreshed.token);
+        return { sessionTransport: 'cookie' };
+      }
+      return refreshed;
     } catch (error) {
       return reply.status(401).send({ message: (error as Error).message || 'Unauthorized' });
     }
   });
 
-  app.post('/api/auth/merchant/logout', async (request) => {
+  app.post('/api/auth/merchant/logout', async (request, reply) => {
     const authedRequest = request as MerchantAuthedRequest;
     await backendService.logout(authedRequest.authToken);
+    if (authedRequest.authTransport === 'cookie' || isWebPortalRequest(request)) {
+      clearWebSessionCookie(reply, 'merchant');
+    }
     return { ok: true };
   });
 
@@ -187,4 +201,3 @@ export async function registerMerchantRoutes(
     }
   });
 }
-

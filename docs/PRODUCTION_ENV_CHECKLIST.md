@@ -67,7 +67,26 @@ Recommended production rule:
 - treat `FIREBASE_SERVICE_ACCOUNT_PATH` as a mounted secret file path
 - treat all other secrets as injected env vars
 
-## 3. Web Portal Origin Allowlist
+## 3. Web Session Cookies
+
+Production browser portals now use HttpOnly cookie sessions instead of storing bearer tokens in localStorage.
+
+Recommended production values:
+
+`	ext
+WEB_SESSION_COOKIE_SECURE=true
+WEB_SESSION_COOKIE_SAME_SITE=Strict
+WEB_SESSION_COOKIE_DOMAIN=.example.com
+WEB_SESSION_COOKIE_MAX_AGE_SECONDS=43200
+` 
+
+Notes:
+
+- WEB_SESSION_COOKIE_SAME_SITE=None requires WEB_SESSION_COOKIE_SECURE=true`r
+- keep browser portals on HTTPS in production
+- Flutter mobile auth is unchanged and continues to use bearer tokens on device
+
+## 4. Web Portal Origin Allowlist
 
 Set `ALLOWED_WEB_ORIGINS` to the exact browser origins that should be allowed to call the backend.
 
@@ -79,7 +98,7 @@ ALLOWED_WEB_ORIGINS=https://ops.example.com,https://merchant.example.com,https:/
 
 If the portals are served from the same backend origin, you can leave this empty in some deployments, but do not use broad permissive CORS in production.
 
-## 4. Metrics Protection
+## 5. Metrics Protection
 
 If `/api/metrics` will be exposed outside a private network, set:
 
@@ -91,7 +110,7 @@ Then scrape with header:
 
 - `x-metrics-key: <METRICS_API_KEY>`
 
-## 5. Admin Access Policy
+## 6. Admin Access Policy
 
 Production recommendation:
 
@@ -106,7 +125,7 @@ Meaning:
 
 Only set `ALLOW_ADMIN_API_KEY_FALLBACK=true` if you intentionally want that fallback and can protect it operationally.
 
-## 6. Database Requirements
+## 7. Database Requirements
 
 Production should use Postgres only.
 
@@ -129,7 +148,7 @@ npm run check
 npm test
 ```
 
-## 7. Firebase / Push Setup
+## 8. Firebase / Push Setup
 
 Backend:
 
@@ -143,7 +162,7 @@ iOS driver app:
 
 - `ios/Runner/GoogleService-Info.plist` must exist and iOS native setup must be validated on macOS
 
-## 8. Google Routes / ETA Setup
+## 9. Google Routes / ETA Setup
 
 If traffic-aware ETA is needed:
 
@@ -156,7 +175,7 @@ Recommended use at current scale:
 - restaurant ETA display only
 - not dispatch ranking
 
-## 9. SMTP / Password Reset Setup
+## 10. SMTP / Password Reset Setup
 
 SMTP is used for:
 
@@ -179,7 +198,7 @@ Do not enable insecure debug reset token response in production:
 ALLOW_INSECURE_PASSWORD_RESET_TOKEN_RESPONSE=false
 ```
 
-## 10. Flutter Driver App Environment
+## 11. Flutter Driver App Environment
 
 Current driver app backend base URL lives in [app_config.dart](/c:/dev/DriverApp/lib/core/config/app_config.dart).
 
@@ -200,7 +219,7 @@ Production expectation:
 - no local loopback URLs in release builds
 - HTTPS backend URL only
 
-## 11. Mobile App Release Prerequisites
+## 12. Mobile App Release Prerequisites
 
 Android:
 
@@ -216,7 +235,7 @@ iOS:
 - APNs / Firebase iOS push path validated
 - release signing and provisioning profiles configured
 
-## 12. Web Portal Release Prerequisites
+## 13. Web Portal Release Prerequisites
 
 For `/admin`, `/merchant`, `/restaurant`:
 
@@ -231,7 +250,7 @@ Expected scopes:
 - merchant: all restaurants under that merchant only
 - restaurant/store staff: one restaurant only
 
-## 13. Pre-Release Validation Commands
+## 14. Pre-Release Validation Commands
 
 Backend:
 
@@ -257,7 +276,7 @@ cd C:\dev\DriverApp\backend
 npm run test:postgres
 ```
 
-## 14. Final Production Env Sanity Rules
+## 15. Final Production Env Sanity Rules
 
 - use HTTPS for every browser/mobile production endpoint
 - use Postgres, not file storage
@@ -267,3 +286,4 @@ npm run test:postgres
 - use explicit allowed origins
 - store secrets outside git
 - use separate staging and production values
+
