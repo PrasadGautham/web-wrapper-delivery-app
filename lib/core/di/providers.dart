@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -20,9 +22,10 @@ import '../../features/authentication/application/auth_controller.dart';
 import '../../features/dashboard/application/dashboard_controller.dart';
 import '../../features/orders/application/order_controller.dart';
 import '../../routes/app_router.dart';
-import '../../services/api/mock_api_client.dart';
+import '../../services/api/backend_api_client.dart';
 import '../../services/audio/looping_alert_player.dart';
 import '../../services/firebase/fcm_service.dart';
+import '../../services/location/driver_location_sync_service.dart';
 import '../../services/location/mock_location_service.dart';
 
 final loggerProvider = Provider<Logger>((ref) => Logger());
@@ -35,22 +38,33 @@ final loopingAlertPlayerProvider = Provider<LoopingAlertPlayer>((ref) {
 });
 final secureStorageProvider =
     Provider<FlutterSecureStorage>((ref) => const FlutterSecureStorage());
-final mockApiClientProvider = Provider<MockApiClient>((ref) {
-  final client = MockApiClient();
+final backendApiClientProvider = Provider<BackendApiClient>((ref) {
+  final client = BackendApiClient();
   ref.onDispose(() {
     client.dispose();
   });
   return client;
 });
 
+final driverLocationSyncServiceProvider = Provider<DriverLocationSyncService>((ref) {
+  final service = DriverLocationSyncService(
+    ref.watch(backendApiClientProvider),
+    ref.watch(loggerProvider),
+  );
+  ref.onDispose(() {
+    service.dispose();
+  });
+  return service;
+});
+
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepositoryImpl(ref.watch(mockApiClientProvider), ref.watch(secureStorageProvider)),
+  (ref) => AuthRepositoryImpl(ref.watch(backendApiClientProvider), ref.watch(secureStorageProvider)),
 );
 final orderRepositoryProvider = Provider<OrderRepository>(
-  (ref) => OrderRepositoryImpl(ref.watch(mockApiClientProvider)),
+  (ref) => OrderRepositoryImpl(ref.watch(backendApiClientProvider)),
 );
 final driverRepositoryProvider = Provider<DriverRepository>(
-  (ref) => DriverRepositoryImpl(ref.watch(mockApiClientProvider)),
+  (ref) => DriverRepositoryImpl(ref.watch(backendApiClientProvider)),
 );
 final locationRepositoryProvider = Provider<LocationRepository>(
   (ref) => const MockLocationService(),
@@ -75,6 +89,12 @@ final restoreSessionUseCaseProvider = Provider<RestoreSessionUseCase>(
 );
 final logoutUseCaseProvider =
     Provider<LogoutUseCase>((ref) => LogoutUseCase(ref.watch(authRepositoryProvider)));
+final requestPasswordResetUseCaseProvider = Provider<RequestPasswordResetUseCase>(
+  (ref) => RequestPasswordResetUseCase(ref.watch(authRepositoryProvider)),
+);
+final confirmPasswordResetUseCaseProvider = Provider<ConfirmPasswordResetUseCase>(
+  (ref) => ConfirmPasswordResetUseCase(ref.watch(authRepositoryProvider)),
+);
 final watchDriverUseCaseProvider = Provider<WatchDriverUseCase>(
   (ref) => WatchDriverUseCase(ref.watch(driverRepositoryProvider)),
 );
@@ -123,6 +143,8 @@ final authControllerProvider =
     ref.watch(loginUseCaseProvider),
     ref.watch(restoreSessionUseCaseProvider),
     ref.watch(logoutUseCaseProvider),
+    ref.watch(requestPasswordResetUseCaseProvider),
+    ref.watch(confirmPasswordResetUseCaseProvider),
   );
 });
 
@@ -169,9 +191,40 @@ class AppStartup {
     if (_initialized) {
       return;
     }
+    _ref.read(backendApiClientProvider).configureAuthLifecycle(
+      onSessionExpired: () => _ref.read(authControllerProvider.notifier).clearSession(),
+    );
     await _ref.read(authControllerProvider.notifier).restoreSession();
     _ref.read(dashboardControllerProvider.notifier).initialize();
     _ref.read(orderControllerProvider.notifier).initialize();
+    _setupLocationSync();
     _initialized = true;
   }
+
+  void _setupLocationSync() {
+    Future<void> syncLocation() {
+      final auth = _ref.read(authControllerProvider);
+      final dashboard = _ref.read(dashboardControllerProvider);
+      final orders = _ref.read(orderControllerProvider);
+      return _ref.read(driverLocationSyncServiceProvider).sync(
+        isAuthenticated: auth.isAuthenticated,
+        shouldTrack: (dashboard.driver?.isOnline ?? false) || orders.activeOrder != null,
+        highFrequencyMode: orders.activeOrder != null,
+      );
+    }
+
+    _ref.listen<AuthState>(authControllerProvider, (_, __) {
+      unawaited(syncLocation());
+    });
+    _ref.listen<DashboardState>(dashboardControllerProvider, (_, __) {
+      unawaited(syncLocation());
+    });
+    _ref.listen<OrderState>(orderControllerProvider, (_, __) {
+      unawaited(syncLocation());
+    });
+    unawaited(syncLocation());
+  }
 }
+
+
+

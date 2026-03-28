@@ -1,12 +1,12 @@
 import '../../domain/entities/order.dart';
 import '../../domain/repositories/order_repository.dart';
-import '../../services/api/mock_api_client.dart';
+import '../../services/api/backend_api_client.dart';
 import '../models/order_model.dart';
 
 class OrderRepositoryImpl implements OrderRepository {
   OrderRepositoryImpl(this._apiClient);
 
-  final MockApiClient _apiClient;
+  final BackendApiClient _apiClient;
 
   @override
   Future<Order> acceptOrder(String orderId) async {
@@ -51,11 +51,21 @@ class OrderRepositoryImpl implements OrderRepository {
 
   @override
   Stream<Order?> watchActiveOrder() {
-    return _apiClient.watchActiveOrder().map((event) => event?.toEntity());
+    return _apiClient.watchActiveOrder().map((event) {
+      if (event == null) {
+        return null;
+      }
+      return OrderModel.fromJson(event).toEntity();
+    });
   }
 
   @override
   Stream<Order?> watchIncomingOrder() {
-    return _apiClient.watchIncomingOrder().map((event) => event?.toEntity());
+    return _apiClient.watchIncomingOrder().map((event) {
+      if (event == null) {
+        return null;
+      }
+      return OrderModel.fromJson(event).toEntity();
+    });
   }
 }

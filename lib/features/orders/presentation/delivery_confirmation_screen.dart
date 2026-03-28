@@ -54,6 +54,8 @@ class DeliveryConfirmationScreen extends ConsumerWidget {
             icon: Icons.check_circle_outline,
             onPressed: () async {
               await ref.read(orderControllerProvider.notifier).deliver();
+              await ref.read(backendApiClientProvider).refreshState();
+              await ref.read(dashboardControllerProvider.notifier).refresh();
               if (context.mounted) {
                 context.go('/home');
               }

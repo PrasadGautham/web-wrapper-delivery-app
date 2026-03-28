@@ -59,3 +59,13 @@ ios/Runner/GoogleService-Info.plist
 android/key.properties
 *.jks
 *.keystore
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/dist-test/
+backend/data/db.json
+backend/.env
+backend/.env.local
+secrets/
+*.service-account.json

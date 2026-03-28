@@ -16,12 +16,19 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController(text: AppConstants.demoEmail);
   final _passwordController = TextEditingController(text: AppConstants.demoPassword);
+  final _resetEmailController = TextEditingController(text: AppConstants.demoEmail);
+  final _resetTokenController = TextEditingController();
+  final _newPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _showReset = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _resetEmailController.dispose();
+    _resetTokenController.dispose();
+    _newPasswordController.dispose();
     super.dispose();
   }
 
@@ -44,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
+                constraints: const BoxConstraints(maxWidth: 460),
                 child: Card(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
@@ -61,7 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Use the demo credentials to access the driver dashboard.',
+                            'Use the driver account credentials or request a password reset from this screen.',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           const SizedBox(height: 24),
@@ -80,11 +87,77 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             validator: (value) =>
                                 value != null && value.length >= 8 ? null : 'Minimum 8 characters',
                           ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              onPressed: () => setState(() => _showReset = !_showReset),
+                              child: Text(_showReset ? 'Hide recovery tools' : 'Forgot password?'),
+                            ),
+                          ),
+                          if (_showReset) ...[
+                            const Divider(height: 24),
+                            Text(
+                              'Password Recovery',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _resetEmailController,
+                              decoration: const InputDecoration(labelText: 'Account email'),
+                            ),
+                            const SizedBox(height: 12),
+                            PrimaryButton(
+                              label: 'Request reset',
+                              icon: Icons.mail_outline,
+                              isLoading: authState.isLoading,
+                              onPressed: () {
+                                ref
+                                    .read(authControllerProvider.notifier)
+                                    .requestPasswordReset(_resetEmailController.text.trim());
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _resetTokenController,
+                              decoration: const InputDecoration(labelText: 'Reset token'),
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _newPasswordController,
+                              decoration: const InputDecoration(
+                                labelText: 'New password',
+                                helperText: 'At least 10 chars with upper, lower, and number',
+                              ),
+                              obscureText: true,
+                            ),
+                            const SizedBox(height: 12),
+                            PrimaryButton(
+                              label: 'Confirm reset',
+                              icon: Icons.lock_reset,
+                              isLoading: authState.isLoading,
+                              onPressed: () {
+                                ref.read(authControllerProvider.notifier).confirmPasswordReset(
+                                      token: _resetTokenController.text.trim(),
+                                      newPassword: _newPasswordController.text,
+                                    );
+                              },
+                            ),
+                          ],
                           if (authState.errorMessage != null) ...[
                             const SizedBox(height: 16),
                             Text(
                               authState.errorMessage!,
                               style: TextStyle(color: Theme.of(context).colorScheme.error),
+                            ),
+                          ],
+                          if (authState.infoMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              authState.infoMessage!,
+                              style: TextStyle(color: Theme.of(context).colorScheme.primary),
                             ),
                           ],
                           const SizedBox(height: 24),

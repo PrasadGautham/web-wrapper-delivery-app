@@ -26,3 +26,21 @@ class LogoutUseCase {
 
   Future<void> call() => _repository.logout();
 }
+
+class RequestPasswordResetUseCase {
+  const RequestPasswordResetUseCase(this._repository);
+
+  final AuthRepository _repository;
+
+  Future<void> call(String email) => _repository.requestPasswordReset(email);
+}
+
+class ConfirmPasswordResetUseCase {
+  const ConfirmPasswordResetUseCase(this._repository);
+
+  final AuthRepository _repository;
+
+  Future<void> call({required String token, required String newPassword}) {
+    return _repository.confirmPasswordReset(token: token, newPassword: newPassword);
+  }
+}

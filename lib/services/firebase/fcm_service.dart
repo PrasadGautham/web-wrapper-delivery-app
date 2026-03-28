@@ -27,6 +27,8 @@ class FcmService {
 
   Future<void> initialize({
     required void Function(String route, Map<String, String> payload) onRouteRequest,
+    required Future<void> Function(Map<String, String> payload) onIncomingOrderSignal,
+    required Future<void> Function(String token) onTokenAvailable,
   }) async {
     if (_initialized) {
       return;
@@ -45,27 +47,32 @@ class FcmService {
       );
       _token = await FirebaseMessaging.instance.getToken();
       _logger.i('FCM token: $_token');
+      if (_token != null) {
+        await onTokenAvailable(_token!);
+      }
 
-      FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+      FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
         _token = token;
         _logger.i('FCM token refreshed: $token');
+        await onTokenAvailable(token);
       });
 
       FirebaseMessaging.onMessage.listen((message) async {
         final data = message.data.map((key, value) => MapEntry(key, '$value'));
-        await showIncomingOrder(
-          AppNotification(
-            title: message.notification?.title ?? 'Incoming order',
-            body: message.notification?.body ?? 'A new delivery request arrived.',
-            route: data['route'] ?? '/incoming-order',
-            payload: data,
-          ),
-        );
+        await onIncomingOrderSignal(data);
       });
-      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      FirebaseMessaging.onMessageOpenedApp.listen((message) async {
         final data = message.data.map((key, value) => MapEntry(key, '$value'));
+        await onIncomingOrderSignal(data);
         onRouteRequest(data['route'] ?? '/incoming-order', data);
       });
+
+      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        final data = initialMessage.data.map((key, value) => MapEntry(key, '$value'));
+        await onIncomingOrderSignal(data);
+        onRouteRequest(data['route'] ?? '/incoming-order', data);
+      }
     } else {
       _logger.i('Firebase not configured. Notifications run in mock mode.');
     }
@@ -122,33 +129,29 @@ class FcmService {
     }
 
     await _localNotifications.show(
-        notification.hashCode,
-        notification.title,
-        notification.body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            AppConstants.notificationChannelId,
-            AppConstants.notificationChannelName,
-            importance: Importance.max,
-            priority: Priority.high,
-            playSound: false,
-            enableVibration: true,
-          ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: false,
-          ),
+      notification.hashCode,
+      notification.title,
+      notification.body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          AppConstants.notificationChannelId,
+          AppConstants.notificationChannelName,
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: false,
+          enableVibration: true,
         ),
-        payload: notification.route,
-      );
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: false,
+        ),
+      ),
+      payload: notification.route,
+    );
   }
 
-  Future<void> startIncomingOrderAlert() {
-    return _loopingAlertPlayer.start();
-  }
+  Future<void> startIncomingOrderAlert() => _loopingAlertPlayer.start();
 
-  Future<void> stopIncomingOrderAlert() {
-    return _loopingAlertPlayer.stop();
-  }
+  Future<void> stopIncomingOrderAlert() => _loopingAlertPlayer.stop();
 }

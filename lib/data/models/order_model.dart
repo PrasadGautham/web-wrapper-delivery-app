@@ -13,7 +13,7 @@ class OrderModel {
       estimatedMinutes: json['estimatedMinutes'] as int,
       tripEarnings: (json['tripEarnings'] as num).toDouble(),
       createdAt: json['createdAt'] as String,
-      expiresAt: json['expiresAt'] as String,
+      expiresAt: json['expiresAt'] as String?,
     );
   }
 
@@ -41,7 +41,7 @@ class OrderModel {
   final int estimatedMinutes;
   final double tripEarnings;
   final String createdAt;
-  final String expiresAt;
+  final String? expiresAt;
 
   Order toEntity() {
     return Order(
@@ -55,7 +55,7 @@ class OrderModel {
       estimatedMinutes: estimatedMinutes,
       tripEarnings: tripEarnings,
       createdAt: DateTime.parse(createdAt),
-      expiresAt: DateTime.parse(expiresAt),
+      expiresAt: expiresAt == null ? null : DateTime.parse(expiresAt!),
     );
   }
 

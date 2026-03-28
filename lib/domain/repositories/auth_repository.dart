@@ -9,4 +9,9 @@ abstract class AuthRepository {
   Future<Driver?> restoreSession();
   Future<void> logout();
   Future<String?> getToken();
+  Future<void> requestPasswordReset(String email);
+  Future<void> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  });
 }

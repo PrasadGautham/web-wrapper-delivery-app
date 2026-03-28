@@ -59,6 +59,10 @@ class MockApiClient {
       completedOrders: _driver.completedOrders,
       totalDistanceKm: _driver.totalDistanceKm,
       isOnline: isOnline,
+      currentLocation: _driver.currentLocation,
+      maxActiveOrders: _driver.maxActiveOrders,
+      currentLoad: _driver.currentLoad,
+      locationFreshness: _driver.locationFreshness,
     );
     _driverController.add(_driver);
     if (isOnline) {
@@ -123,6 +127,10 @@ class MockApiClient {
       completedOrders: _driver.completedOrders + 1,
       totalDistanceKm: _driver.totalDistanceKm + 6.5,
       isOnline: _driver.isOnline,
+      currentLocation: _driver.currentLocation,
+      maxActiveOrders: _driver.maxActiveOrders,
+      currentLoad: _driver.currentLoad,
+      locationFreshness: _driver.locationFreshness,
     );
     _driverController.add(_driver);
     _scheduleNextOrder(force: true);
@@ -191,7 +199,7 @@ class MockApiClient {
       estimatedMinutes: source.estimatedMinutes,
       tripEarnings: source.tripEarnings,
       createdAt: (createdAt ?? DateTime.parse(source.createdAt)).toUtc().toIso8601String(),
-      expiresAt: (expiresAt ?? DateTime.parse(source.expiresAt)).toUtc().toIso8601String(),
+      expiresAt: (expiresAt ?? (source.expiresAt == null ? null : DateTime.parse(source.expiresAt!)))?.toUtc().toIso8601String(),
     );
   }
 

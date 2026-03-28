@@ -15,6 +15,7 @@ class AuthState {
     this.driver,
     this.token,
     this.errorMessage,
+    this.infoMessage,
   });
 
   final bool isLoading;
@@ -22,6 +23,7 @@ class AuthState {
   final Driver? driver;
   final String? token;
   final String? errorMessage;
+  final String? infoMessage;
 
   AuthState copyWith({
     bool? isLoading,
@@ -29,7 +31,9 @@ class AuthState {
     Driver? driver,
     String? token,
     String? errorMessage,
+    String? infoMessage,
     bool clearError = false,
+    bool clearInfo = false,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
@@ -37,20 +41,28 @@ class AuthState {
       driver: driver ?? this.driver,
       token: token ?? this.token,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      infoMessage: clearInfo ? null : infoMessage ?? this.infoMessage,
     );
   }
 }
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._loginUseCase, this._restoreSessionUseCase, this._logoutUseCase)
-      : super(AuthState.initial());
+  AuthController(
+    this._loginUseCase,
+    this._restoreSessionUseCase,
+    this._logoutUseCase,
+    this._requestPasswordResetUseCase,
+    this._confirmPasswordResetUseCase,
+  ) : super(AuthState.initial());
 
   final LoginUseCase _loginUseCase;
   final RestoreSessionUseCase _restoreSessionUseCase;
   final LogoutUseCase _logoutUseCase;
+  final RequestPasswordResetUseCase _requestPasswordResetUseCase;
+  final ConfirmPasswordResetUseCase _confirmPasswordResetUseCase;
 
   Future<void> login(String email, String password) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(isLoading: true, clearError: true, clearInfo: true);
     try {
       final (driver, token) = await _loginUseCase(email, password);
       state = state.copyWith(
@@ -59,6 +71,7 @@ class AuthController extends StateNotifier<AuthState> {
         driver: driver,
         token: token,
         clearError: true,
+        clearInfo: true,
       );
     } catch (error) {
       state = state.copyWith(
@@ -70,7 +83,7 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> restoreSession() async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(isLoading: true, clearError: true, clearInfo: true);
     final driver = await _restoreSessionUseCase();
     state = state.copyWith(
       isLoading: false,
@@ -82,5 +95,43 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> logout() async {
     await _logoutUseCase();
     state = AuthState.initial();
+  }
+
+  void clearSession() {
+    state = AuthState.initial();
+  }
+
+  Future<void> requestPasswordReset(String email) async {
+    state = state.copyWith(isLoading: true, clearError: true, clearInfo: true);
+    try {
+      await _requestPasswordResetUseCase(email);
+      state = state.copyWith(
+        isLoading: false,
+        infoMessage: 'Password reset instructions requested. Check your email if delivery is configured.',
+        clearError: true,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: error.toString(),
+      );
+    }
+  }
+
+  Future<void> confirmPasswordReset({required String token, required String newPassword}) async {
+    state = state.copyWith(isLoading: true, clearError: true, clearInfo: true);
+    try {
+      await _confirmPasswordResetUseCase(token: token, newPassword: newPassword);
+      state = state.copyWith(
+        isLoading: false,
+        infoMessage: 'Password reset complete. Log in with the new password.',
+        clearError: true,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: error.toString(),
+      );
+    }
   }
 }

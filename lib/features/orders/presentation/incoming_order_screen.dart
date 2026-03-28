@@ -91,8 +91,8 @@ class IncomingOrderScreen extends ConsumerWidget {
                   label: l10n.text('accept'),
                   icon: Icons.check_circle_outline,
                   onPressed: () async {
-                    await ref.read(orderControllerProvider.notifier).accept();
-                    if (context.mounted) {
+                    final accepted = await ref.read(orderControllerProvider.notifier).accept();
+                    if (accepted && context.mounted) {
                       context.go('/navigation');
                     }
                   },

@@ -1,181 +1,181 @@
-# Driver App Setup Guide
+# Setup Guide
 
-## 1. Install Flutter
+## Purpose
 
-1. Download the latest stable Flutter SDK from the official site.
-2. Extract it to a permanent folder.
-3. Add Flutter to your system `PATH`.
-4. Run `flutter doctor`.
-5. Install the missing dependencies shown by `flutter doctor`.
+This guide is for local development and day-to-day setup of the current system in `C:\dev\DriverApp`.
 
-Official guide: https://docs.flutter.dev/get-started/install
+It covers:
 
-## 2. Create platform folders if needed
+- backend
+- Flutter driver app
+- local web portals
 
-If the project only contains Dart source files, run:
+For deployment and production env values, use:
 
-```bash
-flutter create .
-```
+- [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
+- [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
 
-This generates Android, iOS, web, macOS, Windows, and Linux runner folders.
+## 1. Prerequisites
 
-## 3. Install packages
+Install locally:
 
-```bash
-flutter pub get
-```
+- Flutter stable
+- Android Studio and Android SDK
+- Node.js LTS
+- npm
+- PostgreSQL if you want to use Postgres locally
+- Xcode only if you are working on iOS from macOS
 
-## 3.1 Windows developer mode
+Windows note:
 
-If you are running Flutter on Windows, enable Developer Mode before building. Plugin-based projects use symlinks.
+- enable Developer Mode so Flutter plugin symlinks work correctly
 
 ```powershell
 start ms-settings:developers
 ```
 
-Then enable `Developer Mode` in Windows Settings.
+## 2. Working Folder
 
-## 4. Run on Android
-
-1. Install Android Studio.
-2. Open Android Studio and install the Android SDK.
-3. Create or start an Android emulator.
-4. From the project folder run:
-
-```bash
-flutter run -d android
-```
-
-## 5. Run on iOS
-
-1. Use macOS with Xcode installed.
-2. Open Xcode once and accept all license prompts.
-3. Install CocoaPods if needed.
-4. Start an iOS simulator.
-5. Run:
-
-```bash
-flutter run -d ios
-```
-
-## 6. Configure Firebase
-
-### FlutterFire CLI
-
-1. Install:
-
-```bash
-dart pub global activate flutterfire_cli
-```
-
-2. Log in:
-
-```bash
-firebase login
-```
-
-3. Configure:
-
-```bash
-flutterfire configure
-```
-
-4. Replace the placeholder file logic in [lib/services/firebase/firebase_bootstrap_options.dart](/c:/dev/DriverApp/lib/services/firebase/firebase_bootstrap_options.dart) with the generated `firebase_options.dart`.
-
-### Android Firebase steps
-
-1. Download `google-services.json` from Firebase.
-2. Place it in `android/app/`.
-3. Add the Google services Gradle plugin if `flutterfire configure` did not already add it.
-4. Put your custom notification sound in:
+Use only:
 
 ```text
-android/app/src/main/res/raw/order_alert.mp3
+C:\dev\DriverApp
 ```
 
-### iOS Firebase steps
+Do not build or edit from the old OneDrive copy.
 
-1. Download `GoogleService-Info.plist`.
-2. Add it to `ios/Runner/` via Xcode.
-3. Enable Push Notifications capability.
-4. Enable Background Modes > Remote notifications.
-5. Put your custom sound file in the iOS Runner target bundle.
+## 3. Backend Local Setup
 
-## 7. Google Maps setup
+From [backend](/c:/dev/DriverApp/backend):
 
-The current driver app uses external Google Maps deep links for navigation and does not embed Google Maps SDK views.
+```powershell
+cd C:\dev\DriverApp\backend
+npm install
+npm run prisma:generate
+```
+
+If you are using Postgres locally:
+
+```powershell
+npm run prisma:migrate:deploy
+```
+
+Start backend in local mode:
+
+```powershell
+.\start-local.ps1
+```
+
+That script is the preferred local backend entry point.
+
+## 4. Flutter Driver App Local Setup
+
+From the repo root:
+
+```powershell
+cd C:\dev\DriverApp
+C:\flutter\bin\flutter.bat pub get
+C:\flutter\bin\flutter.bat run
+```
+
+If you need to verify tooling first:
+
+```powershell
+C:\flutter\bin\flutter.bat doctor -v
+```
+
+## 5. Local Portal URLs
+
+Once backend is running:
+
+- Admin portal: `http://127.0.0.1:8080/admin`
+- Merchant portal: `http://127.0.0.1:8080/merchant`
+- Restaurant portal: `http://127.0.0.1:8080/restaurant`
+- Backend health: `http://127.0.0.1:8080/api/health`
+
+## 6. Current Backend Modes
+
+### File-store mode
+
+Good for:
+
+- quick local demos
+- frontend and integration development
+
+Runtime file:
+
+- [db.json](/c:/dev/DriverApp/backend/data/db.json)
+
+Seed source:
+
+- [seed.json](/c:/dev/DriverApp/backend/data/seed.json)
+
+### Postgres mode
+
+Good for:
+
+- production-shaped local development
+- realistic persistence testing
+
+Enable by setting `DATABASE_URL`.
+
+## 7. Current Demo Accounts
+
+- Admin: `admin@demo.com` / `Password123`
+- Merchant: `falafel.group@demo.com` / `Password123`
+- Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
+- Driver: `driver@demo.com` / `Password123`
+
+## 8. Firebase / Push Notes
+
+Android:
+
+- `google-services.json` should exist locally under `android/app/`
+
+Backend:
+
+- `FIREBASE_SERVICE_ACCOUNT_PATH` is required for backend-driven FCM offers
+
+iOS:
+
+- `GoogleService-Info.plist` exists, but iOS native validation still requires macOS/Xcode
+
+## 9. Maps Notes
+
+The driver app currently uses external Google Maps deep links.
 
 That means:
 
-- no Maps API key is required right now
-- no Google Maps billing setup is required for the current mobile app
+- no embedded `google_maps_flutter` dependency is required for the core delivery flow
+- current driver navigation does not need an in-app maps SDK view
 
-If you later build restaurant-side live tracking dashboards or embedded maps, that is when Maps billing and API-key restrictions should be added.
+Traffic-aware ETA on the backend is optional and controlled separately by `GOOGLE_MAPS_API_KEY`.
 
-## 8. Notification handling
+## 10. Daily Verification Commands
 
-The app already includes:
+Backend:
 
-- Firebase Messaging bootstrap hooks
-- Foreground notification display using `flutter_local_notifications`
-- Background handler placeholder
-- Notification tap routing hook
+```powershell
+cd C:\dev\DriverApp\backend
+npm run check
+npm test
+```
 
-Manual setup still required:
+Flutter:
 
-- Firebase project configuration
-- Platform push permissions
-- Sound asset placement
-- APNs configuration for iOS
+```powershell
+cd C:\dev\DriverApp
+C:\flutter\bin\flutter.bat analyze
+C:\flutter\bin\flutter.bat test
+```
 
-## 9. App configuration
+## 11. What This Guide Does Not Cover
 
-Main config file: [app_config.dart](/c:/dev/DriverApp/lib/core/config/app_config.dart)
+This file intentionally does not duplicate:
 
-This file controls:
+- deployment hosting steps
+- production env and secrets policy
+- full go-live business checklist
+- iOS release completion steps
 
-- App name
-- Mock API delay
-- Incoming order countdown duration
-- Default locale
-- Dummy map coordinates
-
-## 10. Replace mock APIs with real backend
-
-1. Create a real API client in `lib/services/api/`.
-2. Keep repository interfaces in `lib/domain/repositories/`.
-3. Replace repository implementations in `lib/data/repositories/`.
-4. Preserve domain entities and use cases.
-5. Update dependency injection providers to point to the real implementations.
-
-Recommended backend mapping:
-
-- `/login` -> token + driver profile
-- `/orders/available` -> assigned order offers
-- `/orders/accept` -> order acceptance response
-- `/orders/reject` -> rejection acknowledgement
-- `/orders/pickup` -> order status update
-- `/orders/deliver` -> completion response
-- `/driver/earnings` -> earnings summary and timeline
-
-## 11. Architecture summary
-
-- `domain/` contains business entities, repository contracts, and use cases.
-- `data/` contains models, mock data, and repository implementations.
-- `services/` contains infrastructure integrations like mock API, Firebase, and location logic.
-- `features/` contains screen-specific controllers and views.
-- `presentation/` contains reusable widgets.
-- `routes/` owns navigation and auth redirects.
-
-## 12. Production hardening checklist
-
-Before App Store / Play Store submission:
-
-1. Replace all mock repositories with real APIs.
-2. Configure Firebase for all environments.
-3. Add crash reporting and analytics.
-4. Add real route polylines and turn-by-turn navigation integration.
-5. Add full test coverage.
-6. Replace placeholder language strings with professional translations.
-7. Complete privacy policy and permission copy.
+Use the other docs for those.

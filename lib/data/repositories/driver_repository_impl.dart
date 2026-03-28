@@ -1,14 +1,14 @@
 import '../../domain/entities/driver.dart';
 import '../../domain/entities/earnings.dart';
 import '../../domain/repositories/driver_repository.dart';
-import '../../services/api/mock_api_client.dart';
+import '../../services/api/backend_api_client.dart';
 import '../models/driver_model.dart';
 import '../models/earnings_model.dart';
 
 class DriverRepositoryImpl implements DriverRepository {
   DriverRepositoryImpl(this._apiClient);
 
-  final MockApiClient _apiClient;
+  final BackendApiClient _apiClient;
 
   @override
   Future<Driver?> getDriver() async {
@@ -30,6 +30,11 @@ class DriverRepositoryImpl implements DriverRepository {
 
   @override
   Stream<Driver?> watchDriver() {
-    return _apiClient.watchDriver().map((event) => event?.toEntity());
+    return _apiClient.watchDriver().map((event) {
+      if (event == null) {
+        return null;
+      }
+      return DriverModel.fromJson(event).toEntity();
+    });
   }
 }

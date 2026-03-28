@@ -48,13 +48,14 @@ class Order {
   final int estimatedMinutes;
   final double tripEarnings;
   final DateTime createdAt;
-  final DateTime expiresAt;
+  final DateTime? expiresAt;
 
   bool get isIncoming => status == OrderStatus.pending;
 
   Order copyWith({
     OrderStatus? status,
     DateTime? expiresAt,
+    bool clearExpiresAt = false,
   }) {
     return Order(
       id: id,
@@ -67,7 +68,7 @@ class Order {
       estimatedMinutes: estimatedMinutes,
       tripEarnings: tripEarnings,
       createdAt: createdAt,
-      expiresAt: expiresAt ?? this.expiresAt,
+      expiresAt: clearExpiresAt ? null : expiresAt ?? this.expiresAt,
     );
   }
 }

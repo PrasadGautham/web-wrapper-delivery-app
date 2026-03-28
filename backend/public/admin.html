@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Platform Admin Portal</title>
+    <style>
+      :root { --bg:#e6ece6; --surface:rgba(255,255,255,0.95); --ink:#15201a; --muted:#647268; --accent:#1f5c45; --accent-strong:#15382e; --line:rgba(21,32,26,0.12); }
+      *{box-sizing:border-box} body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:var(--ink);background:linear-gradient(150deg,#edf4ee 0%,#d8e5da 100%)}
+      .shell{max-width:1280px;margin:0 auto;padding:24px}.hero{padding:28px;border-radius:28px;color:#fff;background:linear-gradient(135deg,rgba(31,92,69,.96),rgba(21,56,46,.96))}
+      .layout{display:grid;grid-template-columns:360px 1fr;gap:20px;margin-top:20px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 14px 34px rgba(20,29,33,.08)}
+      .stack{display:grid;gap:12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cards{display:grid;gap:12px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px}.inline{display:flex;gap:10px}
+      input,select,button{width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--line);font:inherit}button{background:linear-gradient(135deg,var(--accent),var(--accent-strong));color:#fff;border:0;font-weight:700;cursor:pointer}button.secondary{background:transparent;color:var(--accent-strong);border:1px solid rgba(21,56,46,.24)}
+      .muted{color:var(--muted)}.pill{display:inline-flex;padding:5px 10px;border-radius:999px;background:#dff1e7;color:var(--accent-strong);font-size:12px;font-weight:800;text-transform:uppercase}
+      @media (max-width:980px){.layout{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <h1>Platform Admin Portal</h1>
+        <p>Create merchant users, create store staff accounts, and review the operational topology from a single internal surface.</p>
+      </section>
+      <div class="layout">
+        <aside class="panel stack">
+          <div><h2>Admin Session</h2><p class="muted">Use an admin account or keep the `x-admin-key` fallback for emergency access only.</p></div>
+          <input id="email" value="admin@demo.com" />
+          <input id="password" type="password" value="Password123" />
+          <div class="inline"><button id="loginBtn">Login</button><button id="logoutBtn" class="secondary" type="button">Logout</button></div>
+          <p id="sessionStatus" class="muted">Not logged in</p>
+
+          <section class="stack">
+            <h3>Create Merchant User</h3>
+            <select id="merchantSelect"></select>
+            <input id="merchantUserName" placeholder="User name" />
+            <input id="merchantUserEmail" placeholder="User email" />
+            <input id="merchantUserPassword" type="password" placeholder="Temporary password" />
+            <select id="merchantUserRole">
+              <option value="merchantOwner">Merchant owner</option>
+              <option value="merchantManager">Merchant manager</option>
+              <option value="merchantDispatcher">Merchant dispatcher</option>
+              <option value="merchantViewer">Merchant viewer</option>
+            </select>
+            <button id="createMerchantUserBtn" type="button">Create Merchant User</button>
+            <div id="merchantUserStatus" class="muted"></div>
+          </section>
+
+          <section class="stack">
+            <h3>Create Store Staff</h3>
+            <select id="restaurantSelect"></select>
+            <input id="staffName" placeholder="Staff name" />
+            <input id="staffEmail" placeholder="Staff email" />
+            <input id="staffPassword" type="password" placeholder="Temporary password" />
+            <select id="staffRole">
+              <option value="manager">Manager</option>
+              <option value="dispatcher">Dispatcher</option>
+              <option value="viewer">Viewer</option>
+              <option value="owner">Owner</option>
+            </select>
+            <button id="createStaffBtn" type="button">Create Store Staff</button>
+            <div id="staffStatus" class="muted"></div>
+          </section>
+        </aside>
+        <main class="stack">
+          <section class="panel stack">
+            <div class="inline"><button id="refreshBtn" type="button">Refresh Data</button></div>
+            <div class="grid">
+              <div class="card"><h3>Merchants</h3><div id="merchants" class="cards"></div></div>
+              <div class="card"><h3>Restaurants</h3><div id="restaurants" class="cards"></div></div>
+            </div>
+            <div class="grid">
+              <div class="card"><h3>Drivers</h3><div id="drivers" class="cards"></div></div>
+              <div class="card"><h3>Admin Users</h3><div id="admins" class="cards"></div></div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script type="module" src="/admin.js"></script>
+  </body>
+</html>

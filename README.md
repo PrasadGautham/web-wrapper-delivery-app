@@ -1,141 +1,91 @@
-# Driver App
+# Driver Delivery Platform
 
-A production-oriented Flutter starter for a food delivery driver application. The project ships with clean architecture, Riverpod state management, modular features, mock backend services, external Google Maps deep-link navigation, Firebase Cloud Messaging wiring, localization, secure token storage, and documentation for replacing mocks with a real backend later.
+This repository contains the current working system for the food delivery driver platform at `C:\dev\DriverApp`.
 
-## What is included
+It includes:
 
-- Email/password login with secure token persistence
-- Driver dashboard with online/offline toggle and live metrics
-- Incoming order flow with countdown, accept/reject, auto-reject on timeout
-- Restaurant and customer navigation screens with external Google Maps links and ETA
-- Pickup and delivery completion flow
-- Earnings dashboard with summary cards and chart
-- Push notification architecture using Firebase Messaging and local notifications
-- English and Arabic localization
-- Mock services that behave like backend APIs
-- Clear project structure designed for scale
-- Firebase token visibility in profile for Android testing
-- Branding assets for app icon and splash automation
+- Flutter driver mobile app in the repo root
+- Node.js backend in [backend](/c:/dev/DriverApp/backend)
+- backend-served web portals for:
+  - platform admin
+  - merchant or franchise operations
+  - restaurant or store staff
 
-## Folder structure
+## Current Entry Points
 
-```text
-lib/
-  core/
-    config/
-    constants/
-    localization/
-    theme/
-    utils/
-  data/
-    mock/
-    models/
-    repositories/
-  domain/
-    entities/
-    repositories/
-    usecases/
-  features/
-    authentication/
-    dashboard/
-    earnings/
-    navigation/
-    orders/
-    profile/
-  presentation/
-    widgets/
-  routes/
-  services/
-    api/
-    firebase/
-    location/
-```
+- Driver mobile app API base config: [app_config.dart](/c:/dev/DriverApp/lib/core/config/app_config.dart)
+- Backend server: [server.ts](/c:/dev/DriverApp/backend/src/server.ts)
+- Admin portal: `http://127.0.0.1:8080/admin`
+- Merchant portal: `http://127.0.0.1:8080/merchant`
+- Restaurant portal: `http://127.0.0.1:8080/restaurant`
 
-## Prerequisites
+## Current Capabilities
 
-1. Install Flutter stable from the official guide: https://docs.flutter.dev/get-started/install
-2. Run `flutter doctor` and resolve all required platform dependencies.
-3. Install Android Studio for Android builds and Xcode for iOS builds.
-4. Make sure a physical device or emulator/simulator is available.
+- backend-driven dispatch with live driver location updates
+- store-tied, merchant-tied, and open-pool driver assignment policies
+- per-driver capacity limits
+- FCM offer dispatch from backend
+- separate driver payout and restaurant billing values per order
+- restaurant staff accounts per store
+- merchant users who can see and manage all restaurants under one merchant
+- platform admin users for cross-platform operations
+- optional traffic-aware ETA through Google Routes
+- password reset flow with SMTP support
+- audit logs, rate limiting, and metrics endpoint
 
-## First-time setup
+## Current Demo Accounts
 
-1. Open this folder in your editor.
-2. If the platform folders do not exist yet, run:
+- Admin: `admin@demo.com` / `Password123`
+- Merchant: `falafel.group@demo.com` / `Password123`
+- Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
+- Driver: `driver@demo.com` / `Password123`
 
-```bash
-flutter create .
-```
+## Docs Map
 
-3. Install packages:
+Start here depending on task:
 
-```bash
-flutter pub get
-```
+- Current repo and platform status: [PROJECT_STATUS.md](/c:/dev/DriverApp/docs/PROJECT_STATUS.md)
+- Local setup and daily development: [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md)
+- Backend architecture and APIs: [BACKEND.md](/c:/dev/DriverApp/docs/BACKEND.md)
+- System design: [SYSTEM_ARCHITECTURE.md](/c:/dev/DriverApp/docs/SYSTEM_ARCHITECTURE.md)
+- Deployment guide: [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
+- Production environment checklist: [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
+- Go-live checklist: [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
+- Production readiness assessment: [PRODUCTION_READINESS.md](/c:/dev/DriverApp/docs/PRODUCTION_READINESS.md)
+- Mobile release notes: [RELEASE.md](/c:/dev/DriverApp/docs/RELEASE.md)
+- iOS later work: [IOS_LATER.md](/c:/dev/DriverApp/docs/IOS_LATER.md)
+- iOS background tracking validation: [IOS_BACKGROUND_VALIDATION.md](/c:/dev/DriverApp/docs/IOS_BACKGROUND_VALIDATION.md)
 
-If you are on Windows, enable Developer Mode before running the app. Flutter plugins use symlinks during builds.
+## Local Run
+
+Backend:
 
 ```powershell
-start ms-settings:developers
+cd C:\dev\DriverApp\backend
+npm install
+npm run prisma:generate
+.\start-local.ps1
 ```
 
-4. Add a notification sound file if you want a real custom sound:
+Flutter app:
 
-```text
-assets/audio/order_alert.mp3
+```powershell
+cd C:\dev\DriverApp
+C:\flutter\bin\flutter.bat pub get
+C:\flutter\bin\flutter.bat run
 ```
 
-5. Run the app:
+## Verification
 
-```bash
-flutter run
+Current expected verification commands:
+
+```powershell
+cd C:\dev\DriverApp\backend
+npm run check
+npm test
+npm run smoke:deploy
+
+cd C:\dev\DriverApp
+C:\flutter\bin\flutter.bat analyze
+C:\flutter\bin\flutter.bat test
 ```
-
-## Branding commands
-
-After updating branding assets, run:
-
-```bash
-dart run flutter_launcher_icons
-dart run flutter_native_splash:create
-```
-
-## Firebase Cloud Messaging setup
-
-This project is wired for Firebase but stays runnable without Firebase configuration.
-
-1. Create a Firebase project in the Firebase console.
-2. Add Android and iOS apps to Firebase.
-3. Install the FlutterFire CLI and generate `firebase_options.dart`.
-4. Replace the placeholder bootstrap options in [firebase_bootstrap_options.dart](/c:/dev/DriverApp/lib/services/firebase/firebase_bootstrap_options.dart).
-5. Enable Cloud Messaging in Firebase.
-6. Follow platform-specific setup in [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md).
-
-## Mock credentials
-
-- Email: `driver@demo.com`
-- Password: `Password123`
-
-## Mock backend behavior
-
-- Orders are generated from seeded data.
-- A new incoming order is emitted while the driver is online and idle.
-- Accepting an order moves the driver through restaurant pickup and customer delivery states.
-- If the countdown expires, the order is auto-rejected and the next order can be assigned.
-
-## Maps and tracking
-
-The current app does not embed the Google Maps SDK. It opens route navigation in Google Maps using deep links, so no Google Maps billing or API key is required for the current mobile app.
-
-Restaurant-side live driver tracking should be added later in the backend/dashboard layer, where you can store live driver locations, compute ETA to the restaurant, and expose tracking to restaurant operators.
-
-## Replace mock APIs with a real backend
-
-1. Keep the domain layer unchanged.
-2. Replace implementations in `lib/data/repositories/`.
-3. Replace `MockApiClient` with a real HTTP client.
-4. Map backend DTOs into the existing domain entities.
-5. Keep the presentation and use-case layers unchanged.
-
-Detailed instructions are in [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md).
-Release/signing instructions are in [RELEASE.md](/c:/dev/DriverApp/docs/RELEASE.md).

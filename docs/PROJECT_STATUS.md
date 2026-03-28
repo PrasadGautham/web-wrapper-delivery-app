@@ -1,148 +1,112 @@
 # Project Status
 
-Last verified: March 13, 2026
-Working project path: `C:\dev\DriverApp`
-Legacy copy path: `C:\Users\prasa\OneDrive\Documents\Driver App` (do not keep building from this copy)
+Last verified: March 28, 2026
+Canonical working path: `C:\dev\DriverApp`
+Legacy OneDrive copy: do not use
 
-## Canonical Working Folder
-Use only `C:\dev\DriverApp` going forward.
+## Current Source Of Truth
 
-Reason:
-- The OneDrive copy caused Gradle and Flutter build failures by locking generated files under `build/`.
-- The project was copied out of OneDrive to avoid those file-lock issues.
+Only use `C:\dev\DriverApp`.
 
-## Current Platform Status
+The old OneDrive copy is no longer the source of truth and should not be used for builds, releases, or further code changes.
 
-### Android
-Completed:
-- Flutter app builds in debug mode.
-- Firebase is configured for Android.
-- `google-services.json` is present in `android/app/`.
-- Firebase Messaging is wired in the Flutter app.
-- Notification permission flow is implemented.
-- FCM token retrieval is implemented and exposed in the app profile screen.
-- External Google Maps deep links are used instead of embedded in-app maps.
-- Package ID is `com.fooddelivery.driverapp`.
-- Branding assets, launcher icon setup, and splash setup are included.
-- Release signing support is prepared via `android/key.properties`.
+## Platform Summary
 
-Pending:
-- Real backend integration.
-- Real custom notification sound asset if desired.
-- Production keystore creation.
-- Signed release `.aab` build for Play Store.
+### Backend
+
+Current state:
+
+- Node.js backend under [backend](/c:/dev/DriverApp/backend)
+- file-store local mode and Postgres mode both supported
+- Prisma schema and migrations in place
+- backend-driven FCM dispatch implemented
+- live driver location ingestion implemented
+- admin, merchant, and restaurant scoped web portals implemented
+- password reset, session rotation, rate limiting, audit logs, and metrics implemented
+
+### Flutter Driver App
+
+Current state:
+
+- Android flow works locally from Windows
+- secure token storage is implemented
+- backend integration is active
+- FCM token registration is active
+- live location sync is active
+- external Google Maps deep links are used instead of embedded maps
+
+### Web Portals
+
+Current state:
+
+- Admin portal: `/admin`
+- Merchant portal: `/merchant`
+- Restaurant portal: `/restaurant`
+- portals are served by the backend
+- restaurant and merchant portals use SSE for realtime updates
 
 ### iOS
-Completed:
-- Firebase Apple app exists in the Firebase project.
-- `ios/Runner/GoogleService-Info.plist` is present.
-- Flutter Firebase config includes the correct iOS identifiers.
-- `ios/Runner.xcodeproj/project.pbxproj` is aligned to bundle ID `com.fooddelivery.driverapp`.
-- Future iOS handoff checklist exists in `docs/IOS_LATER.md`.
 
-Pending:
-- Xcode target setup on macOS.
-- Add plist to the Runner target in Xcode.
-- Enable Push Notifications capability in Xcode.
-- Enable Background Modes > Remote notifications in Xcode.
-- APNs auth key upload in Firebase Console.
-- Real device testing on iPhone.
-- App Store release configuration.
-- Regenerate Apple-platform Flutter generated files on macOS if they still show the old OneDrive project path in `ios/Flutter/Generated.xcconfig`, `ios/Flutter/flutter_export_environment.sh`, or `macos/Flutter/ephemeral/*`.
+Current state:
 
-## Verified Firebase Identifiers
-Firebase project ID:
-- `web-wrapper-delivery-driver`
+- Firebase iOS metadata exists
+- bundle ID is aligned to `com.fooddelivery.driverapp`
+- Windows cannot complete the native Xcode validation steps
 
-Android:
-- Package ID: `com.fooddelivery.driverapp`
-- Android app ID in `firebase_options.dart`: `1:599453892493:android:f2fcf5b80ed4ee77e5c7c4`
+Still pending:
 
-iOS:
-- Bundle ID: `com.fooddelivery.driverapp`
-- iOS app ID in `firebase_options.dart`: `1:599453892493:ios:478b105fdfb749c5e5c7c4`
-- `GoogleService-Info.plist` BUNDLE_ID: `com.fooddelivery.driverapp`
-- `GoogleService-Info.plist` GOOGLE_APP_ID: `1:599453892493:ios:478b105fdfb749c5e5c7c4`
+- Xcode capability validation
+- APNs validation
+- real iPhone background location validation
+- production iOS signing and release steps
 
-These values are aligned and were manually verified.
+See:
 
-## Firebase Runtime Files
-Key files:
-- `lib/firebase_options.dart`
-- `ios/Runner/GoogleService-Info.plist`
-- `android/app/google-services.json`
-- `firebase.json`
-- `lib/services/firebase/fcm_service.dart`
+- [IOS_LATER.md](/c:/dev/DriverApp/docs/IOS_LATER.md)
+- [IOS_BACKGROUND_VALIDATION.md](/c:/dev/DriverApp/docs/IOS_BACKGROUND_VALIDATION.md)
 
-## Maps Decision
-The app does not currently embed Google Maps SDK.
+## Current Documentation Structure
 
-Current behavior:
-- The driver app opens Google Maps externally using route deep links.
-- No Google Maps API key is required for the current app flow.
-- No Google Maps billing setup is required for the current app flow.
+These docs are now the intended source set:
 
-Reason:
-- This avoids unnecessary Maps Platform setup and billing during the current phase.
-- Restaurant-side driver tracking will be implemented later through the backend/admin side.
+- [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md): local development and daily setup
+- [BACKEND.md](/c:/dev/DriverApp/docs/BACKEND.md): backend behavior, APIs, and backend portals
+- [SYSTEM_ARCHITECTURE.md](/c:/dev/DriverApp/docs/SYSTEM_ARCHITECTURE.md): architectural decisions and layering
+- [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md): deployment flow
+- [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md): runtime env and secrets checklist
+- [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md): final business rollout checklist
+- [PRODUCTION_READINESS.md](/c:/dev/DriverApp/docs/PRODUCTION_READINESS.md): honest readiness assessment
+- [RELEASE.md](/c:/dev/DriverApp/docs/RELEASE.md): mobile release preparation
 
-## Driver Tracking Architecture For Later
-Planned approach:
-1. Driver app sends periodic location updates to the backend while on an active order.
-2. Backend stores latest driver coordinates for the order.
-3. Restaurant/admin dashboard reads those coordinates.
-4. Backend computes distance and ETA or delegates routing to a provider later if needed.
-5. Dashboard shows the driver approaching the restaurant/customer.
+## Current Verification Commands
 
-## Testing Status
-Verified previously on Android emulator:
-- App launches.
-- Firebase initializes successfully.
-- Notification permission is granted.
-- A live FCM token was generated.
-
-Example captured token from earlier debug session:
-- `eGdJl_ZyTkK-AXGR3Ai0wD:APA91bFLCaLKc59W-30Uxfv0-XbCsx3QlTV_wJF00cpS40oQv_aqikz84rIhBPlna_G9hatHI1kXWRvFCT1pocpsxt3EiIo_aweaFC1CCVfhJrp6ePLAZ8A`
-
-Note:
-- FCM tokens can rotate. Always use the latest token shown in the app profile screen or logs.
-
-## Recommended Next Commands
-From `C:\dev\DriverApp`:
+Backend:
 
 ```powershell
-C:\flutter\bin\flutter.bat devices
-C:\flutter\bin\flutter.bat run -d emulator-5554
+cd C:\dev\DriverApp\backend
+npm run check
+npm test
+npm run smoke:deploy
 ```
 
-If the emulator is not running:
+Flutter:
 
 ```powershell
-C:\flutter\bin\flutter.bat emulators --launch Pixel_7
+cd C:\dev\DriverApp
+C:\flutter\bin\flutter.bat analyze
+C:\flutter\bin\flutter.bat test
 ```
 
-## Android Test Flow
-1. Launch the app on the emulator.
-2. Log in with the demo credentials configured in the mock auth flow.
-3. Open Profile and confirm an FCM token appears.
-4. Return to the dashboard.
-5. Stay online and wait for an incoming mock order.
-6. Accept the order.
-7. Open the Google Maps external route.
-8. Mark arrived, pick up, and delivered.
-9. Verify dashboard and earnings update.
-10. Send a Firebase Console test push to the latest FCM token.
+## Current Demo Accounts
 
-## Release Prep Files
-- `android/key.properties.example`
-- `docs/RELEASE.md`
-- `docs/SETUP.md`
-- `docs/IOS_LATER.md`
-- `README.md`
+- Admin: `admin@demo.com` / `Password123`
+- Merchant: `falafel.group@demo.com` / `Password123`
+- Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
+- Driver: `driver@demo.com` / `Password123`
 
-## Important Notes
-- Do not commit `android/key.properties`.
-- Do not commit release keystore files unless you explicitly intend to manage secrets that way.
-- Keep building from `C:\dev\DriverApp`, not the OneDrive copy.
-- If `flutterfire configure` is rerun later, verify that the iOS bundle ID remains `com.fooddelivery.driverapp` and does not regress to an old placeholder value.
-- `flutter analyze` was re-run on March 13, 2026 from `C:\dev\DriverApp` and passed with no issues.
+## Current Honest Status
+
+- backend: strong pilot / early production shape
+- Android driver app: strong pilot / controlled rollout shape
+- web portals: strong pilot / early production shape
+- iOS: still requires macOS and real-device validation before claiming production readiness

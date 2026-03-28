@@ -113,18 +113,24 @@ class OrderController extends StateNotifier<OrderState> {
 
   Future<void> initializeNotifications({
     required void Function(String route, Map<String, String> payload) onRouteRequest,
+    required Future<void> Function(Map<String, String> payload) onIncomingOrderSignal,
+    required Future<void> Function(String token) onTokenAvailable,
   }) {
     if (_notificationsInitialized) {
       return Future<void>.value();
     }
     _notificationsInitialized = true;
-    return _notificationRepository.initialize(onRouteRequest: onRouteRequest);
+    return _notificationRepository.initialize(
+      onRouteRequest: onRouteRequest,
+      onIncomingOrderSignal: onIncomingOrderSignal,
+      onTokenAvailable: onTokenAvailable,
+    );
   }
 
-  Future<void> accept() async {
+  Future<bool> accept() async {
     final order = state.incomingOrder;
     if (order == null) {
-      return;
+      return false;
     }
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -137,8 +143,10 @@ class OrderController extends StateNotifier<OrderState> {
         secondsRemaining: null,
         isLoading: false,
       );
+      return true;
     } catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.toString());
+      return false;
     }
   }
 
@@ -213,7 +221,13 @@ class OrderController extends StateNotifier<OrderState> {
       return;
     }
 
-    final localizedExpiry = TimezoneHelper.toLocalTime(order.expiresAt);
+    final expiry = order.expiresAt;
+    if (expiry == null) {
+      state = state.copyWith(isLoading: false, errorMessage: 'Incoming order is missing an expiry time.');
+      return;
+    }
+
+    final localizedExpiry = TimezoneHelper.toLocalTime(expiry);
     final now = TimezoneHelper.toLocalTime(DateTime.now().toUtc());
     final secondsRemaining = localizedExpiry.difference(now).inSeconds;
 
@@ -236,7 +250,7 @@ class OrderController extends StateNotifier<OrderState> {
     await _notificationRepository.startIncomingOrderAlert();
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final remaining = order.expiresAt.difference(DateTime.now().toUtc()).inSeconds;
+      final remaining = expiry.difference(DateTime.now().toUtc()).inSeconds;
       if (remaining <= 0) {
         timer.cancel();
         reject(expired: true);

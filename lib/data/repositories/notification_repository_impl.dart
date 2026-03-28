@@ -10,8 +10,14 @@ class NotificationRepositoryImpl implements NotificationRepository {
   @override
   Future<void> initialize({
     required void Function(String route, Map<String, String> payload) onRouteRequest,
+    required Future<void> Function(Map<String, String> payload) onIncomingOrderSignal,
+    required Future<void> Function(String token) onTokenAvailable,
   }) {
-    return _service.initialize(onRouteRequest: onRouteRequest);
+    return _service.initialize(
+      onRouteRequest: onRouteRequest,
+      onIncomingOrderSignal: onIncomingOrderSignal,
+      onTokenAvailable: onTokenAvailable,
+    );
   }
 
   @override

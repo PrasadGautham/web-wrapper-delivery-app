@@ -1,0 +1,214 @@
+import { readFile } from 'node:fs/promises';
+
+import { Pool, PoolClient } from 'pg';
+
+import { DatabaseShape } from '../domain/models.js';
+import { PostgresAdminUsersRepository } from '../persistence/postgres/admin-users-repository.js';
+import { PostgresAuditLogsRepository } from '../persistence/postgres/audit-logs-repository.js';
+import { PostgresDriversRepository } from '../persistence/postgres/drivers-repository.js';
+import { PostgresMerchantsRepository } from '../persistence/postgres/merchants-repository.js';
+import { PostgresOrdersRepository } from '../persistence/postgres/orders-repository.js';
+import { PostgresPasswordResetTokensRepository } from '../persistence/postgres/password-reset-tokens-repository.js';
+import { PostgresRestaurantsRepository } from '../persistence/postgres/restaurants-repository.js';
+import { PostgresSessionsRepository } from '../persistence/postgres/sessions-repository.js';
+import {
+  OperationalStateContext,
+  OperationalStateStoreContract,
+  StoreContract,
+  WorkflowStoreContext,
+  WorkflowStoreContract,
+} from './store-contract.js';
+
+export class PostgresStore implements StoreContract, WorkflowStoreContract, OperationalStateStoreContract {
+  private readonly pool: Pool;
+  private readonly merchantsRepository = new PostgresMerchantsRepository();
+  private readonly driversRepository = new PostgresDriversRepository();
+  private readonly restaurantsRepository = new PostgresRestaurantsRepository();
+  private readonly adminUsersRepository = new PostgresAdminUsersRepository();
+  private readonly ordersRepository = new PostgresOrdersRepository();
+  private readonly sessionsRepository = new PostgresSessionsRepository();
+  private readonly passwordResetTokensRepository = new PostgresPasswordResetTokensRepository();
+  private readonly auditLogsRepository = new PostgresAuditLogsRepository();
+  private initialized = false;
+
+  constructor(private readonly connectionString: string, private readonly schemaFilePath: string) {
+    this.pool = new Pool({ connectionString: this.connectionString });
+  }
+
+  async read(): Promise<DatabaseShape> {
+    await this.ensureInitialized();
+    const client = await this.pool.connect();
+    try {
+      const [merchants, drivers, restaurants, adminUsers, orders, sessions, passwordResetTokens, auditLogs] = await Promise.all([
+        this.merchantsRepository.list(client),
+        this.driversRepository.list(client),
+        this.restaurantsRepository.list(client),
+        this.adminUsersRepository.list(client),
+        this.ordersRepository.list(client),
+        this.sessionsRepository.list(client),
+        this.passwordResetTokensRepository.list(client),
+        this.auditLogsRepository.list(client),
+      ]);
+
+      return {
+        merchants,
+        drivers,
+        restaurants,
+        adminUsers,
+        orders,
+        sessions,
+        passwordResetTokens,
+        auditLogs,
+      };
+    } finally {
+      client.release();
+    }
+  }
+
+  async write(data: DatabaseShape): Promise<void> {
+    await this.ensureInitialized();
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+
+      await this.merchantsRepository.upsertMany(client, data.merchants);
+      await this.driversRepository.upsertMany(client, data.drivers);
+      await this.restaurantsRepository.upsertMany(client, data.restaurants);
+      await this.adminUsersRepository.upsertMany(client, data.adminUsers ?? []);
+      await this.ordersRepository.upsertMany(client, data.orders);
+      await this.sessionsRepository.upsertMany(client, data.sessions);
+      await this.passwordResetTokensRepository.upsertMany(client, data.passwordResetTokens ?? []);
+      await this.auditLogsRepository.upsertMany(client, data.auditLogs);
+
+      await this.ordersRepository.deleteMissing(client, data.orders.map((item) => item.id));
+      await this.restaurantsRepository.deleteMissing(client, data.restaurants.map((item) => item.id));
+      await this.merchantsRepository.deleteMissing(client, data.merchants.map((item) => item.id));
+      await this.driversRepository.deleteMissing(client, data.drivers.map((item) => item.id));
+      await this.adminUsersRepository.deleteMissing(client, (data.adminUsers ?? []).map((item) => item.id));
+      await this.sessionsRepository.deleteMissing(client, data.sessions.map((item) => item.token));
+      await this.passwordResetTokensRepository.deleteMissing(client, (data.passwordResetTokens ?? []).map((item) => item.id));
+      await this.auditLogsRepository.deleteMissing(client, data.auditLogs.map((item) => item.id));
+
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async withWorkflowReadContext<T>(callback: (context: WorkflowStoreContext) => Promise<T> | T): Promise<T> {
+    await this.ensureInitialized();
+    const client = await this.pool.connect();
+    try {
+      return callback(this.createWorkflowContext(client));
+    } finally {
+      client.release();
+    }
+  }
+
+  async withWorkflowWriteContext<T>(callback: (context: WorkflowStoreContext) => Promise<T> | T): Promise<T> {
+    await this.ensureInitialized();
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const result = await callback(this.createWorkflowContext(client));
+      await client.query('commit');
+      return result;
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async withOperationalReadContext<T>(callback: (context: OperationalStateContext) => Promise<T> | T): Promise<T> {
+    await this.ensureInitialized();
+    const client = await this.pool.connect();
+    try {
+      return callback(await this.createOperationalContext(client));
+    } finally {
+      client.release();
+    }
+  }
+
+  async withOperationalWriteContext<T>(callback: (context: OperationalStateContext) => Promise<T> | T): Promise<T> {
+    await this.ensureInitialized();
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const context = await this.createOperationalContext(client);
+      const result = await callback(context);
+      await this.driversRepository.upsertMany(client, context.state.drivers);
+      await this.restaurantsRepository.upsertMany(client, context.state.restaurants);
+      await this.ordersRepository.upsertMany(client, context.state.orders);
+      await this.ordersRepository.deleteMissing(client, context.state.orders.map((item) => item.id));
+      await this.restaurantsRepository.deleteMissing(client, context.state.restaurants.map((item) => item.id));
+      await this.driversRepository.deleteMissing(client, context.state.drivers.map((item) => item.id));
+      await client.query('commit');
+      return result;
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async createOperationalContext(client: PoolClient): Promise<OperationalStateContext> {
+    const [drivers, restaurants, orders] = await Promise.all([
+      this.driversRepository.list(client),
+      this.restaurantsRepository.list(client),
+      this.ordersRepository.list(client),
+    ]);
+
+    return {
+      state: { drivers, restaurants, orders },
+      appendAuditLog: (log) => this.auditLogsRepository.appendOne(client, log),
+    };
+  }
+
+  private createWorkflowContext(client: PoolClient): WorkflowStoreContext {
+    return {
+      findDriverByEmail: (email) => this.driversRepository.findByEmail(client, email),
+      findDriverById: (driverId) => this.driversRepository.findById(client, driverId),
+      countDriverActiveLoad: (driverId) => this.driversRepository.countActiveLoad(client, driverId),
+      saveDriver: (driver) => this.driversRepository.upsertOne(client, driver),
+      findRestaurantByEmail: (email) => this.restaurantsRepository.findByEmail(client, email),
+      findRestaurantByStaffEmail: (email) => this.restaurantsRepository.findByStaffEmail(client, email),
+      findRestaurantById: (restaurantId) => this.restaurantsRepository.findById(client, restaurantId),
+      saveRestaurant: (restaurant) => this.restaurantsRepository.upsertOne(client, restaurant),
+      findMerchantById: (merchantId) => this.merchantsRepository.findById(client, merchantId),
+      findMerchantByUserEmail: (email) => this.merchantsRepository.findByUserEmail(client, email),
+      saveMerchant: (merchant) => this.merchantsRepository.upsertOne(client, merchant),
+      findAdminUserByEmail: (email) => this.adminUsersRepository.findByEmail(client, email),
+      findAdminUserById: (adminUserId) => this.adminUsersRepository.findById(client, adminUserId),
+      saveAdminUser: (adminUser) => this.adminUsersRepository.upsertOne(client, adminUser),
+      findSessionByToken: (token) => this.sessionsRepository.findByToken(client, token),
+      replaceSession: async (session) => {
+        await this.sessionsRepository.deleteByUser(client, session.userType, session.userId);
+        await this.sessionsRepository.upsertOne(client, session);
+      },
+      deleteSession: (token) => this.sessionsRepository.deleteByToken(client, token),
+      deleteSessionsForUser: (userType, userId) => this.sessionsRepository.deleteByUser(client, userType, userId),
+      deleteExpiredSessions: (nowIso) => this.sessionsRepository.deleteExpired(client, nowIso),
+      findPasswordResetTokenByHash: (tokenHash, userType) => this.passwordResetTokensRepository.findByHash(client, tokenHash, userType),
+      savePasswordResetToken: (record) => this.passwordResetTokensRepository.upsertOne(client, record),
+      deletePasswordResetToken: (id) => this.passwordResetTokensRepository.deleteById(client, id),
+      deletePasswordResetTokensForUser: (userType, userId) => this.passwordResetTokensRepository.deleteByUser(client, userType, userId),
+      deleteExpiredPasswordResetTokens: (nowIso) => this.passwordResetTokensRepository.deleteExpired(client, nowIso),
+      appendAuditLog: (log) => this.auditLogsRepository.appendOne(client, log),
+    };
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+    const schema = await readFile(this.schemaFilePath, 'utf8');
+    await this.pool.query(schema);
+    this.initialized = true;
+  }
+}
