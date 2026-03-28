@@ -63,24 +63,10 @@ async function run() {
       throw new Error(`${cookieName} was not set.`);
     }
 
-    if (path.includes('admin')) {
-      const logoutResult = await page.evaluate(async () => {
-        const response = await fetch('/api/auth/admin/logout', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'X-Portal-Client': 'web' },
-        });
-        return { ok: response.ok, status: response.status };
-      });
-      if (!logoutResult.ok) {
-        throw new Error(`Admin logout failed with status ${logoutResult.status}.`);
-      }
-    } else {
-      await Promise.all([
-        page.waitForResponse((response) => response.url().endsWith('/logout') && response.request().method() === 'POST' && response.ok()),
-        page.click('#logoutBtn'),
-      ]);
-    }
+    await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith('/logout') && response.request().method() === 'POST' && response.ok()),
+      page.click('#logoutBtn'),
+    ]);
     await waitForSessionText(page, 'Not logged in');
   }
 

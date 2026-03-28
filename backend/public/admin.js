@@ -200,6 +200,15 @@ function readRuleInputs(prefix, unit) {
   };
 }
 
+function updatePricingSummaries() {
+  const restaurant = currentRestaurant();
+  const currencyCode = normalizeCurrencyCode(document.getElementById('currencyCode').value || restaurant?.currency || 'AED');
+  const distanceUnit = document.getElementById('distanceUnit').value || restaurant?.distanceUnit || 'kilometer';
+  updatePricingFieldLabels(distanceUnit);
+  document.getElementById('driverPayoutSummary').textContent = summarizePricingRule(readRuleInputs('driverPayout', distanceUnit), currencyCode, distanceUnit);
+  document.getElementById('merchantBillingSummary').textContent = summarizePricingRule(readRuleInputs('merchantBilling', distanceUnit), currencyCode, distanceUnit);
+}
+
 function getSelectedValues(selectNode) {
   return Array.from(selectNode.selectedOptions).map((option) => option.value).filter(Boolean);
 }
