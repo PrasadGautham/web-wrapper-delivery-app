@@ -116,9 +116,9 @@ function renderTrackingSettings(profile) {
     return;
   }
   nodes.trackingSettings.innerHTML = [
-    `Pickup shown as in transit: <strong>${settings.showPickedUpAsInTransit ? 'On' : 'Off'}</strong>`,
-    `Driver ETA to pickup: <strong>${settings.showDriverEtaToPickup ? 'On' : 'Off'}</strong>`,
-    `Destination ETA: <strong>${settings.showDestinationEta ? 'On' : 'Off'}</strong>`,
+    `Pickup status shown as In transit: <strong>${settings.showPickedUpAsInTransit ? 'On' : 'Off'}</strong>`,
+    `Show courier ETA to pickup: <strong>${settings.showDriverEtaToPickup ? 'On' : 'Off'}</strong>`,
+    `Show destination ETA after pickup: <strong>${settings.showDestinationEta ? 'On' : 'Off'}</strong>`,
   ].join('<br />');
 }
 
@@ -138,11 +138,11 @@ function renderOrders(orders) {
       <div class="muted">${order.customer.address}</div>
       <div class="order-grid">
         <div class="meta">
-          <div><strong>Assigned driver</strong></div>
-          <div>${order.tracking.assignedDriverName || 'Waiting for dispatch'}</div>
+          <div><strong>Assigned courier</strong></div>
+          <div>${order.tracking.assignedDriverName || 'Waiting for courier assignment'}</div>
         </div>
         <div class="meta">
-          <div><strong>Driver ETA to pickup</strong></div>
+          <div><strong>Courier ETA to pickup</strong></div>
           <div>${formatMinutes(order.tracking.driverEtaToPickupMinutes)}</div>
         </div>
         <div class="meta">
@@ -154,11 +154,11 @@ function renderOrders(orders) {
           <div>${formatEtaSource(order.tracking.etaSource)}</div>
         </div>
         <div class="meta">
-          <div><strong>Driver payout</strong></div>
+          <div><strong>Courier pay for this trip</strong></div>
           <div>${currency(order.tripEarnings)}</div>
         </div>
         <div class="meta">
-          <div><strong>Billed to store</strong></div>
+          <div><strong>Store charge for this trip</strong></div>
           <div>${currency(order.companyCharge)}</div>
         </div>
       </div>

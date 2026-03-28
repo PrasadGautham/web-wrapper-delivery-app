@@ -71,7 +71,7 @@ class NavigationScreen extends ConsumerWidget {
                   FilledButton.icon(
                     onPressed: () => _openGoogleMaps(target),
                     icon: const Icon(Icons.map_outlined),
-                    label: const Text('Open in Google Maps'),
+                    label: const Text('Open route in Google Maps'),
                   ),
                 ],
               ),
@@ -122,16 +122,16 @@ class NavigationScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Tracking integration',
+                    'Trip summary',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Restaurant-side live driver tracking is deferred to the backend phase. '
-                    'Later, the backend can receive live driver coordinates, calculate ETA and '
-                    'distance to store, and expose that to restaurant dashboards.',
+                  Text(
+                    order.driverDisplayMode == 'includeCommuteToStore'
+                        ? 'This offer view includes your commute to the pickup store and the delivery leg.'
+                        : 'This offer view shows only the delivery leg from the store to the customer.',
                   ),
                 ],
               ),

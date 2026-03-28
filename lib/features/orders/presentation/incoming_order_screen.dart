@@ -50,7 +50,7 @@ class IncomingOrderScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(99),
                   ),
                   const SizedBox(height: 8),
-                  Text('Auto reject in ${state.secondsRemaining ?? 0} seconds'),
+                  Text('Offer expires in ${state.secondsRemaining ?? 0} seconds'),
                 ],
               ),
             ),
@@ -61,7 +61,7 @@ class IncomingOrderScreen extends ConsumerWidget {
             spacing: 12,
             children: [
               _InfoTile(label: 'Delivery area', value: order.deliveryArea),
-              _InfoTile(label: 'Courier view', value: order.driverDisplayMode == 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer'),
+              _InfoTile(label: 'Distance shown', value: order.driverDisplayMode == 'includeCommuteToStore' ? 'Commute to store + delivery' : 'Store to customer only'),
               _InfoTile(label: l10n.text('distance'), value: Formatters.kilometers(order.driverDisplayDistanceKm)),
               _InfoTile(label: l10n.text('eta'), value: '${order.driverDisplayMinutes} min'),
               _InfoTile(
