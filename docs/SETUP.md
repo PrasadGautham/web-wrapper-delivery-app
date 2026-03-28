@@ -59,7 +59,8 @@ Expected:
 
 ### 2. Open portals
 
-- Admin: `http://127.0.0.1:8080/admin`
+- Platform admin: `http://127.0.0.1:8080/platform-admin`
+- Tenant admin: `http://127.0.0.1:8080/tenant-admin`
 - Merchant: `http://127.0.0.1:8080/merchant`
 - Restaurant: `http://127.0.0.1:8080/restaurant`
 

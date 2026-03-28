@@ -24,8 +24,9 @@ The backend handles:
 
 ## Role Surfaces Served By Backend
 
-- `/admin`
+- `/platform-admin`
   - platform admin mode for your internal team
+- `/tenant-admin`
   - tenant admin mode for one client workspace
 - `/merchant`
 - `/restaurant`
@@ -144,7 +145,8 @@ Driver app uses:
 - Health: `/api/health`
 - Metrics: `/api/metrics`
 - CSP reports: `/api/security/csp-report`
-- Admin portal: `/admin`
+- Platform admin portal: `/platform-admin`
+- Tenant admin portal: `/tenant-admin`
 - Merchant portal: `/merchant`
 - Restaurant portal: `/restaurant`
 

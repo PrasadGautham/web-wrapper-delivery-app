@@ -44,14 +44,15 @@ Admin controls those market settings. Merchant users can view them but cannot ch
 - Backend server: [server.ts](/c:/dev/DriverApp/backend/src/server.ts)
 - Driver app config: [app_config.dart](/c:/dev/DriverApp/lib/core/config/app_config.dart)
   Use `--dart-define=BACKEND_API_BASE_URL=https://your-host/api` for hosted environments.
-- Admin portal: `http://127.0.0.1:8080/admin`
+- Platform admin portal: `http://127.0.0.1:8080/platform-admin`
+- Tenant admin portal: `http://127.0.0.1:8080/tenant-admin`
 - Merchant portal: `http://127.0.0.1:8080/merchant`
 - Restaurant portal: `http://127.0.0.1:8080/restaurant`
 
 ## Current Role Surfaces
 
 - Platform admin portal: internal fleet-company operations and cross-tenant support
-- Tenant admin workspace inside `/admin`: one client tenant only
+- Tenant admin workspace inside `/tenant-admin`: one client tenant only
 - Merchant portal: merchant-group oversight inside one tenant
 - Restaurant portal: store-level dispatch and order creation inside one tenant
 - Driver app: driver order intake, delivery progress, and earnings inside one tenant

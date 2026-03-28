@@ -52,22 +52,40 @@ async function run() {
       page.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
       page.click('#loginBtn'),
     ]);
-    await waitForSessionText(page, loggedInSnippet);
+    if (path.includes('admin')) {
+      await waitForOptions(page, '#settingsRestaurantSelect');
+    } else {
+      await waitForSessionText(page, loggedInSnippet);
+    }
 
     const cookieNames = (await context.cookies(baseUrl)).map((cookie) => cookie.name);
     if (!cookieNames.includes(cookieName)) {
       throw new Error(`${cookieName} was not set.`);
     }
 
-    await Promise.all([
-      page.waitForResponse((response) => response.url().endsWith('/logout') && response.request().method() === 'POST' && response.ok()),
-      page.click('#logoutBtn'),
-    ]);
+    if (path.includes('admin')) {
+      const logoutResult = await page.evaluate(async () => {
+        const response = await fetch('/api/auth/admin/logout', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'X-Portal-Client': 'web' },
+        });
+        return { ok: response.ok, status: response.status };
+      });
+      if (!logoutResult.ok) {
+        throw new Error(`Admin logout failed with status ${logoutResult.status}.`);
+      }
+    } else {
+      await Promise.all([
+        page.waitForResponse((response) => response.url().endsWith('/logout') && response.request().method() === 'POST' && response.ok()),
+        page.click('#logoutBtn'),
+      ]);
+    }
     await waitForSessionText(page, 'Not logged in');
   }
 
   try {
-    await page.goto(`${baseUrl}/admin`, { waitUntil: 'networkidle' });
+    await page.goto(`${baseUrl}/platform-admin`, { waitUntil: 'networkidle' });
     await page.fill('#email', 'admin@demo.com');
     await page.fill('#password', 'Password123');
     await Promise.all([
@@ -82,6 +100,7 @@ async function run() {
 
     await loginAndLogout('/merchant', 'falafel.group@demo.com', 'Password123', 'driverapp_merchant_session', 'Logged in as');
     await loginAndLogout('/restaurant', 'falafel.dispatch@demo.com', 'Password123', 'driverapp_restaurant_session', 'Logged in as');
+    await loginAndLogout('/tenant-admin', 'falafel.admin@demo.com', 'Password123', 'driverapp_admin_session', 'Logged in as');
 
     const merchantPage = await context.newPage();
     const restaurantPage = await context.newPage();

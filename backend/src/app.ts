@@ -32,7 +32,7 @@ import { StoreContract } from './services/store-contract.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
-const htmlRoutes = new Set(['/restaurant', '/merchant', '/admin']);
+const htmlRoutes = new Set(['/restaurant', '/merchant', '/platform-admin', '/tenant-admin']);
 
 type CspReportPayload = {
   'csp-report'?: {
@@ -350,7 +350,8 @@ export async function buildApp(
 
   app.get('/restaurant', async (_request, reply) => reply.sendFile('restaurant.html'));
   app.get('/merchant', async (_request, reply) => reply.sendFile('merchant.html'));
-  app.get('/admin', async (_request, reply) => reply.sendFile('admin.html'));
+  app.get('/platform-admin', async (_request, reply) => reply.sendFile('admin.html'));
+  app.get('/tenant-admin', async (_request, reply) => reply.sendFile('admin.html'));
 
   app.addHook('onClose', async () => {
     if (prisma) {

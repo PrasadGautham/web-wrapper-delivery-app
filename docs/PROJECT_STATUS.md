@@ -44,7 +44,8 @@ Current business separation:
 
 ### Web Portals
 
-- Admin portal: `/admin`
+- Platform admin portal: `/platform-admin`
+- Tenant admin portal: `/tenant-admin`
 - Merchant portal: `/merchant`
 - Restaurant portal: `/restaurant`
 - browser portals use HttpOnly cookie sessions

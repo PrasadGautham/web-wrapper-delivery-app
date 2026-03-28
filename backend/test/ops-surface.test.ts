@@ -29,7 +29,7 @@ export async function runOpsSurfaceTests(): Promise<void> {
 
   const { app } = await buildApp(loadAppConfig(process.env));
   try {
-    const adminPage = await app.inject({ method: 'GET', url: '/admin' });
+    const adminPage = await app.inject({ method: 'GET', url: '/platform-admin' });
     assert.equal(adminPage.statusCode, 200);
     assert.ok(adminPage.headers['content-security-policy-report-only']);
     assert.match(String(adminPage.headers['content-security-policy-report-only']), /report-uri \/api\/security\/csp-report/);
@@ -47,7 +47,7 @@ export async function runOpsSurfaceTests(): Promise<void> {
         'csp-report': {
           'effective-directive': 'script-src-elem',
           'blocked-uri': 'http://example.com/app.js',
-          'document-uri': 'http://127.0.0.1:8080/admin',
+          'document-uri': 'http://127.0.0.1:8080/platform-admin',
         },
       }),
     });

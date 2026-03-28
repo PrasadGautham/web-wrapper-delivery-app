@@ -10,6 +10,7 @@ let adminUsers = [];
 let selectedTenantId = '';
 
 const PLATFORM_ROLES = new Set(['platformAdmin', 'opsAdmin', 'supportAdmin', 'billingAdmin']);
+const portalSurface = window.location.pathname.includes('/tenant-admin') ? 'tenant' : 'platform';
 const MILES_PER_KILOMETER = 0.621371;
 const KILOMETERS_PER_MILE = 1.609344;
 
@@ -243,8 +244,23 @@ function renderCollection(nodeId, items, renderItem) {
 }
 
 function updateTenantControlsVisibility() {
-  document.querySelectorAll('[data-platform-only]').forEach((node) => node.classList.toggle('hidden', !isPlatformAdmin()));
-  document.querySelectorAll('.tenant-select-wrap').forEach((node) => node.classList.toggle('hidden', !isPlatformAdmin()));
+  const allowPlatformSections = portalSurface === 'platform' && isPlatformAdmin();
+  document.querySelectorAll('[data-platform-only]').forEach((node) => node.classList.toggle('hidden', !allowPlatformSections));
+  document.querySelectorAll('.tenant-select-wrap').forEach((node) => node.classList.toggle('hidden', !allowPlatformSections));
+}
+
+function applySurfaceBranding() {
+  const heroTitle = document.querySelector('.hero h1');
+  const heroCopy = document.querySelector('.hero p');
+  const heroBadge = document.querySelector('.hero-badge');
+  if (portalSurface === 'tenant') {
+    document.title = 'Tenant Admin Portal';
+    if (heroTitle) heroTitle.textContent = 'Tenant Admin Workspace';
+    if (heroCopy) heroCopy.textContent = 'Use this workspace to operate one client tenant only. Tenant admins manage drivers, merchant groups, stores, staffing, pricing, and dispatch rules inside their assigned business.';
+    if (heroBadge) heroBadge.innerHTML = 'Current surface<strong>Tenant-scoped admin</strong>';
+  } else {
+    document.title = 'Platform Admin Portal';
+  }
 }
 
 function populateTenantSelect(selectNode) {
@@ -392,6 +408,19 @@ function renderDashboard() {
   nodes.architectureSummary.innerHTML = `<div><strong>Platform admin</strong>: can provision tenants and support all workspaces.</div><div><strong>Tenant admin</strong>: can create and operate only drivers, merchant groups, stores, and staff inside ${tenantName(activeTenantId()) || 'the assigned tenant'}.</div><div><strong>Merchant group</strong>: remains a business grouping inside one tenant, not the tenant itself.</div>`;
 }
 
+function ensureSurfaceMatchesRole() {
+  if (!sessionInfo) return false;
+  if (portalSurface === 'platform' && !isPlatformAdmin()) {
+    window.location.replace('/tenant-admin');
+    return true;
+  }
+  if (portalSurface === 'tenant' && isPlatformAdmin()) {
+    window.location.replace('/platform-admin');
+    return true;
+  }
+  return false;
+}
+
 function syncSessionSummary() {
   if (!sessionInfo) {
     nodes.sessionStatus.textContent = 'Not logged in';
@@ -424,6 +453,9 @@ async function refreshDashboard() {
     adminUsers = adminRows;
     if (!selectedTenantId || (isPlatformAdmin() && !tenants.some((tenant) => tenant.id === selectedTenantId))) {
       selectedTenantId = isPlatformAdmin() ? (tenants[0]?.id || '') : (sessionInfo.tenantId || '');
+    }
+    if (ensureSurfaceMatchesRole()) {
+      return;
     }
     clearStatuses();
     updateTenantControlsVisibility();
@@ -666,5 +698,6 @@ document.getElementById('distanceUnit').addEventListener('change', () => {
 });
 ['driverPayoutBaseAmount','driverPayoutIncludedDistanceKm','driverPayoutAdditionalPerKm','merchantBillingBaseAmount','merchantBillingIncludedDistanceKm','merchantBillingAdditionalPerKm'].forEach((id) => document.getElementById(id).addEventListener('input', updatePricingSummaries));
 
+applySurfaceBranding();
 refreshDashboard().catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);

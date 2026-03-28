@@ -217,7 +217,8 @@ That reset command is for local demo or dev use only. It is not part of normal s
 
 ### Portals
 
-- Admin: `http://127.0.0.1:8080/admin`
+- Platform admin: `http://127.0.0.1:8080/platform-admin`
+- Tenant admin: `http://127.0.0.1:8080/tenant-admin`
 - Merchant: `http://127.0.0.1:8080/merchant`
 - Restaurant: `http://127.0.0.1:8080/restaurant`
 
@@ -241,7 +242,7 @@ C:\flutter\bin\flutter.bat run
 
 ### Admin Test
 
-1. Open `/admin`
+1. Open `/platform-admin` for platform admins, or `/tenant-admin` for tenant-scoped admins
 2. Log in as admin
 3. Confirm merchants, stores, drivers, and admin users load
 4. Select a store and change:
