@@ -19,6 +19,7 @@ const nodes = {
   statOrders: document.getElementById('statOrders'),
   statPayout: document.getElementById('statPayout'),
   statCharges: document.getElementById('statCharges'),
+  selectedStoreSummary: document.getElementById('selectedStoreSummary'),
 };
 
 function currency(value, code = 'AED') {
@@ -61,6 +62,7 @@ function clearSessionState(message = 'Merchant session expired. Please log in ag
   nodes.pricingStatus.textContent = 'Select a store to review or update its commercial terms.';
   nodes.trackingStatus.textContent = 'Update how restaurant staff see delivery progress for this store.';
   nodes.staffStatus.textContent = 'Create and review staff users for the selected store.';
+  nodes.selectedStoreSummary.textContent = 'Select a store to review its current settings and staff setup.';
   refreshDashboard().catch((error) => console.error(error));
 }
 
@@ -131,6 +133,7 @@ function populateRestaurantSelect() {
 function syncSelectedRestaurant() {
   const restaurant = restaurants.find((item) => item.id === nodes.restaurantSelect.value) || restaurants[0];
   if (!restaurant) {
+    nodes.selectedStoreSummary.textContent = 'Select a store to review its current settings and staff setup.';
     return;
   }
   nodes.restaurantSelect.value = restaurant.id;
@@ -139,6 +142,13 @@ function syncSelectedRestaurant() {
   document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
+  nodes.selectedStoreSummary.innerHTML = `
+    <strong>${restaurant.name}</strong>
+    <div>${restaurant.pickupLocation.address}</div>
+    <div>Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
+    <div>Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
+    <div>Tracking view: pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'}, destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
+  `;
   updatePricingSummaries();
 }
 
@@ -152,8 +162,8 @@ function renderRestaurantCards(groups, report) {
       <div class="section-head"><strong>${group.restaurant.name}</strong><span class="pill">${group.orders.length} orders</span></div>
       <div class="muted">${group.restaurant.pickupLocation.address}</div>
       <div class="muted">Driver payout: ${summarizePricingRule(group.restaurant.pricing.driverPayoutRule, group.restaurant.currency)}</div>
-      <div class="muted">Merchant billing: ${summarizePricingRule(group.restaurant.pricing.merchantBillingRule, group.restaurant.currency)}</div>
-      <div class="muted">Pickup ETA visible: ${group.restaurant.trackingSettings.showDriverEtaToPickup ? 'Yes' : 'No'} | Destination ETA visible: ${group.restaurant.trackingSettings.showDestinationEta ? 'Yes' : 'No'}</div>
+      <div class="muted">Store billing: ${summarizePricingRule(group.restaurant.pricing.merchantBillingRule, group.restaurant.currency)}</div>
+      <div class="muted">Pickup ETA ${group.restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'} | Destination ETA ${group.restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
     </article>
   `).join('') || '<div class="muted">No stores assigned.</div>';
 }

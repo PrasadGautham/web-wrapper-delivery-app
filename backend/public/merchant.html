@@ -6,79 +6,204 @@
     <title>Merchant Ops Portal</title>
     <style>
       :root {
-        --bg: #f4eadf;
-        --surface: rgba(255, 252, 247, 0.96);
+        --surface: rgba(255,252,247,0.94);
+        --surface-strong: rgba(255,255,255,0.99);
         --ink: #1c2428;
         --muted: #66757d;
         --accent: #8c3d2d;
         --accent-strong: #4d1f1e;
-        --line: rgba(28, 36, 40, 0.12);
+        --accent-soft: #f6ddd5;
+        --line: rgba(28,36,40,0.12);
+        --soft: #fff8f1;
+        --shadow: 0 20px 56px rgba(34,24,19,0.11);
       }
-      * { box-sizing: border-box; }
-      body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); background: linear-gradient(160deg, #fbf3ea 0%, #ead5c6 100%); }
-      .shell { max-width: 1360px; margin: 0 auto; padding: 24px; }
-      .hero { border-radius: 28px; padding: 28px; color: white; background: linear-gradient(135deg, rgba(140,61,45,0.96), rgba(77,31,30,0.96)); }
-      .layout { display: grid; grid-template-columns: 420px 1fr; gap: 20px; margin-top: 20px; }
-      .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 20px; box-shadow: 0 14px 34px rgba(20, 29, 33, 0.08); }
-      .stack { display: grid; gap: 12px; }
-      input, select, button { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); font: inherit; }
-      button { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: white; border: 0; font-weight: 700; cursor: pointer; }
-      button.secondary { background: transparent; color: var(--accent-strong); border: 1px solid rgba(77,31,30,0.3); }
-      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-      .stat, .card, .section { border: 1px solid var(--line); border-radius: 18px; background: white; padding: 16px; }
-      .muted { color: var(--muted); }
-      .cards { display: grid; gap: 12px; }
-      .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
-      .inline { display: flex; gap: 10px; }
-      .triple { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-      .pill { display: inline-flex; padding: 5px 10px; border-radius: 999px; background: #f7ddd4; color: var(--accent-strong); font-size: 12px; font-weight: 800; text-transform: uppercase; }
-      .status-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 8px; background: #b0521e; }
-      .status-dot.live { background: #2b9a6d; }
-      label.toggle { display:flex; align-items:center; gap:10px; font-size:14px; color:var(--ink); }
-      label.toggle input { width:auto; }
-      .eyebrow { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; }
-      @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .stats, .triple { grid-template-columns: repeat(2, 1fr); } }
+      * { box-sizing: border-box }
+      body {
+        margin: 0;
+        font-family: "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top right, rgba(255,255,255,0.75), transparent 28%),
+          radial-gradient(circle at bottom left, rgba(249,220,207,0.55), transparent 24%),
+          linear-gradient(160deg, #fcf4eb 0%, #eddccf 48%, #dfc0b0 100%);
+      }
+      .shell { max-width: 1420px; margin: 0 auto; padding: 28px }
+      .hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 30px;
+        padding: 32px;
+        color: #fff;
+        background: linear-gradient(135deg, rgba(140,61,45,0.98), rgba(77,31,30,0.98));
+        box-shadow: var(--shadow);
+      }
+      .hero::after {
+        content: "";
+        position: absolute;
+        top: -30px;
+        right: -30px;
+        width: 220px;
+        height: 220px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(255,255,255,0.16), transparent 70%);
+      }
+      .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px }
+      .hero h1 { margin: 8px 0 10px; font-size: 38px; line-height: 1.06 }
+      .hero p { max-width: 860px; color: rgba(255,255,255,0.84); margin: 0; line-height: 1.55 }
+      .hero-note {
+        max-width: 280px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(255,255,255,0.14);
+        border: 1px solid rgba(255,255,255,0.18);
+        font-size: 13px;
+        color: rgba(255,255,255,0.86);
+      }
+      .hero-note strong { display: block; margin-top: 6px; font-size: 17px; color: #fff }
+      .layout { display: grid; grid-template-columns: 440px 1fr; gap: 22px; margin-top: 22px }
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        padding: 22px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+      }
+      .stack { display: grid; gap: 16px }
+      .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px }
+      .stat, .card, .section {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--surface-strong);
+        padding: 18px;
+      }
+      .section { background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,248,241,0.96)) }
+      .card-highlight { background: linear-gradient(180deg, rgba(246,221,213,0.55), rgba(255,255,255,0.98)); border-color: rgba(140,61,45,0.18) }
+      .cards { display: grid; gap: 12px }
+      .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start }
+      .inline { display: flex; gap: 10px }
+      .triple { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px }
+      input, select, button {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        font: inherit;
+        background: #fff;
+      }
+      input:focus, select:focus {
+        outline: 0;
+        border-color: rgba(140,61,45,0.34);
+        box-shadow: 0 0 0 4px rgba(140,61,45,0.10);
+      }
+      button {
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #fff;
+        border: 0;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 120ms ease, box-shadow 120ms ease;
+      }
+      button:hover { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(77,31,30,0.18) }
+      button.secondary { background: transparent; color: var(--accent-strong); border: 1px solid rgba(77,31,30,.3) }
+      .muted { color: var(--muted) }
+      .pill {
+        display: inline-flex;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .status-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 8px; background: #b0521e }
+      .status-dot.live { background: #2b9a6d }
+      label { display: grid; gap: 6px; font-size: 13px; color: var(--muted) }
+      label.toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink) }
+      label.toggle input { width: auto }
+      .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700 }
+      .section-copy { margin: 6px 0 0; color: var(--muted); line-height: 1.5 }
+      .stat strong { display: block; margin-top: 8px; font-size: 28px }
+      @media (max-width:980px) {
+        .layout { grid-template-columns: 1fr }
+        .stats, .triple { grid-template-columns: repeat(2,1fr) }
+        .hero-top { flex-direction: column }
+      }
     </style>
   </head>
   <body>
     <div class="shell">
       <section class="hero">
-        <h1>Merchant Ops Portal</h1>
-        <p>Franchise and merchant teams can watch all stores, review order flow, manage store staff, and maintain commercial and tracking settings from one session.</p>
+        <div class="hero-top">
+          <div>
+            <div class="eyebrow" style="color:rgba(255,255,255,.72)">Merchant operations</div>
+            <h1>Merchant Operations Portal</h1>
+            <p>Use one merchant session to monitor every store under your group, manage staff access, and shape the commercial terms and tracking experience each restaurant sees.</p>
+          </div>
+          <div class="hero-note">
+            Group-level control
+            <strong>One view across all restaurants in your brand</strong>
+          </div>
+        </div>
         <div><span class="status-dot" id="connectionDot"></span><span id="connectionText">Waiting for merchant session.</span></div>
       </section>
       <div class="layout">
         <aside class="panel stack">
-          <div>
-            <h2>Merchant Session</h2>
-            <p class="muted">Use a merchant user account. Live store updates are streamed through SSE.</p>
-          </div>
-          <div><input id="email" value="falafel.group@demo.com" /></div>
-          <div><input id="password" type="password" value="Password123" /></div>
-          <div class="inline"><button id="loginBtn">Login</button><button id="logoutBtn" class="secondary" type="button">Logout</button></div>
-          <p class="muted" id="sessionStatus">Not logged in</p>
+          <section class="section stack">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Session</div>
+                <h3>Merchant Access</h3>
+                <p class="section-copy">Use a merchant owner, manager, dispatcher, or viewer account. Live updates are streamed automatically.</p>
+              </div>
+              <span class="pill">Live</span>
+            </div>
+            <label>Email<input id="email" value="falafel.group@demo.com" /></label>
+            <label>Password<input id="password" type="password" value="Password123" /></label>
+            <div class="inline"><button id="loginBtn">Login</button><button id="logoutBtn" class="secondary" type="button">Logout</button></div>
+            <p class="muted" id="sessionStatus">Not logged in</p>
+          </section>
 
-          <section class="stack">
-            <div class="section-head"><h3>Store Commercial Terms</h3></div>
-            <p class="muted">Select a store and manage what your company bills the store and what the driver earns. Set additional per km to 0 for a flat-rate delivery.</p>
+          <section class="section stack card-highlight">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Selected store</div>
+                <h3>Store Snapshot</h3>
+                <p class="section-copy">Switch between stores to review staff access, pricing rules, and customer-facing tracking settings.</p>
+              </div>
+              <span class="pill">Context</span>
+            </div>
             <select id="restaurantSelect"></select>
-            <div class="section stack">
+            <div id="selectedStoreSummary" class="muted">Select a store to review its current settings and staff setup.</div>
+          </section>
+
+          <section class="section stack">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Commercial terms</div>
+                <h3>Driver Payout And Store Billing</h3>
+                <p class="section-copy">Change what the driver earns and what your fleet company bills the store. The courier only sees the payout side.</p>
+              </div>
+              <span class="pill">Commercial</span>
+            </div>
+            <div class="card stack">
               <div class="eyebrow">Driver payout to courier</div>
               <strong>What the driver earns</strong>
               <div class="triple">
-                <input id="driverPayoutBaseAmount" type="number" min="0" step="0.01" placeholder="Base amount" />
-                <input id="driverPayoutIncludedDistanceKm" type="number" min="0" step="0.1" placeholder="Included km" />
-                <input id="driverPayoutAdditionalPerKm" type="number" min="0" step="0.01" placeholder="Additional per km" />
+                <label>Base amount<input id="driverPayoutBaseAmount" type="number" min="0" step="0.01" /></label>
+                <label>Included km<input id="driverPayoutIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
+                <label>Additional per km<input id="driverPayoutAdditionalPerKm" type="number" min="0" step="0.01" /></label>
               </div>
               <div id="driverPayoutSummary" class="muted"></div>
             </div>
-            <div class="section stack">
+            <div class="card stack">
               <div class="eyebrow">Merchant billing to store</div>
               <strong>What the store is billed</strong>
               <div class="triple">
-                <input id="merchantBillingBaseAmount" type="number" min="0" step="0.01" placeholder="Base amount" />
-                <input id="merchantBillingIncludedDistanceKm" type="number" min="0" step="0.1" placeholder="Included km" />
-                <input id="merchantBillingAdditionalPerKm" type="number" min="0" step="0.01" placeholder="Additional per km" />
+                <label>Base amount<input id="merchantBillingBaseAmount" type="number" min="0" step="0.01" /></label>
+                <label>Included km<input id="merchantBillingIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
+                <label>Additional per km<input id="merchantBillingAdditionalPerKm" type="number" min="0" step="0.01" /></label>
               </div>
               <div id="merchantBillingSummary" class="muted"></div>
             </div>
@@ -86,26 +211,35 @@
             <div id="pricingStatus" class="muted">Select a store to review or update its commercial terms.</div>
           </section>
 
-          <section class="stack">
-            <div class="section-head"><h3>Store Tracking Display</h3></div>
-            <label class="toggle"><input id="showPickedUpAsInTransit" type="checkbox" /> Show status as “In transit” after pickup</label>
+          <section class="section stack">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Restaurant portal view</div>
+                <h3>Tracking Display</h3>
+                <p class="section-copy">Choose how each store sees delivery status and ETA information during the order lifecycle.</p>
+              </div>
+              <span class="pill">Experience</span>
+            </div>
+            <label class="toggle"><input id="showPickedUpAsInTransit" type="checkbox" /> Show status as "In transit" after pickup</label>
             <label class="toggle"><input id="showDriverEtaToPickup" type="checkbox" /> Show driver ETA to pickup</label>
             <label class="toggle"><input id="showDestinationEta" type="checkbox" /> Show destination ETA after pickup</label>
             <button id="saveTrackingBtn" type="button" class="secondary">Save Tracking Display</button>
             <div id="trackingStatus" class="muted">Update how restaurant staff see delivery progress for this store.</div>
           </section>
 
-          <section class="stack">
-            <div class="section-head"><h3>Staff Management</h3></div>
-            <input id="staffName" placeholder="Staff name" />
-            <input id="staffEmail" placeholder="Staff email" />
-            <input id="staffPassword" type="password" placeholder="Temporary password" />
-            <select id="staffRole">
-              <option value="manager">Manager</option>
-              <option value="dispatcher">Dispatcher</option>
-              <option value="viewer">Viewer</option>
-              <option value="owner">Owner</option>
-            </select>
+          <section class="section stack card-highlight">
+            <div class="section-head"><h3>Store Staff Management</h3><span class="pill">Access</span></div>
+            <label>Staff name<input id="staffName" placeholder="Staff name" /></label>
+            <label>Staff email<input id="staffEmail" placeholder="Staff email" /></label>
+            <label>Temporary password<input id="staffPassword" type="password" placeholder="Temporary password" /></label>
+            <label>Role
+              <select id="staffRole">
+                <option value="manager">Manager</option>
+                <option value="dispatcher">Dispatcher</option>
+                <option value="viewer">Viewer</option>
+                <option value="owner">Owner</option>
+              </select>
+            </label>
             <button id="createStaffBtn" type="button">Create Store Staff Account</button>
             <div id="staffStatus" class="muted">Create and review staff users for the selected store.</div>
             <div id="staffList" class="cards"></div>
@@ -119,11 +253,11 @@
             <div class="stat"><div class="muted">Billed to stores</div><strong id="statCharges">AED 0.00</strong></div>
           </section>
           <section class="panel stack">
-            <div class="section-head"><div><h2>Store Overview</h2><p class="muted">Merchant-wide visibility across all linked restaurants.</p></div><button id="refreshBtn" class="secondary" type="button">Refresh now</button></div>
+            <div class="section-head"><div><div class="eyebrow">Merchant-wide visibility</div><h2 style="margin:6px 0 0">Store Overview</h2><p class="section-copy">Scan the current operating picture across all restaurants linked to your merchant account.</p></div><button id="refreshBtn" class="secondary" type="button">Refresh now</button></div>
             <div id="restaurants" class="cards"></div>
           </section>
           <section class="panel stack">
-            <div class="section-head"><h2>Active Orders</h2></div>
+            <div class="section-head"><div><div class="eyebrow">Current activity</div><h2 style="margin:6px 0 0">Live Order View</h2></div></div>
             <div id="orders" class="cards"></div>
           </section>
         </main>
@@ -132,4 +266,3 @@
     <script type="module" src="/merchant.js"></script>
   </body>
 </html>
-

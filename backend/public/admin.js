@@ -16,6 +16,12 @@ const nodes = {
   restaurantPricingStatus: document.getElementById('restaurantPricingStatus'),
   restaurantTrackingStatus: document.getElementById('restaurantTrackingStatus'),
   driverControlsStatus: document.getElementById('driverControlsStatus'),
+  statMerchants: document.getElementById('statMerchants'),
+  statRestaurants: document.getElementById('statRestaurants'),
+  statOnlineDrivers: document.getElementById('statOnlineDrivers'),
+  statAdmins: document.getElementById('statAdmins'),
+  selectedRestaurantSummary: document.getElementById('selectedRestaurantSummary'),
+  selectedDriverSummary: document.getElementById('selectedDriverSummary'),
 };
 
 function parseCommaSeparatedIds(value) {
@@ -111,6 +117,7 @@ function populateSelects() {
 function syncRestaurantSettingsForm() {
   const restaurant = restaurants.find((item) => item.id === nodes.settingsRestaurantSelect.value) || restaurants[0];
   if (!restaurant) {
+    nodes.selectedRestaurantSummary.textContent = 'Select a store to view its current commercial and tracking setup.';
     return;
   }
   nodes.settingsRestaurantSelect.value = restaurant.id;
@@ -119,12 +126,20 @@ function syncRestaurantSettingsForm() {
   document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
+  nodes.selectedRestaurantSummary.innerHTML = `
+    <strong>${restaurant.name}</strong>
+    <div>Merchant ID: ${restaurant.merchantId}</div>
+    <div>Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
+    <div>Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
+    <div>Tracking view: pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'}, destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
+  `;
   updatePricingSummaries();
 }
 
 function syncDriverControlsForm() {
   const driver = drivers.find((item) => item.id === nodes.driverSelect.value) || drivers[0];
   if (!driver) {
+    nodes.selectedDriverSummary.textContent = 'Select a driver to review capacity and assignment scope.';
     return;
   }
   nodes.driverSelect.value = driver.id;
@@ -132,6 +147,12 @@ function syncDriverControlsForm() {
   document.getElementById('dispatchModeSelect').value = driver.dispatchPolicy.mode;
   document.getElementById('dispatchRestaurantIds').value = driver.dispatchPolicy.restaurantIds.join(', ');
   document.getElementById('dispatchMerchantIds').value = driver.dispatchPolicy.merchantIds.join(', ');
+  nodes.selectedDriverSummary.innerHTML = `
+    <strong>${driver.name}</strong>
+    <div>${driver.isOnline ? 'Online' : 'Offline'} | Load ${driver.currentLoad}/${driver.maxActiveOrders}</div>
+    <div>Dispatch mode: ${driver.dispatchPolicy.mode}</div>
+    <div>Location freshness: ${driver.locationFreshness}</div>
+  `;
 }
 
 async function refreshDashboard() {
@@ -149,6 +170,10 @@ async function refreshDashboard() {
     drivers = driverRows;
     populateSelects();
     nodes.sessionStatus.textContent = `Logged in as ${session.name} (${session.role})`;
+    nodes.statMerchants.textContent = String(merchantRows.length);
+    nodes.statRestaurants.textContent = String(restaurantRows.length);
+    nodes.statOnlineDrivers.textContent = String(driverRows.filter((driver) => driver.isOnline).length);
+    nodes.statAdmins.textContent = String(adminRows.length);
     renderCollection('merchants', merchantRows, (merchant) => `
       <article class="card">
         <div><strong>${merchant.name}</strong></div>
@@ -158,19 +183,19 @@ async function refreshDashboard() {
     `);
     renderCollection('restaurants', restaurantRows, (restaurant) => `
       <article class="card">
-        <div><strong>${restaurant.name}</strong></div>
-        <div class="muted">Merchant: ${restaurant.merchantId}</div>
+        <div class="eyebrow">${restaurant.merchantId}</div>
+        <h4>${restaurant.name}</h4>
         <div class="muted">Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
-        <div class="muted">Merchant billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
-        <div class="muted">Pickup ETA visible: ${restaurant.trackingSettings.showDriverEtaToPickup ? 'Yes' : 'No'} | Destination ETA visible: ${restaurant.trackingSettings.showDestinationEta ? 'Yes' : 'No'}</div>
+        <div class="muted">Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
+        <div class="muted">Pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'} | Destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
       </article>
     `);
     renderCollection('drivers', driverRows, (driver) => `
       <article class="card">
         <div><strong>${driver.name}</strong></div>
         <div class="muted">${driver.email}</div>
-        <div class="muted">${driver.isOnline ? 'Online' : 'Offline'} | capacity ${driver.maxActiveOrders} | load ${driver.currentLoad}</div>
-        <div class="muted">Dispatch: ${driver.dispatchPolicy.mode}</div>
+        <div class="muted">${driver.isOnline ? 'Online' : 'Offline'} | Capacity ${driver.maxActiveOrders} | Load ${driver.currentLoad}</div>
+        <div class="muted">Dispatch mode: ${driver.dispatchPolicy.mode}</div>
       </article>
     `);
     renderCollection('admins', adminRows, (admin) => `
@@ -289,7 +314,7 @@ async function saveDriverDispatch() {
       merchantIds: parseCommaSeparatedIds(document.getElementById('dispatchMerchantIds').value),
     }),
   });
-  nodes.driverControlsStatus.textContent = 'Driver dispatch policy updated.';
+  nodes.driverControlsStatus.textContent = 'Driver dispatch scope updated.';
   await refreshDashboard();
 }
 

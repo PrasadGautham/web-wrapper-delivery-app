@@ -8,6 +8,7 @@ const nodes = {
   connectionText: document.getElementById('connectionText'),
   connectionDot: document.getElementById('connectionDot'),
   trackingSettings: document.getElementById('trackingSettings'),
+  storeSummary: document.getElementById('storeSummary'),
   resetStatus: document.getElementById('resetStatus'),
   statTotal: document.getElementById('statTotal'),
   statActive: document.getElementById('statActive'),
@@ -313,4 +314,5 @@ setInterval(() => {
     refreshSession().catch(() => {});
   }
 }, 10 * 60 * 1000);
+
 
