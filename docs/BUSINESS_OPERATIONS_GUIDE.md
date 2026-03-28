@@ -231,11 +231,19 @@ C:\flutter\bin\flutter.bat run
 
 ## Demo Accounts
 
+The local source of truth for demo tenants, users, stores, and drivers is [seed.json](/c:/dev/DriverApp/backend/data/seed.json). The current seed includes two tenants:
+- `tnt_fleet_001` = `Falafel Delivery Operations`
+- `tnt_fleet_002` = `Burger Logistics Client`
+
+Commonly used demo accounts:
 - Platform admin: `admin@demo.com` / `Password123`
+- Platform ops admin: `ops@demo.com` / `Password123`
 - Tenant admin: `falafel.admin@demo.com` / `Password123`
 - Tenant admin: `burger.admin@demo.com` / `Password123`
-- Merchant: `falafel.group@demo.com` / `Password123`
+- Merchant owner: `falafel.group@demo.com` / `Password123`
+- Merchant manager: `falafel.ops@demo.com` / `Password123`
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
+- Restaurant owner: `falafel.owner@demo.com` / `Password123`
 - Driver: `driver@demo.com` / `Password123`
 
 ## Role-Based Test Guide

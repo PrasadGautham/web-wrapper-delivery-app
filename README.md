@@ -49,6 +49,8 @@ Admin controls those market settings. Merchant users can view them but cannot ch
 - Merchant portal: `http://127.0.0.1:8080/merchant`
 - Restaurant portal: `http://127.0.0.1:8080/restaurant`
 
+Only use the explicit split admin routes above. `/admin` is no longer supported.
+
 ## Current Role Surfaces
 
 - Platform admin portal: internal fleet-company operations and cross-tenant support
@@ -68,23 +70,24 @@ The platform now separates:
 
 This keeps client data isolated without needing a separate database per client at this stage.
 
-## Demo Accounts
+## Seeded Local Demo Data
 
-Platform admin:
-- `admin@demo.com` / `Password123`
+Local Postgres resets and local file-store demo mode both seed from [seed.json](/c:/dev/DriverApp/backend/data/seed.json). The current seed is tenant-aware and represents two sample client tenants:
+- `tnt_fleet_001` = `Falafel Delivery Operations`
+- `tnt_fleet_002` = `Burger Logistics Client`
 
-Tenant admins:
-- `falafel.admin@demo.com` / `Password123`
-- `burger.admin@demo.com` / `Password123`
+Primary demo accounts:
+- Platform admin: `admin@demo.com` / `Password123`
+- Platform ops admin: `ops@demo.com` / `Password123`
+- Tenant admin: `falafel.admin@demo.com` / `Password123`
+- Tenant admin: `burger.admin@demo.com` / `Password123`
+- Merchant owner: `falafel.group@demo.com` / `Password123`
+- Merchant manager: `falafel.ops@demo.com` / `Password123`
+- Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
+- Restaurant owner: `falafel.owner@demo.com` / `Password123`
+- Driver: `driver@demo.com` / `Password123`
 
-Merchant:
-- `falafel.group@demo.com` / `Password123`
-
-Restaurant staff:
-- `falafel.dispatch@demo.com` / `Password123`
-
-Driver:
-- `driver@demo.com` / `Password123`
+Secondary seeded accounts also exist for the second sample tenant and restaurant. If you need the full list, use [seed.json](/c:/dev/DriverApp/backend/data/seed.json) as the source of truth.
 
 ## Docs Map
 
@@ -123,6 +126,8 @@ cd C:\dev\DriverApp\backend
 ```
 
 Backend tests will automatically use a derived local Postgres test database such as `driverapp_test` when `backend/.env.local-postgres` is present.
+
+If local Postgres ever contains broken half-migrated tenant data, the backend now fails fast instead of silently showing wrong admin counts. Tenant-owned rows must always have `tenantId`, platform admins must remain global, and tenant admins must always belong to exactly one tenant. Use `backend\reset-local-postgres.ps1` to rebuild local data from seed.
 
 File-store mode remains available only as a quick fallback demo path:
 

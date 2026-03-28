@@ -151,3 +151,15 @@ create index if not exists idx_orders_tenant_id on orders(tenant_id);
 create index if not exists idx_sessions_tenant_id on sessions(tenant_id);
 create index if not exists idx_password_reset_tokens_tenant_id on password_reset_tokens(tenant_id);
 create index if not exists idx_audit_logs_tenant_id on audit_logs(tenant_id);
+
+alter table merchants alter column tenant_id set not null;
+alter table drivers alter column tenant_id set not null;
+alter table restaurants alter column tenant_id set not null;
+alter table orders alter column tenant_id set not null;
+
+alter table admin_users drop constraint if exists admin_users_role_tenant_scope_chk;
+alter table admin_users add constraint admin_users_role_tenant_scope_chk check (
+  (role in ('platformAdmin', 'opsAdmin', 'supportAdmin', 'billingAdmin') and tenant_id is null)
+  or
+  (role in ('tenantAdmin', 'tenantOps', 'tenantSupport') and tenant_id is not null)
+);

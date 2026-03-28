@@ -52,6 +52,8 @@ Important boundary:
 
 Dispatch policy validation and driver assignment now enforce tenant boundaries so a driver cannot be tied to stores or merchant groups from another tenant.
 
+The canonical local seed source is [seed.json](/c:/dev/DriverApp/backend/data/seed.json). Local Postgres reset and local file-store demo mode both derive their initial tenant-aware data from that file.
+
 ## Browser Auth Model
 
 Browser portals use:

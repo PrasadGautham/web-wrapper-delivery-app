@@ -268,6 +268,12 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     assert.equal(orders.some((item) => item.id === rejectedOrder.id && item.status === 'queued'), true);
 
     const db = await store.read();
+    assert.equal(db.tenants.length >= 2, true);
+    assert.equal(db.merchants.every((item) => Boolean(item.tenantId)), true);
+    assert.equal(db.drivers.every((item) => Boolean(item.tenantId)), true);
+    assert.equal(db.restaurants.every((item) => Boolean(item.tenantId)), true);
+    assert.equal(db.orders.every((item) => Boolean(item.tenantId)), true);
+    assert.equal(db.adminUsers.some((item) => item.role === 'tenantAdmin' && Boolean(item.tenantId)), true);
     const rejectedOrderRecord = db.orders.find((item) => item.id === rejectedOrder.id);
     assert.ok(rejectedOrderRecord);
     assert.deepEqual(rejectedOrderRecord?.rejectedDriverIds, ['drv_1f2c9a44']);

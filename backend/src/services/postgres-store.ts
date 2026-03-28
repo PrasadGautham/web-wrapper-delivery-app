@@ -215,6 +215,43 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
     }
     const schema = await readFile(this.schemaFilePath, 'utf8');
     await this.pool.query(schema);
+    await this.assertTenantIntegrity();
     this.initialized = true;
+  }
+
+  private async assertTenantIntegrity(): Promise<void> {
+    const result = await this.pool.query(`
+      select
+        (select count(*)::int from tenants) as tenants,
+        (select count(*)::int from merchants where tenant_id is null) as merchants_missing_tenant,
+        (select count(*)::int from drivers where tenant_id is null) as drivers_missing_tenant,
+        (select count(*)::int from restaurants where tenant_id is null) as restaurants_missing_tenant,
+        (select count(*)::int from orders where tenant_id is null) as orders_missing_tenant,
+        (select count(*)::int from admin_users where role like 'tenant%' and tenant_id is null) as tenant_admins_missing_tenant,
+        (select count(*)::int from admin_users where role in ('platformAdmin', 'opsAdmin', 'supportAdmin', 'billingAdmin') and tenant_id is not null) as platform_admins_with_tenant,
+        (select count(*)::int from admin_users where role in ('tenantAdmin', 'tenantOps', 'tenantSupport') and tenant_id is null) as tenant_admins_without_tenant,
+        (select count(*)::int from admin_users where role not in ('platformAdmin', 'opsAdmin', 'supportAdmin', 'billingAdmin', 'tenantAdmin', 'tenantOps', 'tenantSupport')) as unknown_admin_roles,
+        (select count(*)::int from merchants) as merchant_count,
+        (select count(*)::int from drivers) as driver_count,
+        (select count(*)::int from restaurants) as restaurant_count,
+        (select count(*)::int from orders) as order_count
+    `);
+
+    const row = result.rows[0] as Record<string, number>;
+    const tenantOwnedRows = Number(row.merchant_count ?? 0) + Number(row.driver_count ?? 0) + Number(row.restaurant_count ?? 0) + Number(row.order_count ?? 0);
+    const hasBrokenTenantState =
+      (Number(row.tenants ?? 0) === 0 && tenantOwnedRows > 0) ||
+      Number(row.merchants_missing_tenant ?? 0) > 0 ||
+      Number(row.drivers_missing_tenant ?? 0) > 0 ||
+      Number(row.restaurants_missing_tenant ?? 0) > 0 ||
+      Number(row.orders_missing_tenant ?? 0) > 0 ||
+      Number(row.tenant_admins_missing_tenant ?? 0) > 0 ||
+      Number(row.platform_admins_with_tenant ?? 0) > 0 ||
+      Number(row.tenant_admins_without_tenant ?? 0) > 0 ||
+      Number(row.unknown_admin_roles ?? 0) > 0;
+
+    if (hasBrokenTenantState) {
+      throw new Error('Postgres tenant integrity check failed. Tenant-owned rows must have tenant_id values, platform admins must stay global, and tenant admins must be scoped to exactly one tenant. Reset the local database with backend/reset-local-postgres.ps1 before starting the backend.');
+    }
   }
 }

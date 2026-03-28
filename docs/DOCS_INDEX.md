@@ -68,6 +68,25 @@ Use it if you are new to the repository and want to know:
 - [IOS_BACKGROUND_VALIDATION.md](/c:/dev/DriverApp/docs/IOS_BACKGROUND_VALIDATION.md)
   iOS background and native validation notes.
 
+## Portal Quick Access
+
+- Platform admin portal: `http://127.0.0.1:8080/platform-admin`
+  Demo users: `admin@demo.com` / `Password123`, `ops@demo.com` / `Password123`
+- Tenant admin portal: `http://127.0.0.1:8080/tenant-admin`
+  Demo users: `falafel.admin@demo.com` / `Password123`, `burger.admin@demo.com` / `Password123`
+- Merchant portal: `http://127.0.0.1:8080/merchant`
+  Demo users: `falafel.group@demo.com` / `Password123`, `falafel.ops@demo.com` / `Password123`
+- Restaurant portal: `http://127.0.0.1:8080/restaurant`
+  Demo users: `falafel.dispatch@demo.com` / `Password123`, `falafel.owner@demo.com` / `Password123`
+- Driver app demo user: `driver@demo.com` / `Password123`
+
+Seed source: [seed.json](/c:/dev/DriverApp/backend/data/seed.json)
+Current seeded tenants:
+- `tnt_fleet_001` = `Falafel Delivery Operations`
+- `tnt_fleet_002` = `Burger Logistics Client`
+
+Only use `/platform-admin` and `/tenant-admin` for admin access. `/admin` is no longer supported.
+
 ## Quick Role Map
 
 - Admin and fleet operations: [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)

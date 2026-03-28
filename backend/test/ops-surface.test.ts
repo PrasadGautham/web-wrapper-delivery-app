@@ -12,7 +12,8 @@ const publicDir = path.resolve(__dirname, '..', 'public');
 
 function ensureStaticTestFiles(): void {
   mkdirSync(publicDir, { recursive: true });
-  writeFileSync(path.join(publicDir, 'admin.html'), '<!doctype html><html><body>admin</body></html>');
+  writeFileSync(path.join(publicDir, 'platform-admin.html'), '<!doctype html><html><body>platform-admin</body></html>');
+  writeFileSync(path.join(publicDir, 'tenant-admin.html'), '<!doctype html><html><body>tenant-admin</body></html>');
   writeFileSync(path.join(publicDir, 'merchant.html'), '<!doctype html><html><body>merchant</body></html>');
   writeFileSync(path.join(publicDir, 'restaurant.html'), '<!doctype html><html><body>restaurant</body></html>');
 }
