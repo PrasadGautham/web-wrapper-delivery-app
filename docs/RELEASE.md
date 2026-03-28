@@ -12,6 +12,7 @@ Current deferred track:
 
 Before release:
 - verify backend URL configuration
+- use `--dart-define=BACKEND_API_BASE_URL=https://your-host/api` for hosted builds
 - verify Firebase project configuration
 - verify driver login
 - verify online or offline flow

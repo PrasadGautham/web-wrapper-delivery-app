@@ -72,6 +72,7 @@ Admin controls those market settings. Merchant users can view them but cannot ch
 - Deployment: [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
 - Environment checklist: [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
 - Go-live checklist: [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
+- Final go-live gaps: [FINAL_GO_LIVE_GAPS.md](/c:/dev/DriverApp/docs/FINAL_GO_LIVE_GAPS.md)
 - Production readiness: [PRODUCTION_READINESS.md](/c:/dev/DriverApp/docs/PRODUCTION_READINESS.md)
 - Mobile release guide: [RELEASE.md](/c:/dev/DriverApp/docs/RELEASE.md)
 - iOS pending work: [IOS_LATER.md](/c:/dev/DriverApp/docs/IOS_LATER.md)
