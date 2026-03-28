@@ -18,7 +18,7 @@ This repository currently contains three product surfaces backed by one shared b
 The backend owns:
 
 - driver eligibility
-- nearest-driver selection
+- best-driver selection with policy-aware ranking
 - merchant/store dispatch scope
 - capacity checks
 - reassignment after reject or timeout
@@ -100,7 +100,7 @@ Responsibilities:
 - dispatch ranking
 - reassignment
 - capacity checks
-- stale-location filtering
+- fresh-location preference with allow-list fallback when necessary
 
 ## Persistence Model
 
@@ -159,7 +159,7 @@ Implemented currently:
 - audit logs
 - allowlisted CORS
 - optional protected metrics endpoint
-- basic CSP and security headers for backend-served portals
+- CSP, frame protection, cookie policy controls, and security headers for backend-served portals
 
 ## Remaining Non-Code Dependency
 

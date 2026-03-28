@@ -27,7 +27,11 @@ Each restaurant has two separate commercial rule sets:
 - `driver pay`: what the fleet company pays the driver
 - `store charge`: what the fleet company charges the restaurant
 
-Those values are snapped onto each order so historical reporting stays correct even if pricing rules change later.
+Each restaurant also has a driver-offer display setting for what the courier sees in the app:
+- `store to customer only`
+- `include commute to store plus delivery`
+
+Those values are snapped onto each order so historical reporting and driver-facing offer metrics stay correct even if rules change later.
 
 ## Main Entry Points
 

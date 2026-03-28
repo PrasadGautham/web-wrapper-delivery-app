@@ -38,3 +38,18 @@ iOS is not currently production-ready from this Windows-only setup because nativ
 - Redis is not required for single-instance production
 - SMTP is optional until email password reset is required in production
 - Google traffic-aware ETA is optional
+
+## Security Notes
+
+Current security posture is good for this stage:
+- browser portals use HttpOnly cookie sessions
+- Flutter uses secure device storage
+- cookie SameSite and Secure settings are env-driven
+- admin API-key fallback can be disabled and should stay disabled in production
+- CSP reporting, metrics protection, and frame protection are implemented
+
+Remaining production security work is mainly operational:
+- production secret management
+- hosted TLS and origin validation
+- Firebase service-account protection
+- monitoring and alert routing

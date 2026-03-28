@@ -47,7 +47,7 @@ cd C:\dev\DriverApp\backend
 .\reset-local-postgres.ps1
 ```
 
-Optional fallback mode: file-store
+Optional fallback mode: file-store only
 
 ```powershell
 cd C:\dev\DriverApp\backend
@@ -118,6 +118,6 @@ C:\flutter\bin\flutter.bat test
 
 - Use Postgres for normal local development and production-like testing.
 - `reset-local-postgres.ps1` is a manual dev or demo reset only. It is not part of normal startup.
-- File-store local mode is only a fallback demo option.
+- File-store local mode is only a fallback demo option and no longer injects local secrets automatically.
 - Android is the current supported launch track from this Windows environment.
 - iOS native validation still requires macOS.

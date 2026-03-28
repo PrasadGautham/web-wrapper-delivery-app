@@ -96,22 +96,23 @@ Driver can:
 
 1. Restaurant creates an order.
 2. Backend checks eligible drivers.
-3. Backend excludes:
-- offline drivers
-- stale-location drivers
-- at-capacity drivers
-- drivers outside allow-list scope when policy requires it
-4. Backend chooses the nearest eligible driver.
-5. Driver receives the offer.
-6. Driver accepts or rejects.
-7. Order progresses through:
+3. Backend filters and ranks drivers using:
+- online status
+- capacity
+- dispatch scope
+- location freshness and distance when fresh location is available
+4. Backend prefers the best fresh eligible driver.
+5. If no fresh eligible driver is available, a dedicated allow-listed driver can still receive the order as a fallback so tied-store work does not stall forever.
+6. Driver receives the offer.
+7. Driver accepts or rejects.
+8. Order progresses through:
 - pending
 - accepted
 - atRestaurant
 - pickedUp
 - delivered
-8. Restaurant and merchant views update live.
-9. Driver pay and store charge are kept on the order as snapshots.
+9. Restaurant and merchant views update live.
+10. Driver pay, store charge, and driver-facing offer distance and ETA are kept on the order as snapshots.
 
 ## Dispatch Rules
 
@@ -162,6 +163,14 @@ Per store, admin and merchant can decide what restaurant staff see:
 
 These settings are per store, not global.
 
+## Driver Offer Distance Rules
+
+Per store, admin and merchant can also decide what the courier sees when an offer appears in the driver app:
+- `Store to customer only`
+- `Include commute to store plus delivery`
+
+That setting changes the driver-facing distance and ETA in the incoming offer and navigation screens. It does not change the store charge or driver pay calculation.
+
 ## Local Demo Start
 
 ### Backend
@@ -211,6 +220,7 @@ C:\flutter\bin\flutter.bat run
 - driver pay rule
 - store charge rule
 - tracking-display settings
+- driver offer distance mode
 5. Select a driver and change:
 - max live deliveries
 - assignment mode
@@ -231,6 +241,7 @@ Expected:
 - driver pay
 - store charge
 - tracking-display settings
+- driver offer distance mode
 5. Create a store staff user
 
 Expected:

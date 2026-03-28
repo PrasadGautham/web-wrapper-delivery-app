@@ -60,11 +60,16 @@ That preserves historical accuracy when pricing rules change later.
 
 ## Dispatch Rules
 
-Driver dispatch eligibility considers:
+Driver dispatch eligibility and ranking consider:
 - online status
-- location freshness
 - current load versus max live deliveries
 - dispatch policy
+- location freshness and distance when fresh driver location is available
+
+Important current behavior:
+- fresh eligible drivers are preferred first
+- stale or missing driver location reduces ranking quality and ETA quality
+- a dedicated allow-listed driver can still be used as a fallback so tied-store orders do not stay stranded forever
 
 Dispatch policy supports:
 - `open`
@@ -83,6 +88,14 @@ Per restaurant, admin and merchant can set:
 - show destination ETA after pickup
 
 These rules change restaurant-facing display only.
+
+## Driver Offer Display Rules
+
+Per restaurant, admin and merchant can set what the driver app shows on an incoming offer:
+- `storeToCustomer`: only the delivery leg
+- `includeCommuteToStore`: driver to store plus delivery
+
+The backend snapshots the chosen distance and ETA onto the order at assignment time so the driver app, push notification text, and backend state stay aligned.
 
 ## Live Updates
 

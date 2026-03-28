@@ -23,7 +23,7 @@ This platform is designed for a driver fleet company.
 
 Current business separation:
 - restaurant creates the order
-- backend assigns the nearest eligible driver
+- backend assigns the best eligible driver, preferring fresh nearby drivers and using tied-driver fallback when needed
 - driver sees only the driver pay for the trip
 - store sees only the amount billed to the store
 - merchant sees cross-store reporting within its own group
@@ -48,7 +48,7 @@ Current business separation:
 - Restaurant portal: `/restaurant`
 - browser portals use HttpOnly cookie sessions
 - merchant and restaurant portals use SSE live updates
-- admin and merchant pricing and settings controls are available in the UI
+- admin and merchant pricing, tracking, and driver-offer display controls are available in the UI
 
 ### Flutter Driver App
 
