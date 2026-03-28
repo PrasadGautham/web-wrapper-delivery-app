@@ -30,10 +30,17 @@ Clients do not decide dispatch.
 
 Current role boundaries:
 
-- driver: delivery execution only
+- driver: delivery execution only inside one tenant
 - restaurant staff: one store only
 - merchant user: all stores under one merchant group
-- platform admin: global operational control
+- tenant admin: one client tenant only
+- platform admin: global operational control across tenants
+
+The critical modeling choice is:
+- `tenant` is the client boundary
+- `merchant group` is a business grouping inside that tenant
+
+This keeps the system ready for SaaS-style growth without needing a separate database per tenant right now.
 
 ### 3. Loosely coupled infrastructure seams
 

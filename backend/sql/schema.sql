@@ -1,11 +1,21 @@
+create table if not exists tenants (
+  id text primary key,
+  name text not null,
+  slug text not null unique,
+  is_active boolean not null default true,
+  created_at timestamptz not null
+);
+
 create table if not exists merchants (
   id text primary key,
+  tenant_id text not null references tenants(id) on delete cascade,
   name text not null,
   users jsonb not null default '[]'::jsonb
 );
 
 create table if not exists drivers (
   id text primary key,
+  tenant_id text not null references tenants(id) on delete cascade,
   name text not null,
   email text not null unique,
   password text not null,
@@ -21,6 +31,7 @@ create table if not exists drivers (
 
 create table if not exists restaurants (
   id text primary key,
+  tenant_id text not null references tenants(id) on delete cascade,
   merchant_id text not null references merchants(id) on delete cascade,
   name text not null,
   email text not null unique,
@@ -37,6 +48,7 @@ create table if not exists restaurants (
 
 create table if not exists admin_users (
   id text primary key,
+  tenant_id text references tenants(id) on delete cascade,
   name text not null,
   email text not null unique,
   password text not null,
@@ -47,6 +59,7 @@ create table if not exists admin_users (
 
 create table if not exists orders (
   id text primary key,
+  tenant_id text not null references tenants(id) on delete cascade,
   restaurant_id text not null references restaurants(id) on delete cascade,
   restaurant jsonb not null,
   customer jsonb not null,
@@ -73,6 +86,7 @@ create table if not exists sessions (
   token text primary key,
   user_type text not null,
   user_id text not null,
+  tenant_id text references tenants(id) on delete cascade,
   created_at timestamptz not null,
   expires_at timestamptz not null
 );
@@ -81,6 +95,7 @@ create table if not exists password_reset_tokens (
   id text primary key,
   user_type text not null,
   user_id text not null,
+  tenant_id text references tenants(id) on delete cascade,
   token_hash text not null,
   created_at timestamptz not null,
   expires_at timestamptz not null
@@ -91,6 +106,7 @@ create table if not exists audit_logs (
   at timestamptz not null,
   actor_type text not null,
   actor_id text not null,
+  tenant_id text references tenants(id) on delete cascade,
   action text not null,
   entity_type text not null,
   entity_id text not null,
@@ -116,3 +132,22 @@ alter table orders add column if not exists driver_display_mode text not null de
 alter table restaurants add column if not exists distance_unit text not null default 'kilometer';
 alter table orders add column if not exists driver_display_distance_unit text not null default 'kilometer';
 alter table orders add column if not exists display_currency text not null default 'AED';
+alter table merchants add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table drivers add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table restaurants add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table admin_users add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table orders add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table sessions add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table password_reset_tokens add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table audit_logs add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table tenants add column if not exists is_active boolean not null default true;
+alter table tenants add column if not exists created_at timestamptz not null default now();
+
+create index if not exists idx_merchants_tenant_id on merchants(tenant_id);
+create index if not exists idx_drivers_tenant_id on drivers(tenant_id);
+create index if not exists idx_restaurants_tenant_id on restaurants(tenant_id);
+create index if not exists idx_admin_users_tenant_id on admin_users(tenant_id);
+create index if not exists idx_orders_tenant_id on orders(tenant_id);
+create index if not exists idx_sessions_tenant_id on sessions(tenant_id);
+create index if not exists idx_password_reset_tokens_tenant_id on password_reset_tokens(tenant_id);
+create index if not exists idx_audit_logs_tenant_id on audit_logs(tenant_id);

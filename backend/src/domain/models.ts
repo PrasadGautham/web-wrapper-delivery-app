@@ -1,5 +1,21 @@
 export type UserType = 'driver' | 'restaurant' | 'merchant' | 'admin';
 
+export interface TenantRecord {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface TenantProfile {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface GeoPoint {
   latitude: number;
   longitude: number;
@@ -33,12 +49,14 @@ export interface MerchantUserProfile {
 
 export interface MerchantRecord {
   id: string;
+  tenantId: string;
   name: string;
   users: MerchantUserRecord[];
 }
 
 export interface MerchantProfile {
   id: string;
+  tenantId: string;
   name: string;
 }
 
@@ -63,6 +81,7 @@ export interface DriverLocationSnapshot extends GeoPoint {
 
 export interface DriverRecord {
   id: string;
+  tenantId: string;
   name: string;
   email: string;
   password: string;
@@ -78,6 +97,7 @@ export interface DriverRecord {
 
 export interface DriverProfile {
   id: string;
+  tenantId: string;
   name: string;
   email: string;
   rating: number;
@@ -140,6 +160,7 @@ export interface RestaurantPricingRules {
 
 export interface RestaurantRecord {
   id: string;
+  tenantId: string;
   merchantId: string;
   name: string;
   email: string;
@@ -155,6 +176,7 @@ export interface RestaurantRecord {
 
 export interface RestaurantProfile {
   id: string;
+  tenantId: string;
   merchantId: string;
   name: string;
   pickupLocation: LocationSnapshot;
@@ -165,23 +187,32 @@ export interface RestaurantProfile {
   driverOfferSettings: DriverOfferSettings;
 }
 
-export type PlatformAdminRole = 'platformAdmin' | 'opsAdmin' | 'supportAdmin' | 'billingAdmin';
+export type AdminRole =
+  | 'platformAdmin'
+  | 'opsAdmin'
+  | 'supportAdmin'
+  | 'billingAdmin'
+  | 'tenantAdmin'
+  | 'tenantOps'
+  | 'tenantSupport';
 
 export interface AdminUserRecord {
   id: string;
+  tenantId: string | null;
   name: string;
   email: string;
   password: string;
-  role: PlatformAdminRole;
+  role: AdminRole;
   isActive: boolean;
   lastLoginAt: string | null;
 }
 
 export interface AdminUserProfile {
   id: string;
+  tenantId: string | null;
   name: string;
   email: string;
-  role: PlatformAdminRole;
+  role: AdminRole;
   isActive: boolean;
   lastLoginAt: string | null;
 }
@@ -205,6 +236,7 @@ export interface OrderEvent {
 
 export interface OrderRecord {
   id: string;
+  tenantId: string;
   restaurantId: string;
   restaurant: LocationSnapshot;
   customer: LocationSnapshot;
@@ -263,6 +295,7 @@ export interface SessionRecord {
   token: string;
   userType: UserType;
   userId: string;
+  tenantId: string | null;
   createdAt: string;
   expiresAt: string;
 }
@@ -271,6 +304,7 @@ export interface PasswordResetTokenRecord {
   id: string;
   userType: UserType;
   userId: string;
+  tenantId: string | null;
   tokenHash: string;
   createdAt: string;
   expiresAt: string;
@@ -281,6 +315,7 @@ export interface AuditLogRecord {
   at: string;
   actorType: 'driver' | 'restaurant' | 'admin' | 'system' | 'merchant';
   actorId: string;
+  tenantId?: string | null;
   action: string;
   entityType: string;
   entityId: string;
@@ -288,6 +323,7 @@ export interface AuditLogRecord {
 }
 
 export interface DatabaseShape {
+  tenants: TenantRecord[];
   merchants: MerchantRecord[];
   drivers: DriverRecord[];
   restaurants: RestaurantRecord[];

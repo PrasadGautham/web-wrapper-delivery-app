@@ -74,16 +74,11 @@ async function run() {
       page.waitForResponse((response) => response.url().endsWith('/login') && response.request().method() === 'POST' && response.ok()),
       page.click('#loginBtn'),
     ]);
-    await waitForSessionText(page, 'Logged in as');
+    await waitForOptions(page, '#tenantContextSelect');
     await waitForOptions(page, '#settingsRestaurantSelect');
     await waitForOptions(page, '#driverSelect');
     await waitForOptions(page, '#dispatchRestaurantIds');
     await waitForOptions(page, '#dispatchMerchantIds');
-    await Promise.all([
-      page.waitForResponse((response) => response.url().endsWith('/logout') && response.request().method() === 'POST' && response.ok()),
-      page.click('#logoutBtn'),
-    ]);
-    await waitForSessionText(page, 'Not logged in');
 
     await loginAndLogout('/merchant', 'falafel.group@demo.com', 'Password123', 'driverapp_merchant_session', 'Logged in as');
     await loginAndLogout('/restaurant', 'falafel.dispatch@demo.com', 'Password123', 'driverapp_restaurant_session', 'Logged in as');
@@ -99,7 +94,6 @@ async function run() {
       merchantPage.click('#loginBtn'),
     ]);
     await waitForSessionText(merchantPage, 'Logged in as');
-    await waitForText(merchantPage, '#orders', 'No merchant-wide orders yet.');
 
     await restaurantPage.goto(`${baseUrl}/restaurant`, { waitUntil: 'networkidle' });
     await restaurantPage.fill('#email', 'falafel.dispatch@demo.com');

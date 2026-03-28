@@ -71,6 +71,7 @@ export async function runBackendServiceTests(): Promise<void> {
       token: 'expired-token',
       userType: 'driver',
       userId: 'drv_1f2c9a44',
+      tenantId: 'tnt_fleet_001',
       createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       expiresAt: new Date(Date.now() - 60 * 1000).toISOString(),
     });
@@ -117,6 +118,7 @@ export async function runBackendServiceTests(): Promise<void> {
     };
     db.orders.push({
       id: 'pending-order',
+      tenantId: 'tnt_fleet_001',
       restaurantId: 'rst_a13c5f20',
       restaurant: db.restaurants[0]!.pickupLocation,
       customer: {
@@ -165,6 +167,7 @@ export async function runBackendServiceTests(): Promise<void> {
     };
     db.orders.unshift({
       id: 'queued-order',
+      tenantId: 'tnt_fleet_001',
       restaurantId: 'rst_a13c5f20',
       restaurant: db.restaurants[0]!.pickupLocation,
       customer: {
@@ -233,5 +236,19 @@ export async function runBackendServiceTests(): Promise<void> {
       showDestinationEta: true,
     });
     assert.equal(merchantTracking.trackingSettings.showDestinationEta, true);
+  }
+
+  {
+    const store = new InMemoryStore(loadSeed());
+    const service = createService(store);
+
+    await assert.rejects(
+      () => service.updateDriverDispatchPolicy('drv_3d8b6e21', {
+        mode: 'allowListOnly',
+        restaurantIds: ['rst_a13c5f20'],
+        merchantIds: [],
+      }),
+      /outside the driver tenant scope/,
+    );
   }
 }

@@ -6,6 +6,7 @@ import { toJson } from './pg-json.js';
 function mapRestaurant(row: Record<string, unknown>): RestaurantRecord {
   return {
     id: row.id as string,
+    tenantId: row.tenant_id as string,
     merchantId: row.merchant_id as string,
     name: row.name as string,
     email: row.email as string,
@@ -23,7 +24,7 @@ function mapRestaurant(row: Record<string, unknown>): RestaurantRecord {
   };
 }
 
-const baseSelect = `select id, merchant_id, name, email, password, pickup_location,
+const baseSelect = `select id, tenant_id, merchant_id, name, email, password, pickup_location,
                            driver_payout_rule, merchant_billing_rule, currency, distance_unit, tracking_settings, driver_offer_settings, staff_users
                     from restaurants`;
 
@@ -59,9 +60,10 @@ export class PostgresRestaurantsRepository {
 
   async upsertOne(client: PoolClient, item: RestaurantRecord): Promise<void> {
     await client.query(
-      `insert into restaurants(id, merchant_id, name, email, password, pickup_location, driver_payout_rule, merchant_billing_rule, currency, distance_unit, tracking_settings, driver_offer_settings, staff_users)
-       values($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11::jsonb,$12::jsonb,$13::jsonb)
+      `insert into restaurants(id, tenant_id, merchant_id, name, email, password, pickup_location, driver_payout_rule, merchant_billing_rule, currency, distance_unit, tracking_settings, driver_offer_settings, staff_users)
+       values($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10,$11,$12::jsonb,$13::jsonb,$14::jsonb)
        on conflict (id) do update set
+         tenant_id = excluded.tenant_id,
          merchant_id = excluded.merchant_id,
          name = excluded.name,
          email = excluded.email,
@@ -76,6 +78,7 @@ export class PostgresRestaurantsRepository {
          staff_users = excluded.staff_users`,
       [
         item.id,
+        item.tenantId,
         item.merchantId,
         item.name,
         item.email,

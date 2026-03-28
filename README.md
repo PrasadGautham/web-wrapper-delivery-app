@@ -50,17 +50,40 @@ Admin controls those market settings. Merchant users can view them but cannot ch
 
 ## Current Role Surfaces
 
-- Admin portal: internal fleet-company operations and support
-- Merchant portal: merchant-group oversight
-- Restaurant portal: store-level dispatch and order creation
-- Driver app: driver order intake, delivery progress, and earnings
+- Platform admin portal: internal fleet-company operations and cross-tenant support
+- Tenant admin workspace inside `/admin`: one client tenant only
+- Merchant portal: merchant-group oversight inside one tenant
+- Restaurant portal: store-level dispatch and order creation inside one tenant
+- Driver app: driver order intake, delivery progress, and earnings inside one tenant
+
+## Tenant Model
+
+The platform now separates:
+- `platform admin`: your internal team, with access across tenants
+- `tenant`: one client workspace
+- `merchant group`: a restaurant group or franchise group inside a tenant
+- `restaurant`: one store inside a merchant group
+- `driver`: one courier account owned by one tenant
+
+This keeps client data isolated without needing a separate database per client at this stage.
 
 ## Demo Accounts
 
-- Admin: `admin@demo.com` / `Password123`
-- Merchant: `falafel.group@demo.com` / `Password123`
-- Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
-- Driver: `driver@demo.com` / `Password123`
+Platform admin:
+- `admin@demo.com` / `Password123`
+
+Tenant admins:
+- `falafel.admin@demo.com` / `Password123`
+- `burger.admin@demo.com` / `Password123`
+
+Merchant:
+- `falafel.group@demo.com` / `Password123`
+
+Restaurant staff:
+- `falafel.dispatch@demo.com` / `Password123`
+
+Driver:
+- `driver@demo.com` / `Password123`
 
 ## Docs Map
 

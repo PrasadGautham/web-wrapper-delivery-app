@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { DistancePricingRule, DistanceUnit, DriverDispatchMode, DriverOfferDistanceMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
+import { AdminRole, DistancePricingRule, DistanceUnit, DriverDispatchMode, DriverOfferDistanceMode, MerchantUserRole, RestaurantStaffRole } from '../domain/models.js';
 import { assertValidPricingRule, normalizePricingRule } from '../services/pricing-rules.js';
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
@@ -14,6 +14,8 @@ import {
 
 interface AdminAuthedRequest extends FastifyRequest {
   adminUserId?: string;
+  adminTenantId?: string | null;
+  adminRole?: AdminRole;
   authToken?: string;
   authTransport?: AuthTransport;
 }
@@ -38,8 +40,12 @@ function isRestaurantStaffRole(value: unknown): value is RestaurantStaffRole {
   return value === 'owner' || value === 'manager' || value === 'dispatcher' || value === 'viewer';
 }
 
-function isPlatformAdminRole(value: unknown): value is PlatformAdminRole {
-  return value === 'platformAdmin' || value === 'opsAdmin' || value === 'supportAdmin' || value === 'billingAdmin';
+function isAdminRole(value: unknown): value is AdminRole {
+  return value === 'platformAdmin' || value === 'opsAdmin' || value === 'supportAdmin' || value === 'billingAdmin' || value === 'tenantAdmin' || value === 'tenantOps' || value === 'tenantSupport';
+}
+
+function isPlatformAdminUser(request: AdminAuthedRequest): boolean {
+  return request.adminRole === 'platformAdmin' || request.adminRole === 'opsAdmin' || request.adminRole === 'supportAdmin' || request.adminRole === 'billingAdmin';
 }
 
 function isMerchantUserRole(value: unknown): value is MerchantUserRole {
@@ -56,6 +62,27 @@ function isDistanceUnit(value: unknown): value is DistanceUnit {
 
 function isCurrencyCode(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Z]{3}$/.test(value.trim());
+}
+
+async function ensureScopedMerchant(backendService: BackendService, adminRequest: AdminAuthedRequest, merchantId: string): Promise<void> {
+  const merchants = await backendService.listMerchants({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+  if (!merchants.some((merchant) => merchant.id === merchantId)) {
+    throw new Error('Merchant not found for admin scope.');
+  }
+}
+
+async function ensureScopedRestaurant(backendService: BackendService, adminRequest: AdminAuthedRequest, restaurantId: string): Promise<void> {
+  const restaurants = await backendService.listRestaurants({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+  if (!restaurants.some((restaurant) => restaurant.id === restaurantId)) {
+    throw new Error('Restaurant not found for admin scope.');
+  }
+}
+
+async function ensureScopedDriver(backendService: BackendService, adminRequest: AdminAuthedRequest, driverId: string): Promise<void> {
+  const drivers = await backendService.listDrivers({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+  if (!drivers.some((driver) => driver.id === driverId)) {
+    throw new Error('Driver not found for admin scope.');
+  }
 }
 
 export async function registerAdminRoutes(
@@ -91,6 +118,8 @@ export async function registerAdminRoutes(
       const session = resolveAuthSession(request, 'admin');
       const adminUser = await backendService.requireAdminFromToken(session.token);
       (request as AdminAuthedRequest).adminUserId = adminUser.id;
+      (request as AdminAuthedRequest).adminTenantId = adminUser.tenantId ?? null;
+      (request as AdminAuthedRequest).adminRole = adminUser.role;
       (request as AdminAuthedRequest).authToken = session.token;
       (request as AdminAuthedRequest).authTransport = session.transport;
     } catch {
@@ -124,6 +153,7 @@ export async function registerAdminRoutes(
       name: adminUser.name,
       email: adminUser.email,
       role: adminUser.role,
+      tenantId: adminUser.tenantId ?? null,
       isActive: adminUser.isActive,
       lastLoginAt: adminUser.lastLoginAt,
     };
@@ -152,23 +182,80 @@ export async function registerAdminRoutes(
     return { ok: true };
   });
 
-  app.get('/api/admin/merchants', async () => backendService.listMerchants());
+  app.get('/api/admin/tenants', async (request) => {
+    const adminRequest = request as AdminAuthedRequest;
+    return backendService.listTenants({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+  });
+  app.get('/api/admin/merchants', async (request) => {
+    const adminRequest = request as AdminAuthedRequest;
+    return backendService.listMerchants({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+  });
   app.get('/api/admin/merchants/:merchantId/users', async (request) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { merchantId: string };
+    await ensureScopedMerchant(backendService, adminRequest, params.merchantId);
     return backendService.listMerchantUsers(params.merchantId);
   });
-  app.get('/api/admin/restaurants', async () => backendService.listRestaurants());
-  app.get('/api/admin/drivers', async () => backendService.listDrivers());
-  app.get('/api/admin/admin-users', async () => backendService.listAdminUsers());
+  app.get('/api/admin/restaurants', async (request) => {
+    const adminRequest = request as AdminAuthedRequest;
+    return backendService.listRestaurants({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+  });
+  app.get('/api/admin/drivers', async (request) => {
+    const adminRequest = request as AdminAuthedRequest;
+    return backendService.listDrivers({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+  });
+  app.get('/api/admin/admin-users', async (request) => {
+    const adminRequest = request as AdminAuthedRequest;
+    return backendService.listAdminUsers({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+  });
   app.get('/api/admin/restaurants/:restaurantId/staff-users', async (request) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string };
+    await ensureScopedRestaurant(backendService, adminRequest, params.restaurantId);
     return backendService.listRestaurantStaffUsers(params.restaurantId);
   });
 
+  app.post('/api/admin/tenants', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    if (!isPlatformAdminUser(adminRequest)) {
+      return reply.status(403).send({ message: 'Only platform admins can create tenants.' });
+    }
+    const body = request.body as { name?: string; slug?: string };
+    if (!body.name || !body.slug) {
+      return reply.status(400).send({ message: 'name and slug are required.' });
+    }
+    try {
+      return await backendService.createTenant({ name: body.name, slug: body.slug.trim().toLowerCase() });
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.post('/api/admin/tenants/:tenantId/admin-users', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    if (!isPlatformAdminUser(adminRequest)) {
+      return reply.status(403).send({ message: 'Only platform admins can create tenant admin users.' });
+    }
+    const params = request.params as { tenantId: string };
+    const body = request.body as { name?: string; email?: string; password?: string; role?: AdminRole };
+    if (!body.name || !body.email || !body.password || (body.role !== 'tenantAdmin' && body.role !== 'tenantOps' && body.role !== 'tenantSupport')) {
+      return reply.status(400).send({ message: 'name, email, password, and a tenant admin role are required.' });
+    }
+    try {
+      return await backendService.createTenantAdmin(params.tenantId, { name: body.name, email: body.email, password: body.password, role: body.role });
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
   app.post('/api/admin/admin-users', async (request, reply) => {
-    const body = request.body as { name?: string; email?: string; password?: string; role?: PlatformAdminRole };
-    if (!body.name || !body.email || !body.password || !isPlatformAdminRole(body.role)) {
-      return reply.status(400).send({ message: 'name, email, password, and a valid role are required.' });
+    const adminRequest = request as AdminAuthedRequest;
+    if (!isPlatformAdminUser(adminRequest)) {
+      return reply.status(403).send({ message: 'Only platform admins can create platform admin users.' });
+    }
+    const body = request.body as { name?: string; email?: string; password?: string; role?: AdminRole };
+    if (!body.name || !body.email || !body.password || !isAdminRole(body.role) || body.role.startsWith('tenant')) {
+      return reply.status(400).send({ message: 'name, email, password, and a valid platform role are required.' });
     }
     try {
       return await backendService.createAdminUser({
@@ -183,10 +270,14 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/admin-users/:adminUserId', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    if (!isPlatformAdminUser(adminRequest)) {
+      return reply.status(403).send({ message: 'Only platform admins can update platform admin users.' });
+    }
     const params = request.params as { adminUserId: string };
-    const body = request.body as { name?: string; password?: string; role?: PlatformAdminRole; isActive?: boolean };
-    if (body.role != null && !isPlatformAdminRole(body.role)) {
-      return reply.status(400).send({ message: 'Invalid admin role.' });
+    const body = request.body as { name?: string; password?: string; role?: AdminRole; isActive?: boolean };
+    if (body.role != null && (!isAdminRole(body.role) || body.role.startsWith('tenant'))) {
+      return reply.status(400).send({ message: 'Invalid platform admin role.' });
     }
     try {
       return await backendService.updateAdminUser(params.adminUserId, body);
@@ -195,13 +286,69 @@ export async function registerAdminRoutes(
     }
   });
 
+  app.post('/api/admin/merchants', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    const body = request.body as { tenantId?: string; name?: string };
+    if (!body.name) {
+      return reply.status(400).send({ message: 'name is required.' });
+    }
+    try {
+      return await backendService.createMerchant({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, { tenantId: body.tenantId, name: body.name });
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.post('/api/admin/restaurants', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    const body = request.body as { tenantId?: string; merchantId?: string; name?: string; email?: string; password?: string; pickupLocation?: { name?: string; address?: string; latitude?: number; longitude?: number }; currency?: string; distanceUnit?: DistanceUnit };
+    if (!body.merchantId || !body.name || !body.email || !body.password || !body.pickupLocation?.name || !body.pickupLocation?.address || typeof body.pickupLocation.latitude !== 'number' || typeof body.pickupLocation.longitude !== 'number') {
+      return reply.status(400).send({ message: 'merchantId, name, email, password, and a complete pickupLocation are required.' });
+    }
+    if (body.currency != null && !isCurrencyCode(body.currency)) {
+      return reply.status(400).send({ message: 'currency must be a 3-letter ISO code.' });
+    }
+    if (body.distanceUnit != null && !isDistanceUnit(body.distanceUnit)) {
+      return reply.status(400).send({ message: 'distanceUnit must be kilometer or mile.' });
+    }
+    try {
+      return await backendService.createRestaurant({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, {
+        tenantId: body.tenantId,
+        merchantId: body.merchantId,
+        name: body.name,
+        email: body.email,
+        password: body.password,
+        pickupLocation: { name: body.pickupLocation.name, address: body.pickupLocation.address, latitude: body.pickupLocation.latitude, longitude: body.pickupLocation.longitude },
+        currency: body.currency,
+        distanceUnit: body.distanceUnit,
+      });
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.post('/api/admin/drivers', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    const body = request.body as { tenantId?: string; name?: string; email?: string; password?: string };
+    if (!body.name || !body.email || !body.password) {
+      return reply.status(400).send({ message: 'name, email, and password are required.' });
+    }
+    try {
+      return await backendService.createDriver({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, { tenantId: body.tenantId, name: body.name, email: body.email, password: body.password });
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
   app.post('/api/admin/merchants/:merchantId/users', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { merchantId: string };
     const body = request.body as { name?: string; email?: string; password?: string; role?: MerchantUserRole };
     if (!body.name || !body.email || !body.password || !isMerchantUserRole(body.role)) {
       return reply.status(400).send({ message: 'name, email, password, and a valid merchant role are required.' });
     }
     try {
+      await ensureScopedMerchant(backendService, adminRequest, params.merchantId);
       return await backendService.createMerchantUser(params.merchantId, {
         name: body.name,
         email: body.email,
@@ -214,12 +361,14 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/merchants/:merchantId/users/:merchantUserId', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { merchantId: string; merchantUserId: string };
     const body = request.body as { name?: string; password?: string; role?: MerchantUserRole; isActive?: boolean };
     if (body.role != null && !isMerchantUserRole(body.role)) {
       return reply.status(400).send({ message: 'Invalid merchant role.' });
     }
     try {
+      await ensureScopedMerchant(backendService, adminRequest, params.merchantId);
       return await backendService.updateMerchantUser(params.merchantId, params.merchantUserId, body);
     } catch (error) {
       return reply.status(400).send({ message: (error as Error).message });
@@ -227,12 +376,14 @@ export async function registerAdminRoutes(
   });
 
   app.post('/api/admin/restaurants/:restaurantId/staff-users', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string };
     const body = request.body as { name?: string; email?: string; password?: string; role?: RestaurantStaffRole };
     if (!body.name || !body.email || !body.password || !isRestaurantStaffRole(body.role)) {
       return reply.status(400).send({ message: 'name, email, password, and a valid restaurant role are required.' });
     }
     try {
+      await ensureScopedRestaurant(backendService, adminRequest, params.restaurantId);
       return await backendService.createRestaurantStaffUser(params.restaurantId, {
         name: body.name,
         email: body.email,
@@ -245,12 +396,14 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/restaurants/:restaurantId/staff-users/:staffUserId', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string; staffUserId: string };
     const body = request.body as { name?: string; password?: string; role?: RestaurantStaffRole; isActive?: boolean };
     if (body.role != null && !isRestaurantStaffRole(body.role)) {
       return reply.status(400).send({ message: 'Invalid restaurant staff role.' });
     }
     try {
+      await ensureScopedRestaurant(backendService, adminRequest, params.restaurantId);
       return await backendService.updateRestaurantStaffUser(params.restaurantId, params.staffUserId, body);
     } catch (error) {
       return reply.status(400).send({ message: (error as Error).message });
@@ -258,6 +411,7 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/drivers/:driverId/dispatch-policy', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { driverId: string };
     const body = request.body as {
       mode?: DriverDispatchMode;
@@ -276,6 +430,7 @@ export async function registerAdminRoutes(
     }
 
     try {
+      await ensureScopedDriver(backendService, adminRequest, params.driverId);
       return await backendService.updateDriverDispatchPolicy(params.driverId, {
         mode: body.mode,
         restaurantIds: body.restaurantIds ?? [],
@@ -287,6 +442,7 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/drivers/:driverId/capacity', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { driverId: string };
     const body = request.body as { maxActiveOrders?: number };
     if (typeof body.maxActiveOrders !== 'number' || body.maxActiveOrders < 1 || body.maxActiveOrders > 5) {
@@ -294,6 +450,7 @@ export async function registerAdminRoutes(
     }
 
     try {
+      await ensureScopedDriver(backendService, adminRequest, params.driverId);
       return await backendService.updateDriverCapacity(params.driverId, Math.floor(body.maxActiveOrders));
     } catch (error) {
       return reply.status(400).send({ message: (error as Error).message });
@@ -301,6 +458,7 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/restaurants/:restaurantId/display-settings', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string };
     const body = request.body as { currency?: string; distanceUnit?: DistanceUnit };
 
@@ -309,6 +467,7 @@ export async function registerAdminRoutes(
     }
 
     try {
+      await ensureScopedRestaurant(backendService, adminRequest, params.restaurantId);
       const updated = await backendService.updateRestaurantDisplaySettings(params.restaurantId, {
         currency: body.currency,
         distanceUnit: body.distanceUnit,
@@ -321,6 +480,7 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/restaurants/:restaurantId/pricing', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string };
     const body = request.body as {
       driverPayoutRule?: DistancePricingRule;
@@ -333,6 +493,7 @@ export async function registerAdminRoutes(
       }
       assertValidPricingRule(body.driverPayoutRule, 'Driver payout rule');
       assertValidPricingRule(body.merchantBillingRule, 'Merchant billing rule');
+      await ensureScopedRestaurant(backendService, adminRequest, params.restaurantId);
       const updated = await backendService.updateRestaurantPricing(params.restaurantId, {
         driverPayoutRule: normalizePricingRule(body.driverPayoutRule),
         merchantBillingRule: normalizePricingRule(body.merchantBillingRule),
@@ -345,6 +506,7 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/restaurants/:restaurantId/driver-offer-settings', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string };
     const body = request.body as { distanceMode?: DriverOfferDistanceMode };
 
@@ -353,6 +515,7 @@ export async function registerAdminRoutes(
     }
 
     try {
+      await ensureScopedRestaurant(backendService, adminRequest, params.restaurantId);
       const updated = await backendService.updateRestaurantDriverOfferSettings(params.restaurantId, {
         distanceMode: body.distanceMode,
       });
@@ -364,6 +527,7 @@ export async function registerAdminRoutes(
   });
 
   app.patch('/api/admin/restaurants/:restaurantId/tracking-settings', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string };
     const body = request.body as {
       showPickedUpAsInTransit?: boolean;
@@ -380,6 +544,7 @@ export async function registerAdminRoutes(
     }
 
     try {
+      await ensureScopedRestaurant(backendService, adminRequest, params.restaurantId);
       const updated = await backendService.updateRestaurantTrackingSettings(params.restaurantId, {
         showPickedUpAsInTransit: body.showPickedUpAsInTransit,
         showDriverEtaToPickup: body.showDriverEtaToPickup,

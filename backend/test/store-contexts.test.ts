@@ -20,6 +20,7 @@ export async function runStoreContextsTests(): Promise<void> {
         token: 'session-1',
         userType: 'driver',
         userId: 'drv_1f2c9a44',
+        tenantId: 'tnt_fleet_001',
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
       });
@@ -35,6 +36,7 @@ export async function runStoreContextsTests(): Promise<void> {
     await store.withOperationalWriteContext(async (context) => {
       context.state.orders.push({
         id: 'op-order',
+        tenantId: 'tnt_fleet_001',
         restaurantId: 'rst_a13c5f20',
         restaurant: context.state.restaurants[0]!.pickupLocation,
         customer: {

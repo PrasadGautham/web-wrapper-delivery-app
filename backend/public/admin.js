@@ -1,26 +1,38 @@
 const apiBase = '';
 let hasSession = false;
 let refreshingSession = null;
+let sessionInfo = null;
+let tenants = [];
 let merchants = [];
 let restaurants = [];
 let drivers = [];
 let adminUsers = [];
+let selectedTenantId = '';
 
+const PLATFORM_ROLES = new Set(['platformAdmin', 'opsAdmin', 'supportAdmin', 'billingAdmin']);
 const MILES_PER_KILOMETER = 0.621371;
 const KILOMETERS_PER_MILE = 1.609344;
 
 const nodes = {
+  email: document.getElementById('email'),
+  password: document.getElementById('password'),
+  sessionStatus: document.getElementById('sessionStatus'),
+  heroModeLabel: document.getElementById('heroModeLabel'),
+  workspaceModePill: document.getElementById('workspaceModePill'),
+  tenantContextSelect: document.getElementById('tenantContextSelect'),
+  tenantContextSummary: document.getElementById('tenantContextSummary'),
+  tenantAdminTenantSelect: document.getElementById('tenantAdminTenantSelect'),
+  createMerchantTenantSelect: document.getElementById('createMerchantTenantSelect'),
+  createDriverTenantSelect: document.getElementById('createDriverTenantSelect'),
+  createRestaurantTenantSelect: document.getElementById('createRestaurantTenantSelect'),
+  createRestaurantMerchantSelect: document.getElementById('createRestaurantMerchantSelect'),
   merchantSelect: document.getElementById('merchantSelect'),
   restaurantSelect: document.getElementById('restaurantSelect'),
   settingsRestaurantSelect: document.getElementById('settingsRestaurantSelect'),
   driverSelect: document.getElementById('driverSelect'),
-  sessionStatus: document.getElementById('sessionStatus'),
-  merchantUserStatus: document.getElementById('merchantUserStatus'),
-  staffStatus: document.getElementById('staffStatus'),
-  restaurantPricingStatus: document.getElementById('restaurantPricingStatus'),
-  restaurantTrackingStatus: document.getElementById('restaurantTrackingStatus'),
-  displaySettingsStatus: document.getElementById('displaySettingsStatus'),
-  driverControlsStatus: document.getElementById('driverControlsStatus'),
+  dispatchRestaurantIds: document.getElementById('dispatchRestaurantIds'),
+  dispatchMerchantIds: document.getElementById('dispatchMerchantIds'),
+  statTenants: document.getElementById('statTenants'),
   statMerchants: document.getElementById('statMerchants'),
   statRestaurants: document.getElementById('statRestaurants'),
   statOnlineDrivers: document.getElementById('statOnlineDrivers'),
@@ -28,23 +40,95 @@ const nodes = {
   selectedRestaurantSummary: document.getElementById('selectedRestaurantSummary'),
   selectedDriverSummary: document.getElementById('selectedDriverSummary'),
   trackingStoreHint: document.getElementById('trackingStoreHint'),
-  dispatchRestaurantIds: document.getElementById('dispatchRestaurantIds'),
-  dispatchMerchantIds: document.getElementById('dispatchMerchantIds'),
+  architectureSummary: document.getElementById('architectureSummary'),
+  merchantUserStatus: document.getElementById('merchantUserStatus'),
+  staffStatus: document.getElementById('staffStatus'),
+  restaurantPricingStatus: document.getElementById('restaurantPricingStatus'),
+  displaySettingsStatus: document.getElementById('displaySettingsStatus'),
+  restaurantTrackingStatus: document.getElementById('restaurantTrackingStatus'),
+  driverControlsStatus: document.getElementById('driverControlsStatus'),
+  tenantStatus: document.getElementById('tenantStatus'),
+  tenantAdminStatus: document.getElementById('tenantAdminStatus'),
+  createMerchantStatus: document.getElementById('createMerchantStatus'),
+  createDriverStatus: document.getElementById('createDriverStatus'),
+  createRestaurantStatus: document.getElementById('createRestaurantStatus'),
 };
 
+const statusNodes = [
+  nodes.merchantUserStatus,
+  nodes.staffStatus,
+  nodes.restaurantPricingStatus,
+  nodes.displaySettingsStatus,
+  nodes.restaurantTrackingStatus,
+  nodes.driverControlsStatus,
+  nodes.tenantStatus,
+  nodes.tenantAdminStatus,
+  nodes.createMerchantStatus,
+  nodes.createDriverStatus,
+  nodes.createRestaurantStatus,
+];
+
+function isPlatformAdmin() {
+  return sessionInfo ? PLATFORM_ROLES.has(sessionInfo.role) : false;
+}
+
+function activeTenantId() {
+  if (!sessionInfo) return '';
+  return isPlatformAdmin() ? selectedTenantId : (sessionInfo.tenantId || '');
+}
+
+function visibleTenants() {
+  if (!sessionInfo) return [];
+  return isPlatformAdmin() ? tenants : tenants.filter((tenant) => tenant.id === sessionInfo.tenantId);
+}
+
+function visibleMerchants() {
+  const tenantId = activeTenantId();
+  return merchants.filter((merchant) => !tenantId || merchant.tenantId === tenantId);
+}
+
+function visibleRestaurants() {
+  const tenantId = activeTenantId();
+  return restaurants.filter((restaurant) => !tenantId || restaurant.tenantId === tenantId);
+}
+
+function visibleDrivers() {
+  const tenantId = activeTenantId();
+  return drivers.filter((driver) => !tenantId || driver.tenantId === tenantId);
+}
+
+function visibleAdmins() {
+  const tenantId = activeTenantId();
+  if (!sessionInfo) return [];
+  if (!isPlatformAdmin()) return adminUsers.filter((admin) => admin.tenantId === tenantId);
+  if (!tenantId) return adminUsers;
+  return adminUsers.filter((admin) => admin.tenantId === tenantId || admin.tenantId == null);
+}
+
+function tenantName(tenantId) {
+  return tenants.find((tenant) => tenant.id === tenantId)?.name || tenantId || 'Platform';
+}
+
 function currentRestaurant() {
-  return restaurants.find((item) => item.id === nodes.settingsRestaurantSelect.value) || restaurants[0] || null;
+  const list = visibleRestaurants();
+  return list.find((item) => item.id === nodes.settingsRestaurantSelect.value) || list[0] || null;
 }
 
-function getSelectedValues(selectNode) {
-  return Array.from(selectNode.selectedOptions).map((option) => option.value).filter(Boolean);
+function currentDriver() {
+  const list = visibleDrivers();
+  return list.find((item) => item.id === nodes.driverSelect.value) || list[0] || null;
 }
 
-function setSelectedValues(selectNode, values) {
-  const selected = new Set(values);
-  for (const option of selectNode.options) {
-    option.selected = selected.has(option.value);
+function clearStatuses() {
+  for (const node of statusNodes) {
+    node.textContent = '';
+    node.style.color = '';
   }
+}
+
+function setStatus(node, message, isError = false) {
+  node.textContent = message;
+  node.style.color = isError ? '#9b1c1c' : '';
 }
 
 function normalizeCurrencyCode(value) {
@@ -115,13 +199,15 @@ function readRuleInputs(prefix, unit) {
   };
 }
 
-function updatePricingSummaries() {
-  const restaurant = currentRestaurant();
-  const currency = normalizeCurrencyCode(restaurant?.currency || document.getElementById('currencyCode').value || 'AED');
-  const unit = restaurant?.distanceUnit || document.getElementById('distanceUnit').value || 'kilometer';
-  updatePricingFieldLabels(unit);
-  document.getElementById('driverPayoutSummary').textContent = summarizePricingRule(readRuleInputs('driverPayout', unit), currency, unit);
-  document.getElementById('merchantBillingSummary').textContent = summarizePricingRule(readRuleInputs('merchantBilling', unit), currency, unit);
+function getSelectedValues(selectNode) {
+  return Array.from(selectNode.selectedOptions).map((option) => option.value).filter(Boolean);
+}
+
+function setSelectedValues(selectNode, values) {
+  const selected = new Set(values);
+  for (const option of selectNode.options) {
+    option.selected = selected.has(option.value);
+  }
 }
 
 async function request(path, options = {}, attemptRefresh = true) {
@@ -151,26 +237,74 @@ async function refreshSession() {
   }
   return refreshingSession;
 }
-
 function renderCollection(nodeId, items, renderItem) {
   const node = document.getElementById(nodeId);
-  node.innerHTML = items.map(renderItem).join('') || '<div class="muted">No records.</div>';
+  node.innerHTML = items.map(renderItem).join('') || '<div class="muted">No records in this workspace.</div>';
 }
 
-function populateDispatchSelectors() {
-  nodes.dispatchRestaurantIds.innerHTML = restaurants.map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`).join('');
-  nodes.dispatchMerchantIds.innerHTML = merchants.map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`).join('');
+function updateTenantControlsVisibility() {
+  document.querySelectorAll('[data-platform-only]').forEach((node) => node.classList.toggle('hidden', !isPlatformAdmin()));
+  document.querySelectorAll('.tenant-select-wrap').forEach((node) => node.classList.toggle('hidden', !isPlatformAdmin()));
 }
 
-function populateSelects() {
-  const merchantOptions = merchants.map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`).join('');
-  const restaurantOptions = restaurants.map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`).join('');
-  const driverOptions = drivers.map((driver) => `<option value="${driver.id}">${driver.name}</option>`).join('');
+function populateTenantSelect(selectNode) {
+  selectNode.innerHTML = visibleTenants().map((tenant) => `<option value="${tenant.id}">${tenant.name}</option>`).join('');
+}
+
+function syncTenantContext() {
+  populateTenantSelect(nodes.tenantContextSelect);
+  if (!sessionInfo) {
+    nodes.tenantContextSummary.textContent = 'Sign in to load tenant context.';
+    return;
+  }
+  if (isPlatformAdmin()) {
+    if (!selectedTenantId && visibleTenants().length) {
+      selectedTenantId = visibleTenants()[0].id;
+    }
+    nodes.tenantContextSelect.disabled = false;
+    nodes.tenantContextSelect.value = selectedTenantId || '';
+    nodes.tenantContextSummary.innerHTML = `<strong>Platform admin mode</strong><div>Active workspace: ${tenantName(selectedTenantId)}</div><div>You can switch tenants here without changing sessions.</div>`;
+  } else {
+    selectedTenantId = sessionInfo.tenantId || '';
+    nodes.tenantContextSelect.disabled = true;
+    nodes.tenantContextSelect.value = selectedTenantId || '';
+    nodes.tenantContextSummary.innerHTML = `<strong>Tenant admin mode</strong><div>Locked to: ${tenantName(selectedTenantId)}</div><div>All lists and actions are automatically scoped to this tenant.</div>`;
+  }
+}
+
+function syncCreationTenantSelectors() {
+  [nodes.tenantAdminTenantSelect, nodes.createMerchantTenantSelect, nodes.createDriverTenantSelect, nodes.createRestaurantTenantSelect].forEach(populateTenantSelect);
+  const tenantId = activeTenantId();
+  if (tenantId) {
+    nodes.tenantAdminTenantSelect.value = tenantId;
+    nodes.createMerchantTenantSelect.value = tenantId;
+    nodes.createDriverTenantSelect.value = tenantId;
+    nodes.createRestaurantTenantSelect.value = tenantId;
+  }
+  nodes.tenantAdminTenantSelect.disabled = !isPlatformAdmin();
+  nodes.createMerchantTenantSelect.disabled = !isPlatformAdmin();
+  nodes.createDriverTenantSelect.disabled = !isPlatformAdmin();
+  nodes.createRestaurantTenantSelect.disabled = !isPlatformAdmin();
+}
+
+function syncRestaurantMerchantSelect() {
+  const tenantId = isPlatformAdmin() ? nodes.createRestaurantTenantSelect.value : activeTenantId();
+  nodes.createRestaurantMerchantSelect.innerHTML = merchants
+    .filter((merchant) => !tenantId || merchant.tenantId === tenantId)
+    .map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`)
+    .join('');
+}
+
+function populateEntitySelects() {
+  const merchantOptions = visibleMerchants().map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`).join('');
+  const restaurantOptions = visibleRestaurants().map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`).join('');
+  const driverOptions = visibleDrivers().map((driver) => `<option value="${driver.id}">${driver.name}</option>`).join('');
   nodes.merchantSelect.innerHTML = merchantOptions;
   nodes.restaurantSelect.innerHTML = restaurantOptions;
   nodes.settingsRestaurantSelect.innerHTML = restaurantOptions;
   nodes.driverSelect.innerHTML = driverOptions;
-  populateDispatchSelectors();
+  nodes.dispatchRestaurantIds.innerHTML = visibleRestaurants().map((restaurant) => `<option value="${restaurant.id}">${restaurant.name}</option>`).join('');
+  nodes.dispatchMerchantIds.innerHTML = visibleMerchants().map((merchant) => `<option value="${merchant.id}">${merchant.name}</option>`).join('');
   syncRestaurantSettingsForm();
   syncDriverControlsForm();
 }
@@ -178,10 +312,8 @@ function populateSelects() {
 function syncRestaurantSettingsForm() {
   const restaurant = currentRestaurant();
   if (!restaurant) {
-    nodes.selectedRestaurantSummary.textContent = 'Select a store to view its current commercial and tracking setup.';
-    if (nodes.trackingStoreHint) {
-      nodes.trackingStoreHint.textContent = 'Choose a store above. The tracking view settings saved here apply only to that one store.';
-    }
+    nodes.selectedRestaurantSummary.textContent = 'Choose a store in the current workspace.';
+    nodes.trackingStoreHint.textContent = 'Choose a store above. The settings saved here apply only to that one store.';
     return;
   }
   nodes.settingsRestaurantSelect.value = restaurant.id;
@@ -194,27 +326,23 @@ function syncRestaurantSettingsForm() {
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
   document.getElementById('driverOfferDistanceMode').value = restaurant.driverOfferSettings?.distanceMode || 'storeToCustomer';
-  if (nodes.trackingStoreHint) {
-    nodes.trackingStoreHint.textContent = `Tracking display settings below apply only to ${restaurant.name}.`;
-  }
   const merchantName = merchants.find((merchant) => merchant.id === restaurant.merchantId)?.name || restaurant.merchantId;
   nodes.selectedRestaurantSummary.innerHTML = `
     <strong>${restaurant.name}</strong>
-    <div>Restaurant group: ${merchantName}</div>
-    <div>Commercial currency: ${normalizeCurrencyCode(restaurant.currency)}</div>
-    <div>Distance unit: ${restaurant.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)'}</div>
+    <div>Tenant: ${tenantName(restaurant.tenantId)}</div>
+    <div>Merchant group: ${merchantName}</div>
+    <div>Market: ${normalizeCurrencyCode(restaurant.currency)} | ${restaurant.distanceUnit === 'mile' ? 'Miles' : 'Kilometers'}</div>
     <div>Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency, restaurant.distanceUnit)}</div>
     <div>Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency, restaurant.distanceUnit)}</div>
-    <div>Tracking view: pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'}, destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
-    <div>Driver app offer view: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute to store plus delivery' : 'Store to customer only'}</div>
   `;
+  nodes.trackingStoreHint.textContent = `Tracking display settings below apply only to ${restaurant.name}.`;
   updatePricingSummaries();
 }
 
 function syncDriverControlsForm() {
-  const driver = drivers.find((item) => item.id === nodes.driverSelect.value) || drivers[0];
+  const driver = currentDriver();
   if (!driver) {
-    nodes.selectedDriverSummary.textContent = 'Select a driver to review capacity and assignment scope.';
+    nodes.selectedDriverSummary.textContent = 'Choose a driver in the current workspace.';
     return;
   }
   nodes.driverSelect.value = driver.id;
@@ -222,91 +350,105 @@ function syncDriverControlsForm() {
   document.getElementById('dispatchModeSelect').value = driver.dispatchPolicy.mode;
   setSelectedValues(nodes.dispatchRestaurantIds, driver.dispatchPolicy.restaurantIds);
   setSelectedValues(nodes.dispatchMerchantIds, driver.dispatchPolicy.merchantIds);
-  const assignedRestaurantNames = restaurants.filter((restaurant) => driver.dispatchPolicy.restaurantIds.includes(restaurant.id)).map((restaurant) => restaurant.name);
-  const assignedMerchantNames = merchants.filter((merchant) => driver.dispatchPolicy.merchantIds.includes(merchant.id)).map((merchant) => merchant.name);
+  const assignedRestaurantNames = visibleRestaurants().filter((restaurant) => driver.dispatchPolicy.restaurantIds.includes(restaurant.id)).map((restaurant) => restaurant.name);
+  const assignedMerchantNames = visibleMerchants().filter((merchant) => driver.dispatchPolicy.merchantIds.includes(merchant.id)).map((merchant) => merchant.name);
   nodes.selectedDriverSummary.innerHTML = `
     <strong>${driver.name}</strong>
+    <div>Tenant: ${tenantName(driver.tenantId)}</div>
     <div>${driver.isOnline ? 'Online' : 'Offline'} | Load ${driver.currentLoad}/${driver.maxActiveOrders}</div>
     <div>Dispatch mode: ${driver.dispatchPolicy.mode}</div>
     <div>Allowed stores: ${assignedRestaurantNames.join(', ') || 'None selected'}</div>
-    <div>Allowed restaurant groups: ${assignedMerchantNames.join(', ') || 'None selected'}</div>
+    <div>Allowed merchant groups: ${assignedMerchantNames.join(', ') || 'None selected'}</div>
     <div>Location freshness: ${driver.locationFreshness}</div>
   `;
 }
 
+function renderDashboard() {
+  const tenantRows = visibleTenants();
+  const merchantRows = visibleMerchants();
+  const restaurantRows = visibleRestaurants();
+  const driverRows = visibleDrivers();
+  const adminRows = visibleAdmins();
+
+  nodes.statTenants.textContent = String(tenantRows.length);
+  nodes.statMerchants.textContent = String(merchantRows.length);
+  nodes.statRestaurants.textContent = String(restaurantRows.length);
+  nodes.statOnlineDrivers.textContent = String(driverRows.filter((driver) => driver.isOnline).length);
+  nodes.statAdmins.textContent = String(adminRows.length);
+
+  renderCollection('tenants', tenantRows, (tenant) => `<article class="card"><div><strong>${tenant.name}</strong></div><div class="muted mono">${tenant.slug}</div><div class="muted">${tenant.isActive ? 'Active' : 'Inactive'} tenant</div></article>`);
+  renderCollection('admins', adminRows, (admin) => `<article class="card"><div><strong>${admin.name}</strong></div><div class="muted">${admin.email}</div><div class="muted">${admin.role} | ${admin.isActive ? 'Active' : 'Inactive'}</div><div class="muted">Workspace: ${admin.tenantId ? tenantName(admin.tenantId) : 'Platform-wide'}</div></article>`);
+  renderCollection('merchants', merchantRows, (merchant) => `<article class="card"><div><strong>${merchant.name}</strong></div><div class="muted">Tenant: ${tenantName(merchant.tenantId)}</div><div class="muted">${merchant.users.length} merchant users</div><div class="muted">${merchant.users.map((user) => `${user.name} (${user.role})`).join(', ') || 'No merchant users'}</div></article>`);
+  renderCollection('restaurants', restaurantRows, (restaurant) => {
+    const merchantName = merchants.find((merchant) => merchant.id === restaurant.merchantId)?.name || restaurant.merchantId;
+    return `<article class="card"><div class="eyebrow">${tenantName(restaurant.tenantId)}</div><h4 style="margin:4px 0">${restaurant.name}</h4><div class="muted">Merchant group: ${merchantName}</div><div class="muted">Market: ${normalizeCurrencyCode(restaurant.currency)} | ${restaurant.distanceUnit === 'mile' ? 'Miles' : 'Kilometers'}</div><div class="muted">Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency, restaurant.distanceUnit)}</div><div class="muted">Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency, restaurant.distanceUnit)}</div><div class="muted">Driver app offer: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer only'}</div></article>`;
+  });
+  renderCollection('drivers', driverRows, (driver) => {
+    const assignedRestaurantNames = restaurantRows.filter((restaurant) => driver.dispatchPolicy.restaurantIds.includes(restaurant.id)).map((restaurant) => restaurant.name).join(', ') || 'None selected';
+    const assignedMerchantNames = merchantRows.filter((merchant) => driver.dispatchPolicy.merchantIds.includes(merchant.id)).map((merchant) => merchant.name).join(', ') || 'None selected';
+    return `<article class="card"><div><strong>${driver.name}</strong></div><div class="muted">${driver.email}</div><div class="muted">${driver.isOnline ? 'Online' : 'Offline'} | Capacity ${driver.maxActiveOrders} | Load ${driver.currentLoad}</div><div class="muted">Dispatch mode: ${driver.dispatchPolicy.mode}</div><div class="muted">Stores: ${assignedRestaurantNames}</div><div class="muted">Merchant groups: ${assignedMerchantNames}</div></article>`;
+  });
+
+  nodes.architectureSummary.innerHTML = `<div><strong>Platform admin</strong>: can provision tenants and support all workspaces.</div><div><strong>Tenant admin</strong>: can create and operate only drivers, merchant groups, stores, and staff inside ${tenantName(activeTenantId()) || 'the assigned tenant'}.</div><div><strong>Merchant group</strong>: remains a business grouping inside one tenant, not the tenant itself.</div>`;
+}
+
+function syncSessionSummary() {
+  if (!sessionInfo) {
+    nodes.sessionStatus.textContent = 'Not logged in';
+    nodes.heroModeLabel.textContent = 'Signed out';
+    nodes.workspaceModePill.textContent = 'Awaiting session';
+    return;
+  }
+  const scopeLabel = isPlatformAdmin() ? 'Platform admin' : `${sessionInfo.role} for ${tenantName(sessionInfo.tenantId)}`;
+  nodes.sessionStatus.textContent = `Logged in as ${sessionInfo.name} (${scopeLabel})`;
+  nodes.heroModeLabel.textContent = scopeLabel;
+  nodes.workspaceModePill.textContent = isPlatformAdmin() ? `Platform view · ${tenantName(activeTenantId())}` : `Tenant view · ${tenantName(activeTenantId())}`;
+}
+
 async function refreshDashboard() {
   try {
-    const [session, merchantRows, restaurantRows, driverRows, adminRows] = await Promise.all([
+    const [session, tenantRows, merchantRows, restaurantRows, driverRows, adminRows] = await Promise.all([
       request('/api/auth/admin/session', {}, false),
+      request('/api/admin/tenants', {}, false),
       request('/api/admin/merchants', {}, false),
       request('/api/admin/restaurants', {}, false),
       request('/api/admin/drivers', {}, false),
       request('/api/admin/admin-users', {}, false),
     ]);
     hasSession = true;
+    sessionInfo = session;
+    tenants = tenantRows;
     merchants = merchantRows;
     restaurants = restaurantRows;
     drivers = driverRows;
     adminUsers = adminRows;
-    populateSelects();
-    nodes.sessionStatus.textContent = `Logged in as ${session.name} (${session.role})`;
-    nodes.statMerchants.textContent = String(merchantRows.length);
-    nodes.statRestaurants.textContent = String(restaurantRows.length);
-    nodes.statOnlineDrivers.textContent = String(driverRows.filter((driver) => driver.isOnline).length);
-    nodes.statAdmins.textContent = String(adminRows.length);
-    renderCollection('merchants', merchantRows, (merchant) => `
-      <article class="card">
-        <div><strong>${merchant.name}</strong></div>
-        <div class="muted">${merchant.users.length} merchant users</div>
-        <div class="muted">${merchant.users.map((user) => `${user.name} (${user.role})`).join(', ') || 'No merchant users'}</div>
-      </article>
-    `);
-    renderCollection('restaurants', restaurantRows, (restaurant) => {
-      const merchantName = merchantRows.find((merchant) => merchant.id === restaurant.merchantId)?.name || restaurant.merchantId;
-      return `
-        <article class="card">
-          <div class="eyebrow">${merchantName}</div>
-          <h4>${restaurant.name}</h4>
-          <div class="muted">Currency: ${normalizeCurrencyCode(restaurant.currency)} | Distance unit: ${restaurant.distanceUnit === 'mile' ? 'Miles' : 'Kilometers'}</div>
-          <div class="muted">Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency, restaurant.distanceUnit)}</div>
-          <div class="muted">Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency, restaurant.distanceUnit)}</div>
-          <div class="muted">Pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'} | Destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
-          <div class="muted">Driver app offer: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer only'}</div>
-        </article>
-      `;
-    });
-    renderCollection('drivers', driverRows, (driver) => {
-      const assignedRestaurantNames = restaurantRows.filter((restaurant) => driver.dispatchPolicy.restaurantIds.includes(restaurant.id)).map((restaurant) => restaurant.name).join(', ') || 'None selected';
-      const assignedMerchantNames = merchantRows.filter((merchant) => driver.dispatchPolicy.merchantIds.includes(merchant.id)).map((merchant) => merchant.name).join(', ') || 'None selected';
-      return `
-        <article class="card">
-          <div><strong>${driver.name}</strong></div>
-          <div class="muted">${driver.email}</div>
-          <div class="muted">${driver.isOnline ? 'Online' : 'Offline'} | Capacity ${driver.maxActiveOrders} | Load ${driver.currentLoad}</div>
-          <div class="muted">Dispatch mode: ${driver.dispatchPolicy.mode}</div>
-          <div class="muted">Stores: ${assignedRestaurantNames}</div>
-          <div class="muted">Restaurant groups: ${assignedMerchantNames}</div>
-        </article>
-      `;
-    });
-    renderCollection('admins', adminUsers, (admin) => `
-      <article class="card">
-        <div><strong>${admin.name}</strong></div>
-        <div class="muted">${admin.email}</div>
-        <div class="muted">${admin.role} | ${admin.isActive ? 'Active' : 'Inactive'}</div>
-      </article>
-    `);
+    if (!selectedTenantId || (isPlatformAdmin() && !tenants.some((tenant) => tenant.id === selectedTenantId))) {
+      selectedTenantId = isPlatformAdmin() ? (tenants[0]?.id || '') : (sessionInfo.tenantId || '');
+    }
+    clearStatuses();
+    updateTenantControlsVisibility();
+    syncTenantContext();
+    syncCreationTenantSelectors();
+    syncRestaurantMerchantSelect();
+    populateEntitySelects();
+    syncSessionSummary();
+    renderDashboard();
   } catch (error) {
     hasSession = false;
-    nodes.sessionStatus.textContent = 'Not logged in';
+    sessionInfo = null;
+    tenants = [];
+    merchants = [];
+    restaurants = [];
+    drivers = [];
+    adminUsers = [];
+    syncSessionSummary();
     throw error;
   }
 }
-
 async function login() {
   await request('/api/auth/admin/login', {
     method: 'POST',
-    body: JSON.stringify({ email: document.getElementById('email').value.trim(), password: document.getElementById('password').value.trim() }),
+    body: JSON.stringify({ email: nodes.email.value.trim(), password: nodes.password.value.trim() }),
   }, false);
   hasSession = true;
   await refreshDashboard();
@@ -319,13 +461,89 @@ async function logout() {
     }
   } finally {
     hasSession = false;
-    nodes.sessionStatus.textContent = 'Not logged in';
+    sessionInfo = null;
+    selectedTenantId = '';
+    syncSessionSummary();
   }
 }
 
+function createTenantScope(selectNode) {
+  return isPlatformAdmin() ? selectNode.value : activeTenantId();
+}
+
+async function createTenant() {
+  const tenant = await request('/api/admin/tenants', {
+    method: 'POST',
+    body: JSON.stringify({ name: document.getElementById('tenantName').value.trim(), slug: document.getElementById('tenantSlug').value.trim() }),
+  });
+  selectedTenantId = tenant.id;
+  setStatus(nodes.tenantStatus, `Tenant created: ${tenant.name}`);
+  await refreshDashboard();
+}
+
+async function createTenantAdmin() {
+  const tenantId = createTenantScope(nodes.tenantAdminTenantSelect);
+  await request(`/api/admin/tenants/${tenantId}/admin-users`, {
+    method: 'POST',
+    body: JSON.stringify({
+      name: document.getElementById('tenantAdminName').value.trim(),
+      email: document.getElementById('tenantAdminEmail').value.trim(),
+      password: document.getElementById('tenantAdminPassword').value,
+      role: document.getElementById('tenantAdminRole').value,
+    }),
+  });
+  setStatus(nodes.tenantAdminStatus, 'Tenant admin created.');
+  await refreshDashboard();
+}
+
+async function createMerchant() {
+  await request('/api/admin/merchants', {
+    method: 'POST',
+    body: JSON.stringify({ tenantId: createTenantScope(nodes.createMerchantTenantSelect), name: document.getElementById('merchantName').value.trim() }),
+  });
+  setStatus(nodes.createMerchantStatus, 'Merchant group created.');
+  await refreshDashboard();
+}
+
+async function createDriver() {
+  await request('/api/admin/drivers', {
+    method: 'POST',
+    body: JSON.stringify({
+      tenantId: createTenantScope(nodes.createDriverTenantSelect),
+      name: document.getElementById('driverName').value.trim(),
+      email: document.getElementById('driverEmail').value.trim(),
+      password: document.getElementById('driverPassword').value,
+    }),
+  });
+  setStatus(nodes.createDriverStatus, 'Driver created.');
+  await refreshDashboard();
+}
+
+async function createRestaurant() {
+  await request('/api/admin/restaurants', {
+    method: 'POST',
+    body: JSON.stringify({
+      tenantId: createTenantScope(nodes.createRestaurantTenantSelect),
+      merchantId: nodes.createRestaurantMerchantSelect.value,
+      name: document.getElementById('restaurantName').value.trim(),
+      email: document.getElementById('restaurantEmail').value.trim(),
+      password: document.getElementById('restaurantPassword').value,
+      pickupLocation: {
+        name: document.getElementById('restaurantLocationName').value.trim(),
+        address: document.getElementById('restaurantLocationAddress').value.trim(),
+        latitude: Number(document.getElementById('restaurantLatitude').value),
+        longitude: Number(document.getElementById('restaurantLongitude').value),
+      },
+      currency: normalizeCurrencyCode(document.getElementById('restaurantCurrency').value),
+      distanceUnit: document.getElementById('restaurantDistanceUnit').value,
+    }),
+  });
+  setStatus(nodes.createRestaurantStatus, 'Store created.');
+  await refreshDashboard();
+}
+
 async function createMerchantUser() {
-  const merchantId = nodes.merchantSelect.value;
-  await request(`/api/admin/merchants/${merchantId}/users`, {
+  await request(`/api/admin/merchants/${nodes.merchantSelect.value}/users`, {
     method: 'POST',
     body: JSON.stringify({
       name: document.getElementById('merchantUserName').value.trim(),
@@ -334,13 +552,12 @@ async function createMerchantUser() {
       role: document.getElementById('merchantUserRole').value,
     }),
   });
-  nodes.merchantUserStatus.textContent = 'Merchant user created.';
+  setStatus(nodes.merchantUserStatus, 'Merchant user created.');
   await refreshDashboard();
 }
 
 async function createStaffUser() {
-  const restaurantId = nodes.restaurantSelect.value;
-  await request(`/api/admin/restaurants/${restaurantId}/staff-users`, {
+  await request(`/api/admin/restaurants/${nodes.restaurantSelect.value}/staff-users`, {
     method: 'POST',
     body: JSON.stringify({
       name: document.getElementById('staffName').value.trim(),
@@ -349,7 +566,7 @@ async function createStaffUser() {
       role: document.getElementById('staffRole').value,
     }),
   });
-  nodes.staffStatus.textContent = 'Store staff account created.';
+  setStatus(nodes.staffStatus, 'Store staff account created.');
   await refreshDashboard();
 }
 
@@ -363,7 +580,7 @@ async function saveRestaurantPricing() {
       merchantBillingRule: readRuleInputs('merchantBilling', restaurant.distanceUnit || 'kilometer'),
     }),
   });
-  nodes.restaurantPricingStatus.textContent = 'Restaurant commercial terms updated.';
+  setStatus(nodes.restaurantPricingStatus, 'Store commercial terms updated.');
   await refreshDashboard();
 }
 
@@ -372,12 +589,9 @@ async function saveDisplaySettings() {
   if (!restaurant) return;
   await request(`/api/admin/restaurants/${restaurant.id}/display-settings`, {
     method: 'PATCH',
-    body: JSON.stringify({
-      currency: normalizeCurrencyCode(document.getElementById('currencyCode').value),
-      distanceUnit: document.getElementById('distanceUnit').value,
-    }),
+    body: JSON.stringify({ currency: normalizeCurrencyCode(document.getElementById('currencyCode').value), distanceUnit: document.getElementById('distanceUnit').value }),
   });
-  nodes.displaySettingsStatus.textContent = 'Store market settings updated. Pricing fields now use the saved distance unit.';
+  setStatus(nodes.displaySettingsStatus, 'Store market settings updated.');
   await refreshDashboard();
 }
 
@@ -396,17 +610,15 @@ async function saveTrackingSettings() {
     method: 'PATCH',
     body: JSON.stringify({ distanceMode: document.getElementById('driverOfferDistanceMode').value }),
   });
-  nodes.restaurantTrackingStatus.textContent = 'Restaurant tracking and driver app display updated.';
+  setStatus(nodes.restaurantTrackingStatus, 'Store tracking and driver-offer display updated.');
   await refreshDashboard();
 }
 
 async function saveDriverSettings() {
-  const driverId = nodes.driverSelect.value;
-  await request(`/api/admin/drivers/${driverId}/capacity`, {
-    method: 'PATCH',
-    body: JSON.stringify({ maxActiveOrders: Number(document.getElementById('driverCapacity').value) }),
-  });
-  await request(`/api/admin/drivers/${driverId}/dispatch-policy`, {
+  const driver = currentDriver();
+  if (!driver) return;
+  await request(`/api/admin/drivers/${driver.id}/capacity`, { method: 'PATCH', body: JSON.stringify({ maxActiveOrders: Number(document.getElementById('driverCapacity').value) }) });
+  await request(`/api/admin/drivers/${driver.id}/dispatch-policy`, {
     method: 'PATCH',
     body: JSON.stringify({
       mode: document.getElementById('dispatchModeSelect').value,
@@ -414,28 +626,45 @@ async function saveDriverSettings() {
       merchantIds: getSelectedValues(nodes.dispatchMerchantIds),
     }),
   });
-  nodes.driverControlsStatus.textContent = 'Driver settings updated.';
+  setStatus(nodes.driverControlsStatus, 'Driver settings updated.');
   await refreshDashboard();
+}
+
+function runAction(fn, statusNode) {
+  return () => fn().catch((error) => setStatus(statusNode, error.message, true));
 }
 
 document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => alert(error.message)));
 document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => alert(error.message)));
 document.getElementById('refreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => { if (hasSession) alert(error.message); }));
-document.getElementById('createMerchantUserBtn').addEventListener('click', () => createMerchantUser().catch((error) => { nodes.merchantUserStatus.textContent = error.message; }));
-document.getElementById('createStaffBtn').addEventListener('click', () => createStaffUser().catch((error) => { nodes.staffStatus.textContent = error.message; }));
-document.getElementById('saveRestaurantPricingBtn').addEventListener('click', () => saveRestaurantPricing().catch((error) => { nodes.restaurantPricingStatus.textContent = error.message; }));
-document.getElementById('saveDisplaySettingsBtn').addEventListener('click', () => saveDisplaySettings().catch((error) => { nodes.displaySettingsStatus.textContent = error.message; }));
-document.getElementById('saveTrackingBtn').addEventListener('click', () => saveTrackingSettings().catch((error) => { nodes.restaurantTrackingStatus.textContent = error.message; }));
-document.getElementById('saveDriverSettingsBtn').addEventListener('click', () => saveDriverSettings().catch((error) => { nodes.driverControlsStatus.textContent = error.message; }));
+document.getElementById('createTenantBtn').addEventListener('click', runAction(createTenant, nodes.tenantStatus));
+document.getElementById('createTenantAdminBtn').addEventListener('click', runAction(createTenantAdmin, nodes.tenantAdminStatus));
+document.getElementById('createMerchantBtn').addEventListener('click', runAction(createMerchant, nodes.createMerchantStatus));
+document.getElementById('createDriverBtn').addEventListener('click', runAction(createDriver, nodes.createDriverStatus));
+document.getElementById('createRestaurantBtn').addEventListener('click', runAction(createRestaurant, nodes.createRestaurantStatus));
+document.getElementById('createMerchantUserBtn').addEventListener('click', runAction(createMerchantUser, nodes.merchantUserStatus));
+document.getElementById('createStaffBtn').addEventListener('click', runAction(createStaffUser, nodes.staffStatus));
+document.getElementById('saveRestaurantPricingBtn').addEventListener('click', runAction(saveRestaurantPricing, nodes.restaurantPricingStatus));
+document.getElementById('saveDisplaySettingsBtn').addEventListener('click', runAction(saveDisplaySettings, nodes.displaySettingsStatus));
+document.getElementById('saveTrackingBtn').addEventListener('click', runAction(saveTrackingSettings, nodes.restaurantTrackingStatus));
+document.getElementById('saveDriverSettingsBtn').addEventListener('click', runAction(saveDriverSettings, nodes.driverControlsStatus));
+nodes.tenantContextSelect.addEventListener('change', () => {
+  if (!isPlatformAdmin()) return;
+  selectedTenantId = nodes.tenantContextSelect.value;
+  syncCreationTenantSelectors();
+  syncRestaurantMerchantSelect();
+  populateEntitySelects();
+  syncSessionSummary();
+  renderDashboard();
+});
+nodes.createRestaurantTenantSelect.addEventListener('change', syncRestaurantMerchantSelect);
 nodes.settingsRestaurantSelect.addEventListener('change', syncRestaurantSettingsForm);
 nodes.driverSelect.addEventListener('change', syncDriverControlsForm);
 document.getElementById('currencyCode').addEventListener('input', updatePricingSummaries);
 document.getElementById('distanceUnit').addEventListener('change', () => {
-  nodes.displaySettingsStatus.textContent = 'Save store market settings to apply the new distance unit to pricing fields and the driver app.';
+  nodes.displaySettingsStatus.textContent = 'Save store market settings to apply the new distance unit to pricing fields and driver-facing displays.';
 });
-['driverPayoutBaseAmount','driverPayoutIncludedDistanceKm','driverPayoutAdditionalPerKm','merchantBillingBaseAmount','merchantBillingIncludedDistanceKm','merchantBillingAdditionalPerKm'].forEach((id) => {
-  document.getElementById(id).addEventListener('input', updatePricingSummaries);
-});
+['driverPayoutBaseAmount','driverPayoutIncludedDistanceKm','driverPayoutAdditionalPerKm','merchantBillingBaseAmount','merchantBillingIncludedDistanceKm','merchantBillingAdditionalPerKm'].forEach((id) => document.getElementById(id).addEventListener('input', updatePricingSummaries));
 
 refreshDashboard().catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);

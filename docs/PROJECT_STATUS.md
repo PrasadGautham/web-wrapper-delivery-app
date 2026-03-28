@@ -26,8 +26,9 @@ Current business separation:
 - backend assigns the best eligible driver, preferring fresh nearby drivers and using tied-driver fallback when needed
 - driver sees only the driver pay for the trip
 - store sees only the amount billed to the store
-- merchant sees cross-store reporting within its own group
-- admin controls platform-wide pricing, dispatch, staffing, and policy
+- merchant sees cross-store reporting within its own merchant group
+- tenant admin controls pricing, dispatch, staffing, and policy inside one client workspace
+- platform admin controls tenant provisioning and cross-tenant support
 
 ## Current Technical State
 
@@ -102,7 +103,9 @@ C:\flutter\bin\flutter.bat test
 
 ## Demo Accounts
 
-- Admin: `admin@demo.com` / `Password123`
+- Platform admin: `admin@demo.com` / `Password123`
+- Tenant admin: `falafel.admin@demo.com` / `Password123`
+- Tenant admin: `burger.admin@demo.com` / `Password123`
 - Merchant: `falafel.group@demo.com` / `Password123`
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
 - Driver: `driver@demo.com` / `Password123`

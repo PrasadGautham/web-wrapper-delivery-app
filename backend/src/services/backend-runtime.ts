@@ -94,7 +94,7 @@ export class BackendRuntime {
     );
   }
 
-  createSession(db: DatabaseShape, userType: UserType, userId: string): string {
+  createSession(db: DatabaseShape, userType: UserType, userId: string, tenantId: string | null): string {
     this.cleanupExpiredSessions(db);
     db.sessions = db.sessions.filter((item) => !(item.userType === userType && item.userId === userId));
     const token = randomUUID();
@@ -102,6 +102,7 @@ export class BackendRuntime {
       token,
       userType,
       userId,
+      tenantId,
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + this.sessionHours * 60 * 60 * 1000).toISOString(),
     };
@@ -159,6 +160,7 @@ export class BackendRuntime {
       if (!restaurant) {
         continue;
       }
+      order.tenantId ??= restaurant.tenantId;
       if (typeof order.tripEarnings !== 'number' || !Number.isFinite(order.tripEarnings)) {
         order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm ?? 0);
       }

@@ -1,9 +1,11 @@
 import {
+  AdminRole,
   AdminUserProfile,
   DistancePricingRule,
   DriverDispatchPolicy,
   DriverProfile,
   DriverRecord,
+  TenantProfile,
   MerchantProfile,
   MerchantRecord,
   MerchantReport,
@@ -73,7 +75,6 @@ export class BackendService {
     this.adminWorkflow = new AdminWorkflowService(
       this.runtime,
       dispatchService,
-      backofficeReadService,
       workflowStore,
     );
     this.restaurantWorkflow = new RestaurantWorkflowService(
@@ -157,27 +158,39 @@ export class BackendService {
     return this.driverWorkflow.updateDriverLocation(driverId, input);
   }
 
-  listDrivers(): Promise<DriverProfile[]> {
-    return this.adminWorkflow.listDrivers();
+  listTenants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<TenantProfile[]> {
+    return this.adminWorkflow.listTenants(adminUser);
   }
 
-  listRestaurants(): Promise<RestaurantProfile[]> {
-    return this.adminWorkflow.listRestaurants();
+  createTenant(input: { name: string; slug: string }): Promise<TenantProfile> {
+    return this.adminWorkflow.createTenant(input);
   }
 
-  listMerchants(): Promise<MerchantView[]> {
-    return this.adminWorkflow.listMerchants();
+  createTenantAdmin(tenantId: string, input: { name: string; email: string; password: string; role: Extract<AdminRole, 'tenantAdmin' | 'tenantOps' | 'tenantSupport'> }): Promise<AdminUserProfile> {
+    return this.adminWorkflow.createTenantAdmin(tenantId, input);
   }
 
-  listAdminUsers(): Promise<AdminUserProfile[]> {
-    return this.adminWorkflow.listAdminUsers();
+  listDrivers(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<DriverProfile[]> {
+    return this.adminWorkflow.listDrivers(adminUser);
+  }
+
+  listRestaurants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<RestaurantProfile[]> {
+    return this.adminWorkflow.listRestaurants(adminUser);
+  }
+
+  listMerchants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<MerchantView[]> {
+    return this.adminWorkflow.listMerchants(adminUser);
+  }
+
+  listAdminUsers(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<AdminUserProfile[]> {
+    return this.adminWorkflow.listAdminUsers(adminUser);
   }
 
   createAdminUser(input: {
     name: string;
     email: string;
     password: string;
-    role: AdminUserProfile['role'];
+    role: AdminRole;
   }): Promise<AdminUserProfile> {
     return this.adminWorkflow.createAdminUser(input);
   }
@@ -192,6 +205,18 @@ export class BackendService {
     },
   ): Promise<AdminUserProfile> {
     return this.adminWorkflow.updateAdminUser(adminUserId, input);
+  }
+
+  createMerchant(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; name: string }): Promise<MerchantProfile> {
+    return this.adminWorkflow.createMerchant(adminUser, input);
+  }
+
+  createRestaurant(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; merchantId: string; name: string; email: string; password: string; pickupLocation: RestaurantRecord['pickupLocation']; currency?: string; distanceUnit?: DistanceUnit }): Promise<RestaurantProfile> {
+    return this.adminWorkflow.createRestaurant(adminUser, input);
+  }
+
+  createDriver(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; name: string; email: string; password: string }): Promise<DriverProfile> {
+    return this.adminWorkflow.createDriver(adminUser, input);
   }
 
   listMerchantUsers(merchantId: string): Promise<MerchantUserProfile[]> {

@@ -13,6 +13,7 @@ import {
 export function loadSeed(): DatabaseShape {
   const raw = readFileSync(path.join(process.cwd(), 'data', 'seed.json'), 'utf8');
   const parsed = JSON.parse(raw) as DatabaseShape;
+  parsed.tenants ??= [];
   parsed.adminUsers ??= [];
   parsed.passwordResetTokens ??= [];
   parsed.merchants.forEach((merchant) => {
@@ -78,9 +79,21 @@ export class InMemoryStore implements StoreContract, WorkflowStoreContract, Oper
   }
 
   private createWorkflowContext(db: DatabaseShape): WorkflowStoreContext {
+    db.tenants ??= [];
     db.passwordResetTokens ??= [];
     db.adminUsers ??= [];
     return {
+      listTenants: async () => db.tenants,
+      findTenantById: async (tenantId) => db.tenants.find((item) => item.id === tenantId) ?? null,
+      findTenantBySlug: async (slug) => db.tenants.find((item) => item.slug.toLowerCase() === slug.toLowerCase()) ?? null,
+      saveTenant: async (tenant) => {
+        const index = db.tenants.findIndex((item) => item.id === tenant.id);
+        if (index >= 0) {
+          db.tenants[index] = tenant;
+        } else {
+          db.tenants.push(tenant);
+        }
+      },
       findDriverByEmail: async (email) => db.drivers.find((item) => item.email.toLowerCase() === email.toLowerCase()) ?? null,
       findDriverById: async (driverId) => db.drivers.find((item) => item.id === driverId) ?? null,
       countDriverActiveLoad: async (driverId) =>

@@ -3,6 +3,7 @@ import {
   AuditLogRecord,
   DatabaseShape,
   DriverRecord,
+  TenantRecord,
   MerchantRecord,
   OrderRecord,
   PasswordResetTokenRecord,
@@ -12,6 +13,10 @@ import {
 } from '../domain/models.js';
 
 export interface WorkflowStoreContext {
+  listTenants(): Promise<TenantRecord[]>;
+  findTenantById(tenantId: string): Promise<TenantRecord | null>;
+  findTenantBySlug(slug: string): Promise<TenantRecord | null>;
+  saveTenant(tenant: TenantRecord): Promise<void>;
   findDriverByEmail(email: string): Promise<DriverRecord | null>;
   findDriverById(driverId: string): Promise<DriverRecord | null>;
   countDriverActiveLoad(driverId: string): Promise<number>;

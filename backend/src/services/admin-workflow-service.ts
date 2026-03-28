@@ -1,16 +1,22 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  AdminRole,
   AdminUserProfile,
   DistancePricingRule,
   AuditLogRecord,
   DriverDispatchPolicy,
   DriverProfile,
+  DriverRecord,
+  MerchantProfile,
   MerchantRecord,
   MerchantUserProfile,
   MerchantUserRole,
   MerchantView,
+  TenantProfile,
+  TenantRecord,
   RestaurantProfile,
+  RestaurantRecord,
   RestaurantStaffRole,
   RestaurantStaffUserProfile,
   RestaurantTrackingSettings,
@@ -18,7 +24,6 @@ import {
   DistanceUnit,
 } from '../domain/models.js';
 import { hashPassword } from '../utils/passwords.js';
-import { BackofficeReadService } from './backoffice-read-service.js';
 import { BackendRuntime } from './backend-runtime.js';
 import { DispatchService } from './dispatch-service.js';
 import {
@@ -41,6 +46,7 @@ function createAuditLog(input: Omit<AuditLogRecord, 'id' | 'at'>): AuditLogRecor
 
 function toAdminUserProfile(user: {
   id: string;
+  tenantId: string | null;
   name: string;
   email: string;
   role: AdminUserProfile['role'];
@@ -49,6 +55,7 @@ function toAdminUserProfile(user: {
 }): AdminUserProfile {
   return {
     id: user.id,
+    tenantId: user.tenantId,
     name: user.name,
     email: user.email,
     role: user.role,
@@ -57,46 +64,203 @@ function toAdminUserProfile(user: {
   };
 }
 
+function isPlatformAdmin(role: AdminRole): boolean {
+  return role === 'platformAdmin' || role === 'opsAdmin' || role === 'supportAdmin' || role === 'billingAdmin';
+}
+
+function toTenantProfile(tenant: TenantRecord): TenantProfile {
+  return { ...tenant };
+}
+
 export class AdminWorkflowService {
   constructor(
     private readonly runtime: BackendRuntime,
     private readonly dispatchService: DispatchService,
-    private readonly backofficeReadService: BackofficeReadService | null,
     private readonly workflowStore: WorkflowStoreContract | null = null,
   ) {}
 
-  async listDrivers(): Promise<DriverProfile[]> {
-    if (this.backofficeReadService) {
-      return this.backofficeReadService.listDrivers();
-    }
+  async listTenants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<TenantProfile[]> {
+    return this.runtime.withDb(async (db) => {
+      const visibleTenants = isPlatformAdmin(adminUser.role)
+        ? db.tenants
+        : db.tenants.filter((tenant) => tenant.id === adminUser.tenantId);
+      return visibleTenants.map((tenant) => toTenantProfile(tenant));
+    });
+  }
+
+  async listDrivers(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<DriverProfile[]> {
     return this.runtime.withDb(async (db) =>
-      db.drivers.map((driver) => toDriverProfile(driver, this.dispatchService.getDriverLoad(db, driver.id))),
+      db.drivers
+        .filter((driver) => isPlatformAdmin(adminUser.role) || driver.tenantId === adminUser.tenantId)
+        .map((driver) => toDriverProfile(driver, this.dispatchService.getDriverLoad(db, driver.id))),
     );
   }
 
-  async listRestaurants(): Promise<RestaurantProfile[]> {
-    if (this.backofficeReadService) {
-      return this.backofficeReadService.listRestaurants();
-    }
-    return this.runtime.withDb(async (db) => db.restaurants.map((restaurant) => toRestaurantProfile(restaurant)));
+  async listRestaurants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<RestaurantProfile[]> {
+    return this.runtime.withDb(async (db) =>
+      db.restaurants
+        .filter((restaurant) => isPlatformAdmin(adminUser.role) || restaurant.tenantId === adminUser.tenantId)
+        .map((restaurant) => toRestaurantProfile(restaurant)),
+    );
   }
 
-  async listMerchants(): Promise<MerchantView[]> {
-    if (this.backofficeReadService) {
-      return this.backofficeReadService.listMerchants();
-    }
-    return this.runtime.withDb(async (db) => db.merchants.map((merchant) => toMerchantView(merchant)));
+  async listMerchants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<MerchantView[]> {
+    return this.runtime.withDb(async (db) =>
+      db.merchants
+        .filter((merchant) => isPlatformAdmin(adminUser.role) || merchant.tenantId === adminUser.tenantId)
+        .map((merchant) => toMerchantView(merchant)),
+    );
   }
 
-  async listAdminUsers(): Promise<AdminUserProfile[]> {
-    return this.runtime.withDb(async (db) => (db.adminUsers ?? []).map((item) => toAdminUserProfile(item)));
+  async listAdminUsers(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<AdminUserProfile[]> {
+    return this.runtime.withDb(async (db) =>
+      (db.adminUsers ?? [])
+        .filter((item) => isPlatformAdmin(adminUser.role) || item.tenantId === adminUser.tenantId)
+        .map((item) => toAdminUserProfile(item)),
+    );
+  }
+
+  async createTenant(input: { name: string; slug: string }): Promise<TenantProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      db.tenants ??= [];
+      if (db.tenants.some((item) => item.slug.toLowerCase() === input.slug.toLowerCase())) {
+        throw new Error('Tenant slug already exists.');
+      }
+      const tenant: TenantRecord = {
+        id: `tenant-${randomUUID()}`,
+        name: input.name,
+        slug: input.slug,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+      db.tenants.push(tenant);
+      this.runtime.appendAuditLog(db, {
+        actorType: 'admin',
+        actorId: 'admin-api',
+        tenantId: null,
+        action: 'tenant.created',
+        entityType: 'tenant',
+        entityId: tenant.id,
+        metadata: { slug: tenant.slug },
+      });
+      return toTenantProfile(tenant);
+    });
+  }
+
+  async createTenantAdmin(tenantId: string, input: { name: string; email: string; password: string; role: Extract<AdminRole, 'tenantAdmin' | 'tenantOps' | 'tenantSupport'> }): Promise<AdminUserProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      const tenant = (db.tenants ?? []).find((item) => item.id === tenantId && item.isActive);
+      if (!tenant) {
+        throw new Error('Tenant not found.');
+      }
+      db.adminUsers ??= [];
+      if (db.adminUsers.some((item) => item.email.toLowerCase() == input.email.toLowerCase())) {
+        throw new Error('Admin user email already exists.');
+      }
+      const user = {
+        id: `admin-${randomUUID()}`,
+        tenantId,
+        name: input.name,
+        email: input.email,
+        password: await hashPassword(input.password),
+        role: input.role,
+        isActive: true,
+        lastLoginAt: null,
+      };
+      db.adminUsers.push(user);
+      this.runtime.appendAuditLog(db, {
+        actorType: 'admin',
+        actorId: 'admin-api',
+        tenantId,
+        action: 'tenant-admin.created',
+        entityType: 'admin-user',
+        entityId: user.id,
+        metadata: { role: user.role, email: user.email },
+      });
+      return toAdminUserProfile(user);
+    });
+  }
+
+  async createMerchant(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; name: string }): Promise<MerchantProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      const tenantId = this.resolveManagedTenantId(adminUser, input.tenantId);
+      const tenant = (db.tenants ?? []).find((item) => item.id === tenantId && item.isActive);
+      if (!tenant) {
+        throw new Error('Tenant not found.');
+      }
+      const merchant: MerchantRecord = { id: `merchant-${randomUUID()}`, tenantId, name: input.name, users: [] };
+      db.merchants.push(merchant);
+      this.runtime.appendAuditLog(db, { actorType: 'admin', actorId: 'admin-api', tenantId, action: 'merchant.created', entityType: 'merchant', entityId: merchant.id });
+      return { id: merchant.id, tenantId: merchant.tenantId, name: merchant.name };
+    });
+  }
+
+  async createRestaurant(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; merchantId: string; name: string; email: string; password: string; pickupLocation: RestaurantRecord['pickupLocation']; currency?: string; distanceUnit?: DistanceUnit }): Promise<RestaurantProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      const tenantId = this.resolveManagedTenantId(adminUser, input.tenantId);
+      const merchant = db.merchants.find((item) => item.id === input.merchantId && item.tenantId === tenantId);
+      if (!merchant) {
+        throw new Error('Merchant not found for tenant.');
+      }
+      if (db.restaurants.some((item) => item.email.toLowerCase() === input.email.toLowerCase())) {
+        throw new Error('Restaurant email already exists.');
+      }
+      const restaurant: RestaurantRecord = {
+        id: `restaurant-${randomUUID()}`,
+        tenantId,
+        merchantId: merchant.id,
+        name: input.name,
+        email: input.email,
+        password: await hashPassword(input.password),
+        pickupLocation: input.pickupLocation,
+        pricing: {
+          driverPayoutRule: normalizePricingRule({ baseAmount: 0, includedDistanceKm: 0, additionalPerKm: 0 }),
+          merchantBillingRule: normalizePricingRule({ baseAmount: 0, includedDistanceKm: 0, additionalPerKm: 0 }),
+        },
+        currency: input.currency ?? 'AED',
+        distanceUnit: input.distanceUnit ?? 'kilometer',
+        trackingSettings: { showPickedUpAsInTransit: true, showDriverEtaToPickup: true, showDestinationEta: true },
+        driverOfferSettings: { distanceMode: 'storeToCustomer' },
+        staffUsers: [],
+      };
+      db.restaurants.push(restaurant);
+      this.runtime.appendAuditLog(db, { actorType: 'admin', actorId: 'admin-api', tenantId, action: 'restaurant.created', entityType: 'restaurant', entityId: restaurant.id, metadata: { merchantId: merchant.id } });
+      return toRestaurantProfile(restaurant);
+    });
+  }
+
+  async createDriver(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; name: string; email: string; password: string }): Promise<DriverProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      const tenantId = this.resolveManagedTenantId(adminUser, input.tenantId);
+      if (db.drivers.some((item) => item.email.toLowerCase() === input.email.toLowerCase())) {
+        throw new Error('Driver email already exists.');
+      }
+      const driver: DriverRecord = {
+        id: `driver-${randomUUID()}`,
+        tenantId,
+        name: input.name,
+        email: input.email,
+        password: await hashPassword(input.password),
+        rating: 5,
+        completedOrders: 0,
+        totalDistanceKm: 0,
+        isOnline: false,
+        currentLocation: { latitude: 25.2048, longitude: 55.2708, accuracyMeters: null, speedMetersPerSecond: null, headingDegrees: null, capturedAt: null },
+        deviceToken: null,
+        dispatchPolicy: { mode: 'open', restaurantIds: [], merchantIds: [] },
+        maxActiveOrders: 1,
+      };
+      db.drivers.push(driver);
+      this.runtime.appendAuditLog(db, { actorType: 'admin', actorId: 'admin-api', tenantId, action: 'driver.created', entityType: 'driver', entityId: driver.id });
+      return toDriverProfile(driver, 0);
+    });
   }
 
   async createAdminUser(input: {
     name: string;
     email: string;
     password: string;
-    role: AdminUserProfile['role'];
+    role: AdminRole;
   }): Promise<AdminUserProfile> {
     return this.runtime.withMutableDb(async (db) => {
       db.adminUsers ??= [];
@@ -105,6 +269,7 @@ export class AdminWorkflowService {
       }
       const user = {
         id: `admin-${randomUUID()}`,
+        tenantId: null,
         name: input.name,
         email: input.email,
         password: await hashPassword(input.password),
@@ -290,6 +455,7 @@ export class AdminWorkflowService {
         driver.dispatchPolicy = await this.normalizeAndValidateDispatchPolicy(
           async (restaurantId) => this.runtime.requireRestaurant(db, restaurantId),
           async (merchantId) => db.merchants.find((item) => item.id === merchantId) ?? null,
+          driver.tenantId,
           policy,
         );
         this.runtime.appendAuditLog(db, {
@@ -312,6 +478,7 @@ export class AdminWorkflowService {
       driver.dispatchPolicy = await this.normalizeAndValidateDispatchPolicy(
         (restaurantId) => context.findRestaurantById(restaurantId),
         (merchantId) => context.findMerchantById(merchantId),
+        driver.tenantId,
         policy,
       );
       await context.saveDriver(driver);
@@ -476,6 +643,22 @@ export class AdminWorkflowService {
       return toRestaurantProfile(restaurant);
     });
   }
+  private resolveManagedTenantId(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, requestedTenantId?: string): string {
+    if (isPlatformAdmin(adminUser.role)) {
+      if (!requestedTenantId) {
+        throw new Error('tenantId is required for platform admin actions.');
+      }
+      return requestedTenantId;
+    }
+    if (!adminUser.tenantId) {
+      throw new Error('Tenant admin is not attached to a tenant.');
+    }
+    if (requestedTenantId && requestedTenantId !== adminUser.tenantId) {
+      throw new Error('Unauthorized tenant scope.');
+    }
+    return adminUser.tenantId;
+  }
+
   private requireMerchant(merchants: MerchantRecord[], merchantId: string): MerchantRecord {
     const merchant = merchants.find((item) => item.id === merchantId);
     if (!merchant) {
@@ -485,8 +668,9 @@ export class AdminWorkflowService {
   }
 
   private async normalizeAndValidateDispatchPolicy(
-    findRestaurant: (restaurantId: string) => Promise<{ id: string } | null>,
+    findRestaurant: (restaurantId: string) => Promise<{ id: string; tenantId?: string } | null>,
     findMerchant: (merchantId: string) => Promise<MerchantRecord | null>,
+    managedTenantId: string,
     policy: DriverDispatchPolicy,
   ): Promise<DriverDispatchPolicy> {
     const restaurantIds = [...new Set(policy.restaurantIds)];
@@ -497,11 +681,17 @@ export class AdminWorkflowService {
       if (!restaurant) {
         throw new Error('Restaurant not found.');
       }
+      if ((restaurant.tenantId ?? managedTenantId) !== managedTenantId) {
+        throw new Error('Restaurant is outside the driver tenant scope.');
+      }
     }
     for (const merchantId of merchantIds) {
       const merchant = await findMerchant(merchantId);
       if (!merchant) {
         throw new Error(`Merchant not found: ${merchantId}`);
+      }
+      if (merchant.tenantId !== managedTenantId) {
+        throw new Error(`Merchant is outside the driver tenant scope: ${merchantId}`);
       }
     }
 

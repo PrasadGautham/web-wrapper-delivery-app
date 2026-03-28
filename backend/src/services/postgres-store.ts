@@ -11,6 +11,7 @@ import { PostgresOrdersRepository } from '../persistence/postgres/orders-reposit
 import { PostgresPasswordResetTokensRepository } from '../persistence/postgres/password-reset-tokens-repository.js';
 import { PostgresRestaurantsRepository } from '../persistence/postgres/restaurants-repository.js';
 import { PostgresSessionsRepository } from '../persistence/postgres/sessions-repository.js';
+import { PostgresTenantsRepository } from '../persistence/postgres/tenants-repository.js';
 import {
   OperationalStateContext,
   OperationalStateStoreContract,
@@ -21,6 +22,7 @@ import {
 
 export class PostgresStore implements StoreContract, WorkflowStoreContract, OperationalStateStoreContract {
   private readonly pool: Pool;
+  private readonly tenantsRepository = new PostgresTenantsRepository();
   private readonly merchantsRepository = new PostgresMerchantsRepository();
   private readonly driversRepository = new PostgresDriversRepository();
   private readonly restaurantsRepository = new PostgresRestaurantsRepository();
@@ -39,6 +41,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
     await this.ensureInitialized();
     const client = await this.pool.connect();
     try {
+      const tenants = await this.tenantsRepository.list(client);
       const merchants = await this.merchantsRepository.list(client);
       const drivers = await this.driversRepository.list(client);
       const restaurants = await this.restaurantsRepository.list(client);
@@ -49,6 +52,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
       const auditLogs = await this.auditLogsRepository.list(client);
 
       return {
+        tenants,
         merchants,
         drivers,
         restaurants,
@@ -69,6 +73,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
     try {
       await client.query('begin');
 
+      await this.tenantsRepository.upsertMany(client, data.tenants ?? []);
       await this.merchantsRepository.upsertMany(client, data.merchants);
       await this.driversRepository.upsertMany(client, data.drivers);
       await this.restaurantsRepository.upsertMany(client, data.restaurants);
@@ -86,6 +91,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
       await this.sessionsRepository.deleteMissing(client, data.sessions.map((item) => item.token));
       await this.passwordResetTokensRepository.deleteMissing(client, (data.passwordResetTokens ?? []).map((item) => item.id));
       await this.auditLogsRepository.deleteMissing(client, data.auditLogs.map((item) => item.id));
+      await this.tenantsRepository.deleteMissing(client, (data.tenants ?? []).map((item) => item.id));
 
       await client.query('commit');
     } catch (error) {
@@ -168,6 +174,10 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
 
   private createWorkflowContext(client: PoolClient): WorkflowStoreContext {
     return {
+      listTenants: () => this.tenantsRepository.list(client),
+      findTenantById: (tenantId) => this.tenantsRepository.findById(client, tenantId),
+      findTenantBySlug: (slug) => this.tenantsRepository.findBySlug(client, slug),
+      saveTenant: (tenant) => this.tenantsRepository.upsertOne(client, tenant),
       findDriverByEmail: (email) => this.driversRepository.findByEmail(client, email),
       findDriverById: (driverId) => this.driversRepository.findById(client, driverId),
       countDriverActiveLoad: (driverId) => this.driversRepository.countActiveLoad(client, driverId),

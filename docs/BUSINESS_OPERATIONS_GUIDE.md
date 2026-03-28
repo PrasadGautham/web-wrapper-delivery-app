@@ -38,23 +38,37 @@ Restaurants do not see internal driver assignment controls.
 
 ## Role Definitions
 
-### Admin
+### Platform Admin
 
-Internal platform operations and support user.
+Internal fleet-company operations and support user with cross-tenant scope.
 
-Admin can:
-- see all merchants
-- see all restaurants
-- see all drivers
-- see all admin users
-- create merchant users
-- create restaurant staff users
+Platform admin can:
+- create tenants
+- create tenant admin users
+- switch the admin workspace between tenants
+- see merchants, restaurants, drivers, and admin users across tenants
+- create merchant groups, stores, and drivers inside any tenant
 - set store-level driver pay rules
 - set store-level store-charge rules
 - set store-level tracking display rules
 - set store-level currency and distance unit
 - set driver max live deliveries
 - set driver assignment scope by named stores and merchant groups
+
+### Tenant Admin
+
+Client-specific admin user inside one tenant only.
+
+Tenant admin can:
+- see only merchants, restaurants, drivers, and admin users inside the assigned tenant
+- create merchant groups, stores, and drivers inside that tenant
+- create merchant users
+- create restaurant staff users
+- set store-level driver pay rules
+- set store-level store-charge rules
+- set store-level tracking display rules
+- set driver max live deliveries
+- set driver assignment scope by named stores and merchant groups inside the same tenant
 
 ### Merchant
 
@@ -216,7 +230,9 @@ C:\flutter\bin\flutter.bat run
 
 ## Demo Accounts
 
-- Admin: `admin@demo.com` / `Password123`
+- Platform admin: `admin@demo.com` / `Password123`
+- Tenant admin: `falafel.admin@demo.com` / `Password123`
+- Tenant admin: `burger.admin@demo.com` / `Password123`
 - Merchant: `falafel.group@demo.com` / `Password123`
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
 - Driver: `driver@demo.com` / `Password123`

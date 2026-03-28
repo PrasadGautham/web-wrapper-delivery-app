@@ -32,11 +32,12 @@ function allowsInsecurePasswordResetTokenResponse(): boolean {
   return process.env.ALLOW_INSECURE_PASSWORD_RESET_TOKEN_RESPONSE === 'true';
 }
 
-function createSession(userType: SessionRecord['userType'], userId: string): SessionRecord {
+function createSession(userType: SessionRecord['userType'], userId: string, tenantId: string | null): SessionRecord {
   return {
     token: randomUUID(),
     userType,
     userId,
+    tenantId,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + defaultSessionHours * 60 * 60 * 1000).toISOString(),
   };
@@ -54,7 +55,7 @@ function hashResetToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-function createPasswordResetToken(userType: UserType, userId: string): { token: string; record: PasswordResetTokenRecord } {
+function createPasswordResetToken(userType: UserType, userId: string, tenantId: string | null): { token: string; record: PasswordResetTokenRecord } {
   const token = randomBytes(24).toString('base64url');
   return {
     token,
@@ -62,6 +63,7 @@ function createPasswordResetToken(userType: UserType, userId: string): { token: 
       id: `reset-${randomUUID()}`,
       userType,
       userId,
+      tenantId,
       tokenHash: hashResetToken(token),
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + passwordResetTtlMinutes * 60 * 1000).toISOString(),
@@ -145,7 +147,7 @@ export class AuthWorkflowService {
           throw new Error('Invalid credentials.');
         }
 
-        const token = this.runtime.createSession(db, 'driver', driver.id);
+        const token = this.runtime.createSession(db, 'driver', driver.id, driver.tenantId);
         this.runtime.appendAuditLog(db, {
           actorType: 'driver',
           actorId: driver.id,
@@ -173,7 +175,7 @@ export class AuthWorkflowService {
         return { ok: false as const };
       }
 
-      const session = createSession('driver', driver.id);
+      const session = createSession('driver', driver.id, driver.tenantId);
       await context.replaceSession(session);
       await context.appendAuditLog(
         createAuditLog({ actorType: 'driver', actorId: driver.id, action: 'driver.login', entityType: 'driver', entityId: driver.id }),
@@ -207,7 +209,7 @@ export class AuthWorkflowService {
           throw new Error('Invalid credentials.');
         }
 
-        const token = this.runtime.createSession(db, 'restaurant', match.restaurant.id);
+        const token = this.runtime.createSession(db, 'restaurant', match.restaurant.id, match.restaurant.tenantId);
         this.runtime.appendAuditLog(db, {
           actorType: 'restaurant',
           actorId: match.restaurant.id,
@@ -232,7 +234,7 @@ export class AuthWorkflowService {
         await context.appendAuditLog(createAuditLog({ actorType: 'system', actorId: 'auth', action: 'auth.login.failed', entityType: 'restaurant', entityId: email }));
         throw new Error('Invalid credentials.');
       }
-      const session = createSession('restaurant', match.restaurant.id);
+      const session = createSession('restaurant', match.restaurant.id, match.restaurant.tenantId);
       await context.replaceSession(session);
       await context.saveRestaurant(match.restaurant);
       await context.appendAuditLog(createAuditLog({
@@ -261,7 +263,7 @@ export class AuthWorkflowService {
           });
           throw new Error('Invalid credentials.');
         }
-        const token = this.runtime.createSession(db, 'merchant', match.merchant.id);
+        const token = this.runtime.createSession(db, 'merchant', match.merchant.id, match.merchant.tenantId);
         this.runtime.appendAuditLog(db, {
           actorType: 'merchant',
           actorId: match.merchant.id,
@@ -286,7 +288,7 @@ export class AuthWorkflowService {
         await context.appendAuditLog(createAuditLog({ actorType: 'system', actorId: 'auth', action: 'auth.login.failed', entityType: 'merchant', entityId: email }));
         throw new Error('Invalid credentials.');
       }
-      const session = createSession('merchant', match.merchant.id);
+      const session = createSession('merchant', match.merchant.id, match.merchant.tenantId);
       await context.replaceSession(session);
       await context.saveMerchant(match.merchant);
       await context.appendAuditLog(createAuditLog({
@@ -317,7 +319,7 @@ export class AuthWorkflowService {
           throw new Error('Invalid credentials.');
         }
         adminUser.lastLoginAt = new Date().toISOString();
-        const token = this.runtime.createSession(db, 'admin', adminUser.id);
+        const token = this.runtime.createSession(db, 'admin', adminUser.id, adminUser.tenantId ?? null);
         this.runtime.appendAuditLog(db, {
           actorType: 'admin',
           actorId: adminUser.id,
@@ -341,7 +343,7 @@ export class AuthWorkflowService {
       }
       adminUser.lastLoginAt = new Date().toISOString();
       await context.saveAdminUser(adminUser);
-      const session = createSession('admin', adminUser.id);
+      const session = createSession('admin', adminUser.id, adminUser.tenantId ?? null);
       await context.replaceSession(session);
       await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: adminUser.id, action: 'admin.login', entityType: 'admin', entityId: adminUser.id }));
       return { token: session.token, adminUser: toAdminProfile(adminUser) };
@@ -353,7 +355,7 @@ export class AuthWorkflowService {
       return this.runtime.withMutableDb(async (db) => {
         const session = this.runtime.requireSession(db, token, userType);
         db.sessions = db.sessions.filter((item) => item.token !== token);
-        const newToken = this.runtime.createSession(db, userType, session.userId);
+        const newToken = this.runtime.createSession(db, userType, session.userId, session.tenantId ?? null);
         this.runtime.appendAuditLog(db, {
           actorType: userType === 'admin' ? 'admin' : userType,
           actorId: session.userId,
@@ -372,7 +374,7 @@ export class AuthWorkflowService {
         throw new Error('Unauthorized');
       }
       await context.deleteSession(token);
-      const nextSession = createSession(userType, session.userId);
+      const nextSession = createSession(userType, session.userId, session.tenantId ?? null);
       await context.replaceSession(nextSession);
       await context.appendAuditLog(createAuditLog({ actorType: userType === 'admin' ? 'admin' : userType, actorId: session.userId, action: `${userType}.session.rotated`, entityType: userType, entityId: session.userId }));
       return { token: nextSession.token };
@@ -397,7 +399,7 @@ export class AuthWorkflowService {
         }
 
         db.passwordResetTokens = (db.passwordResetTokens ?? []).filter((item) => !(item.userType === userType && item.userId === target.userId));
-        const { token, record } = createPasswordResetToken(userType, target.userId);
+        const { token, record } = createPasswordResetToken(userType, target.userId, target.tenantId ?? null);
         db.passwordResetTokens.push(record);
         await this.passwordResetNotifier.sendPasswordReset({ userType, email: target.email, token });
         return allowsInsecurePasswordResetTokenResponse() ? { ok: true, debugToken: token } : { ok: true };
@@ -421,7 +423,7 @@ export class AuthWorkflowService {
       }
 
       await context.deletePasswordResetTokensForUser(userType, target.userId);
-      const { token, record } = createPasswordResetToken(userType, target.userId);
+      const { token, record } = createPasswordResetToken(userType, target.userId, target.tenantId ?? null);
       await context.savePasswordResetToken(record);
       await this.passwordResetNotifier.sendPasswordReset({ userType, email: target.email, token });
       return allowsInsecurePasswordResetTokenResponse() ? { ok: true, debugToken: token } : { ok: true };
@@ -706,15 +708,15 @@ export class AuthWorkflowService {
     db: { drivers: DriverRecord[]; restaurants: RestaurantRecord[]; merchants: MerchantRecord[]; adminUsers?: AdminUserRecord[] },
     userType: UserType,
     email: string,
-  ): { userId: string; email: string } | null {
+  ): { userId: string; email: string; tenantId: string | null } | null {
     if (userType === 'driver') {
       const driver = db.drivers.find((item) => item.email.toLowerCase() === email.toLowerCase()) ?? null;
-      return driver ? { userId: driver.id, email: driver.email } : null;
+      return driver ? { userId: driver.id, email: driver.email, tenantId: driver.tenantId } : null;
     }
     if (userType === 'restaurant') {
       const directRestaurant = db.restaurants.find((item) => item.email.toLowerCase() === email.toLowerCase()) ?? null;
       if (directRestaurant) {
-        return { userId: directRestaurant.id, email: directRestaurant.email };
+        return { userId: directRestaurant.id, email: directRestaurant.email, tenantId: directRestaurant.tenantId };
       }
       for (const restaurant of db.restaurants) {
         const staffUser = restaurant.staffUsers.find((item) => item.email.toLowerCase() === email.toLowerCase() && item.isActive);
@@ -722,6 +724,7 @@ export class AuthWorkflowService {
           return {
             userId: createRestaurantStaffResetSubject(restaurant.id, staffUser.id),
             email: staffUser.email,
+            tenantId: restaurant.tenantId,
           };
         }
       }
@@ -729,10 +732,10 @@ export class AuthWorkflowService {
     }
     if (userType === 'merchant') {
       const match = this.findMerchantLoginTarget(db.merchants, email);
-      return match ? { userId: createMerchantUserResetSubject(match.merchant.id, match.user.id), email: match.user.email } : null;
+      return match ? { userId: createMerchantUserResetSubject(match.merchant.id, match.user.id), email: match.user.email, tenantId: match.merchant.tenantId } : null;
     }
     const adminUser = (db.adminUsers ?? []).find((item) => item.email.toLowerCase() === email.toLowerCase() && item.isActive) ?? null;
-    return adminUser ? { userId: adminUser.id, email: adminUser.email } : null;
+    return adminUser ? { userId: adminUser.id, email: adminUser.email, tenantId: adminUser.tenantId ?? null } : null;
   }
 
   private async findPasswordResetTargetWithContext(
@@ -745,15 +748,15 @@ export class AuthWorkflowService {
     },
     userType: UserType,
     email: string,
-  ): Promise<{ userId: string; email: string } | null> {
+  ): Promise<{ userId: string; email: string; tenantId: string | null } | null> {
     if (userType === 'driver') {
       const driver = await context.findDriverByEmail(email);
-      return driver ? { userId: driver.id, email: driver.email } : null;
+      return driver ? { userId: driver.id, email: driver.email, tenantId: driver.tenantId } : null;
     }
     if (userType === 'restaurant') {
       const restaurant = (await context.findRestaurantByEmail(email)) ?? (await context.findRestaurantByStaffEmail(email));
       if (restaurant) {
-        return { userId: restaurant.id, email: restaurant.email };
+        return { userId: restaurant.id, email: restaurant.email, tenantId: restaurant.tenantId };
       }
       return null;
     }
@@ -763,10 +766,10 @@ export class AuthWorkflowService {
         return null;
       }
       const match = this.findMerchantLoginTarget([merchant], email);
-      return match ? { userId: createMerchantUserResetSubject(match.merchant.id, match.user.id), email: match.user.email } : null;
+      return match ? { userId: createMerchantUserResetSubject(match.merchant.id, match.user.id), email: match.user.email, tenantId: match.merchant.tenantId } : null;
     }
     const adminUser = await context.findAdminUserByEmail(email);
-    return adminUser && adminUser.isActive ? { userId: adminUser.id, email: adminUser.email } : null;
+    return adminUser && adminUser.isActive ? { userId: adminUser.id, email: adminUser.email, tenantId: adminUser.tenantId ?? null } : null;
   }
 }
 

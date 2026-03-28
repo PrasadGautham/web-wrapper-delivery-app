@@ -7,6 +7,7 @@ function mapSession(row: Record<string, unknown>): SessionRecord {
     token: row.token as string,
     userType: row.user_type as SessionRecord['userType'],
     userId: row.user_id as string,
+    tenantId: (row.tenant_id as string | null) ?? null,
     createdAt: (row.created_at as Date).toISOString(),
     expiresAt: (row.expires_at as Date).toISOString(),
   };
@@ -14,13 +15,13 @@ function mapSession(row: Record<string, unknown>): SessionRecord {
 
 export class PostgresSessionsRepository {
   async list(client: PoolClient): Promise<SessionRecord[]> {
-    const result = await client.query('select token, user_type, user_id, created_at, expires_at from sessions order by created_at desc');
+    const result = await client.query('select token, user_type, user_id, tenant_id, created_at, expires_at from sessions order by created_at desc');
     return result.rows.map((row) => mapSession(row));
   }
 
   async findByToken(client: PoolClient, token: string): Promise<SessionRecord | null> {
     const result = await client.query(
-      'select token, user_type, user_id, created_at, expires_at from sessions where token = $1 limit 1',
+      'select token, user_type, user_id, tenant_id, created_at, expires_at from sessions where token = $1 limit 1',
       [token],
     );
     return result.rows[0] ? mapSession(result.rows[0]) : null;
@@ -40,14 +41,15 @@ export class PostgresSessionsRepository {
 
   async upsertOne(client: PoolClient, item: SessionRecord): Promise<void> {
     await client.query(
-      `insert into sessions(token, user_type, user_id, created_at, expires_at)
-       values($1,$2,$3,$4,$5)
+      `insert into sessions(token, user_type, user_id, tenant_id, created_at, expires_at)
+       values($1,$2,$3,$4,$5,$6)
        on conflict (token) do update set
          user_type = excluded.user_type,
          user_id = excluded.user_id,
+         tenant_id = excluded.tenant_id,
          created_at = excluded.created_at,
          expires_at = excluded.expires_at`,
-      [item.token, item.userType, item.userId, item.createdAt, item.expiresAt],
+      [item.token, item.userType, item.userId, item.tenantId, item.createdAt, item.expiresAt],
     );
   }
 

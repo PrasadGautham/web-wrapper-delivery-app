@@ -22,7 +22,7 @@ export async function runDispatchServiceTests(): Promise<void> {
     db.drivers[0]!.isOnline = true;
     db.drivers[1]!.isOnline = true;
     db.drivers[0]!.currentLocation = makeFresh(25.0764, 55.1443);
-    db.drivers[1]!.currentLocation = makeFresh(25.18, 55.26);
+    db.drivers[2]!.currentLocation = makeFresh(25.10, 55.17);
 
     const order = service.createRestaurantOrder(db, db.restaurants[0]!, {
       customerName: 'A',
@@ -40,7 +40,7 @@ export async function runDispatchServiceTests(): Promise<void> {
     const service = new DispatchService();
 
     db.drivers[0]!.isOnline = true;
-    db.drivers[1]!.isOnline = true;
+    db.drivers[2]!.isOnline = true;
     db.drivers[0]!.currentLocation = {
       latitude: 25.0764,
       longitude: 55.1443,
@@ -49,7 +49,7 @@ export async function runDispatchServiceTests(): Promise<void> {
       headingDegrees: 0,
       capturedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     };
-    db.drivers[1]!.currentLocation = makeFresh(25.18, 55.26);
+    db.drivers[2]!.currentLocation = makeFresh(25.10, 55.17);
 
     const order = service.createRestaurantOrder(db, db.restaurants[0]!, {
       customerName: 'A',
@@ -59,7 +59,7 @@ export async function runDispatchServiceTests(): Promise<void> {
       deliveryArea: 'Dubai Marina',
     });
 
-    assert.equal(order.assignedDriverId, 'drv_3d8b6e21');
+    assert.equal(order.assignedDriverId, 'drv_7a4e1c90');
   }
 
   {
@@ -69,11 +69,13 @@ export async function runDispatchServiceTests(): Promise<void> {
     db.drivers[1]!.isOnline = true;
     db.drivers[1]!.currentLocation = makeFresh(25.1868, 55.26);
     db.drivers[2]!.isOnline = true;
+    db.drivers[2]!.tenantId = 'tnt_fleet_002';
     db.drivers[2]!.dispatchPolicy.mode = 'open';
     db.drivers[2]!.currentLocation = makeFresh(25.20, 55.28);
 
     db.orders.push({
       id: 'existing-order',
+      tenantId: 'tnt_fleet_002',
       restaurantId: 'rst_b72e4d11',
       restaurant: db.restaurants[1]!.pickupLocation,
       customer: {
@@ -121,6 +123,7 @@ export async function runDispatchServiceTests(): Promise<void> {
     db.drivers[0]!.currentLocation = makeFresh(25.0764, 55.1443);
     db.orders.push({
       id: 'retry-order',
+      tenantId: 'tnt_fleet_001',
       restaurantId: 'rst_a13c5f20',
       restaurant: db.restaurants[0]!.pickupLocation,
       customer: {
@@ -164,6 +167,7 @@ export async function runDispatchServiceTests(): Promise<void> {
     db.drivers[0]!.currentLocation = makeFresh(25.0764, 55.1443);
     db.orders.push({
       id: 'manual-reject-order',
+      tenantId: 'tnt_fleet_001',
       restaurantId: 'rst_a13c5f20',
       restaurant: db.restaurants[0]!.pickupLocation,
       customer: {

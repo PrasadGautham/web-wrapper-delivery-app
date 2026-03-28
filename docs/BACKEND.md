@@ -25,9 +25,31 @@ The backend handles:
 ## Role Surfaces Served By Backend
 
 - `/admin`
+  - platform admin mode for your internal team
+  - tenant admin mode for one client workspace
 - `/merchant`
 - `/restaurant`
 - Flutter driver app APIs
+
+## Tenant Isolation Model
+
+The backend now uses a true tenant layer.
+
+One PostgreSQL database is still used, but tenant-owned data carries `tenantId`, including:
+- merchants
+- restaurants
+- drivers
+- orders
+- sessions
+- password reset tokens
+- tenant admin users
+- audit logs
+
+Important boundary:
+- `tenant` means one client workspace
+- `merchant group` means a restaurant group inside a tenant
+
+Dispatch policy validation and driver assignment now enforce tenant boundaries so a driver cannot be tied to stores or merchant groups from another tenant.
 
 ## Browser Auth Model
 

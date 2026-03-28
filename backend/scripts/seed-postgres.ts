@@ -23,7 +23,9 @@ async function resetDatabase(connectionString: string): Promise<void> {
         admin_users,
         restaurants,
         drivers,
-        merchants
+        merchants,
+        tenants,
+        tenants
       restart identity cascade
     `);
   } finally {

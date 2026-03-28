@@ -7,6 +7,7 @@ function mapPasswordResetToken(row: Record<string, unknown>): PasswordResetToken
     id: row.id as string,
     userType: row.user_type as PasswordResetTokenRecord['userType'],
     userId: row.user_id as string,
+    tenantId: (row.tenant_id as string | null) ?? null,
     tokenHash: row.token_hash as string,
     createdAt: (row.created_at as Date).toISOString(),
     expiresAt: (row.expires_at as Date).toISOString(),
@@ -16,14 +17,14 @@ function mapPasswordResetToken(row: Record<string, unknown>): PasswordResetToken
 export class PostgresPasswordResetTokensRepository {
   async list(client: PoolClient): Promise<PasswordResetTokenRecord[]> {
     const result = await client.query(
-      'select id, user_type, user_id, token_hash, created_at, expires_at from password_reset_tokens order by created_at desc',
+      'select id, user_type, user_id, tenant_id, token_hash, created_at, expires_at from password_reset_tokens order by created_at desc',
     );
     return result.rows.map((row) => mapPasswordResetToken(row));
   }
 
   async findByHash(client: PoolClient, tokenHash: string, userType: PasswordResetTokenRecord['userType']): Promise<PasswordResetTokenRecord | null> {
     const result = await client.query(
-      'select id, user_type, user_id, token_hash, created_at, expires_at from password_reset_tokens where token_hash = $1 and user_type = $2 limit 1',
+      'select id, user_type, user_id, tenant_id, token_hash, created_at, expires_at from password_reset_tokens where token_hash = $1 and user_type = $2 limit 1',
       [tokenHash, userType],
     );
     return result.rows[0] ? mapPasswordResetToken(result.rows[0]) : null;
@@ -31,15 +32,16 @@ export class PostgresPasswordResetTokensRepository {
 
   async upsertOne(client: PoolClient, item: PasswordResetTokenRecord): Promise<void> {
     await client.query(
-      `insert into password_reset_tokens(id, user_type, user_id, token_hash, created_at, expires_at)
-       values($1,$2,$3,$4,$5,$6)
+      `insert into password_reset_tokens(id, user_type, user_id, tenant_id, token_hash, created_at, expires_at)
+       values($1,$2,$3,$4,$5,$6,$7)
        on conflict (id) do update set
          user_type = excluded.user_type,
          user_id = excluded.user_id,
+         tenant_id = excluded.tenant_id,
          token_hash = excluded.token_hash,
          created_at = excluded.created_at,
          expires_at = excluded.expires_at`,
-      [item.id, item.userType, item.userId, item.tokenHash, item.createdAt, item.expiresAt],
+      [item.id, item.userType, item.userId, item.tenantId, item.tokenHash, item.createdAt, item.expiresAt],
     );
   }
 

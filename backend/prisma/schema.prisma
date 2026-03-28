@@ -22,10 +22,27 @@ enum AuditActorType {
   merchant
 }
 
+model Tenant {
+  id         String      @id
+  name       String
+  slug       String      @unique
+  isActive   Boolean     @default(true) @map("is_active")
+  createdAt  DateTime    @map("created_at") @db.Timestamptz(6)
+  merchants  Merchant[]
+  drivers    Driver[]
+  restaurants Restaurant[]
+  orders     Order[]
+  adminUsers AdminUser[]
+
+  @@map("tenants")
+}
+
 model Merchant {
   id          String       @id
+  tenantId    String       @map("tenant_id")
   name        String
   users       Json         @default("[]")
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   restaurants Restaurant[]
 
   @@map("merchants")
@@ -33,6 +50,7 @@ model Merchant {
 
 model Driver {
   id              String   @id
+  tenantId        String   @map("tenant_id")
   name            String
   email           String   @unique
   password        String
@@ -44,6 +62,7 @@ model Driver {
   deviceToken     String?  @map("device_token")
   dispatchPolicy  Json     @map("dispatch_policy")
   maxActiveOrders Int      @map("max_active_orders")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignedOrders  Order[]  @relation("AssignedDriverOrders")
 
   @@map("drivers")
@@ -51,6 +70,7 @@ model Driver {
 
 model Restaurant {
   id                       String   @id
+  tenantId                 String   @map("tenant_id")
   merchantId               String   @map("merchant_id")
   name                     String
   email                    String   @unique
@@ -63,6 +83,7 @@ model Restaurant {
   trackingSettings         Json     @map("tracking_settings")
   driverOfferSettings      Json     @map("driver_offer_settings")
   staffUsers               Json     @map("staff_users") @default("[]")
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   merchant                 Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   orders                   Order[]
 
@@ -71,18 +92,21 @@ model Restaurant {
 
 model AdminUser {
   id          String    @id
+  tenantId    String?   @map("tenant_id")
   name        String
   email       String    @unique
   password    String
   role        String
   isActive    Boolean   @map("is_active")
   lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(6)
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("admin_users")
 }
 
 model Order {
   id                          String     @id
+  tenantId                    String     @map("tenant_id")
   restaurantId                String     @map("restaurant_id")
   restaurant                  Json
   customer                    Json
@@ -103,6 +127,7 @@ model Order {
   deliveredAt                 DateTime?  @map("delivered_at") @db.Timestamptz(6)
   pendingDispatchNotification Boolean    @map("pending_dispatch_notification")
   events                      Json
+  tenant                      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   restaurantRecord            Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   assignedDriver              Driver?    @relation("AssignedDriverOrders", fields: [assignedDriverId], references: [id])
 
@@ -116,6 +141,7 @@ model Session {
   token     String   @id
   userType  UserType @map("user_type")
   userId    String   @map("user_id")
+  tenantId  String?  @map("tenant_id")
   createdAt DateTime @map("created_at") @db.Timestamptz(6)
   expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
 
@@ -127,6 +153,7 @@ model PasswordResetToken {
   id        String   @id
   userType  UserType @map("user_type")
   userId    String   @map("user_id")
+  tenantId  String?  @map("tenant_id")
   tokenHash String   @map("token_hash")
   createdAt DateTime @map("created_at") @db.Timestamptz(6)
   expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
@@ -140,6 +167,7 @@ model AuditLog {
   at         DateTime       @db.Timestamptz(6)
   actorType  AuditActorType @map("actor_type")
   actorId    String         @map("actor_id")
+  tenantId   String?        @map("tenant_id")
   action     String
   entityType String         @map("entity_type")
   entityId   String         @map("entity_id")

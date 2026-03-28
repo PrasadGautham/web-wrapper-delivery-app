@@ -96,7 +96,7 @@ async function resolveTestDatabaseUrl(): Promise<string | null> {
 
 async function resetDatabase(pool: Pool): Promise<void> {
   await pool.query(`
-    truncate table audit_logs, password_reset_tokens, sessions, orders, admin_users, restaurants, drivers, merchants
+    truncate table audit_logs, password_reset_tokens, sessions, orders, admin_users, restaurants, drivers, merchants, tenants
     restart identity cascade
   `);
 }

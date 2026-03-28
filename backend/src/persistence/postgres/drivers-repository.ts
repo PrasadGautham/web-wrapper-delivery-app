@@ -6,6 +6,7 @@ import { toJson } from './pg-json.js';
 function mapDriver(row: Record<string, unknown>): DriverRecord {
   return {
     id: row.id as string,
+    tenantId: row.tenant_id as string,
     name: row.name as string,
     email: row.email as string,
     password: row.password as string,
@@ -23,7 +24,7 @@ function mapDriver(row: Record<string, unknown>): DriverRecord {
 export class PostgresDriversRepository {
   async list(client: PoolClient): Promise<DriverRecord[]> {
     const result = await client.query(`
-      select id, name, email, password, rating, completed_orders, total_distance_km,
+      select id, tenant_id, name, email, password, rating, completed_orders, total_distance_km,
              is_online, current_location, device_token, dispatch_policy, max_active_orders
       from drivers
       order by id
@@ -33,7 +34,7 @@ export class PostgresDriversRepository {
 
   async findByEmail(client: PoolClient, email: string): Promise<DriverRecord | null> {
     const result = await client.query(
-      `select id, name, email, password, rating, completed_orders, total_distance_km,
+      `select id, tenant_id, name, email, password, rating, completed_orders, total_distance_km,
               is_online, current_location, device_token, dispatch_policy, max_active_orders
        from drivers
        where email = $1
@@ -45,7 +46,7 @@ export class PostgresDriversRepository {
 
   async findById(client: PoolClient, driverId: string): Promise<DriverRecord | null> {
     const result = await client.query(
-      `select id, name, email, password, rating, completed_orders, total_distance_km,
+      `select id, tenant_id, name, email, password, rating, completed_orders, total_distance_km,
               is_online, current_location, device_token, dispatch_policy, max_active_orders
        from drivers
        where id = $1
@@ -67,9 +68,10 @@ export class PostgresDriversRepository {
 
   async upsertOne(client: PoolClient, item: DriverRecord): Promise<void> {
     await client.query(
-      `insert into drivers(id, name, email, password, rating, completed_orders, total_distance_km, is_online, current_location, device_token, dispatch_policy, max_active_orders)
-       values($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12)
+      `insert into drivers(id, tenant_id, name, email, password, rating, completed_orders, total_distance_km, is_online, current_location, device_token, dispatch_policy, max_active_orders)
+       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13)
        on conflict (id) do update set
+         tenant_id = excluded.tenant_id,
          name = excluded.name,
          email = excluded.email,
          password = excluded.password,
@@ -83,6 +85,7 @@ export class PostgresDriversRepository {
          max_active_orders = excluded.max_active_orders`,
       [
         item.id,
+        item.tenantId,
         item.name,
         item.email,
         item.password,

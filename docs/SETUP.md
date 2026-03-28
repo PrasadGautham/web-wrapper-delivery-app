@@ -91,7 +91,9 @@ For a hosted backend instead of local development, add `--dart-define=BACKEND_AP
 
 ## Demo Accounts
 
-- Admin: `admin@demo.com` / `Password123`
+- Platform admin: `admin@demo.com` / `Password123`
+- Tenant admin: `falafel.admin@demo.com` / `Password123`
+- Tenant admin: `burger.admin@demo.com` / `Password123`
 - Merchant: `falafel.group@demo.com` / `Password123`
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
 - Driver: `driver@demo.com` / `Password123`

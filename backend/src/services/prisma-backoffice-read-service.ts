@@ -21,6 +21,7 @@ const activeRestaurantStatuses = ['queued', 'pending', 'accepted', 'atRestaurant
 
 type PrismaDriverRow = {
   id: string;
+  tenantId?: string;
   name: string;
   email: string;
   password: string;
@@ -36,6 +37,7 @@ type PrismaDriverRow = {
 
 type PrismaRestaurantRow = {
   id: string;
+  tenantId?: string;
   merchantId: string;
   name: string;
   email: string;
@@ -52,6 +54,7 @@ type PrismaRestaurantRow = {
 
 type PrismaMerchantRow = {
   id: string;
+  tenantId?: string;
   name: string;
   users?: unknown;
 };
@@ -162,6 +165,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
   private mapDriver(driver: PrismaDriverRow): DriverRecord {
     return {
       id: driver.id,
+      tenantId: driver.tenantId ?? 'unknown-tenant',
       name: driver.name,
       email: driver.email,
       password: driver.password,
@@ -179,6 +183,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
   private mapRestaurant(restaurant: PrismaRestaurantRow): RestaurantRecord {
     return {
       id: restaurant.id,
+      tenantId: restaurant.tenantId ?? 'unknown-tenant',
       merchantId: restaurant.merchantId,
       name: restaurant.name,
       email: restaurant.email,
@@ -199,6 +204,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
   private mapMerchant(merchant: PrismaMerchantRow): MerchantRecord {
     return {
       id: merchant.id,
+      tenantId: merchant.tenantId ?? 'unknown-tenant',
       name: merchant.name,
       users: (merchant.users as MerchantRecord['users'] | null) ?? [],
     };

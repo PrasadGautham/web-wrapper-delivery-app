@@ -6,6 +6,7 @@ import { toJson } from './pg-json.js';
 function mapMerchant(row: Record<string, unknown>): MerchantRecord {
   return {
     id: row.id as string,
+    tenantId: row.tenant_id as string,
     name: row.name as string,
     users: (row.users as MerchantRecord['users'] | null) ?? [],
   };
@@ -13,18 +14,18 @@ function mapMerchant(row: Record<string, unknown>): MerchantRecord {
 
 export class PostgresMerchantsRepository {
   async list(client: PoolClient): Promise<MerchantRecord[]> {
-    const result = await client.query('select id, name, users from merchants order by id');
+    const result = await client.query('select id, tenant_id, name, users from merchants order by id');
     return result.rows.map((row) => mapMerchant(row));
   }
 
   async findById(client: PoolClient, merchantId: string): Promise<MerchantRecord | null> {
-    const result = await client.query('select id, name, users from merchants where id = $1 limit 1', [merchantId]);
+    const result = await client.query('select id, tenant_id, name, users from merchants where id = $1 limit 1', [merchantId]);
     return result.rows[0] ? mapMerchant(result.rows[0]) : null;
   }
 
   async findByUserEmail(client: PoolClient, email: string): Promise<MerchantRecord | null> {
     const result = await client.query(
-      `select id, name, users
+      `select id, tenant_id, name, users
        from merchants
        where exists (
          select 1
@@ -39,8 +40,8 @@ export class PostgresMerchantsRepository {
 
   async upsertOne(client: PoolClient, item: MerchantRecord): Promise<void> {
     await client.query(
-      'insert into merchants(id, name, users) values($1, $2, $3::jsonb) on conflict (id) do update set name = excluded.name, users = excluded.users',
-      [item.id, item.name, toJson(item.users)],
+      'insert into merchants(id, tenant_id, name, users) values($1, $2, $3, $4::jsonb) on conflict (id) do update set tenant_id = excluded.tenant_id, name = excluded.name, users = excluded.users',
+      [item.id, item.tenantId, item.name, toJson(item.users)],
     );
   }
 

@@ -74,6 +74,7 @@ export class DispatchService {
     const estimatedMinutes = Math.max(10, Math.round(estimatedKm * 4));
     const order: OrderRecord = {
       id: `order-${randomUUID()}`,
+      tenantId: restaurant.tenantId,
       restaurantId: restaurant.id,
       restaurant: restaurant.pickupLocation,
       customer: customerLocation,
@@ -329,6 +330,7 @@ export class DispatchService {
     rejectedDriverIds: string[],
   ): DriverRecord[] {
     const baseCandidates = db.drivers
+      .filter((driver) => driver.tenantId === restaurant.tenantId)
       .filter((driver) => driver.isOnline)
       .filter((driver) => !rejectedDriverIds.includes(driver.id))
       .filter((driver) => this.driverHasCapacity(db, driver.id));
