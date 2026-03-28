@@ -9,7 +9,7 @@ It includes:
 - Node.js backend in [backend](/c:/dev/DriverApp/backend)
 - backend-served web portals for:
   - platform admin
-  - merchant or franchise operations
+  - merchant-group operations
   - restaurant or store staff
 
 ## Business Model
@@ -18,7 +18,7 @@ The platform is built for a driver fleet company.
 
 That means:
 - restaurants create delivery orders in the restaurant portal
-- merchants or franchise owners can see all stores under their group
+- merchant-group owners can see all stores under their group
 - the fleet company controls dispatching and commercial rules
 - drivers only see the payout they earn for a trip
 - drivers do not see what the fleet company charges the restaurant
@@ -51,7 +51,7 @@ Admin controls those market settings. Merchant users can view them but cannot ch
 ## Current Role Surfaces
 
 - Admin portal: internal fleet-company operations and support
-- Merchant portal: restaurant-group or franchise oversight
+- Merchant portal: merchant-group oversight
 - Restaurant portal: store-level dispatch and order creation
 - Driver app: driver order intake, delivery progress, and earnings
 

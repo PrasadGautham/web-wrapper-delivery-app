@@ -71,7 +71,7 @@ Use it if you are new to the repository and want to know:
 ## Quick Role Map
 
 - Admin and fleet operations: [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
-- Merchant or franchise operations: [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
+- Merchant-group operations: [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
 - Restaurant store staff: [BUSINESS_OPERATIONS_GUIDE.md](/c:/dev/DriverApp/docs/BUSINESS_OPERATIONS_GUIDE.md)
 - Driver Android app: [RELEASE.md](/c:/dev/DriverApp/docs/RELEASE.md), [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md)
 - Backend implementation: [BACKEND.md](/c:/dev/DriverApp/docs/BACKEND.md), [SYSTEM_ARCHITECTURE.md](/c:/dev/DriverApp/docs/SYSTEM_ARCHITECTURE.md)

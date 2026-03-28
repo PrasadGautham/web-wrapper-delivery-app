@@ -78,7 +78,7 @@ Dispatch policy supports:
 
 Policy can be tied to:
 - named stores
-- named restaurant groups or merchants
+- named merchant groups
 
 ## Tracking Display Rules
 
@@ -167,7 +167,7 @@ Admin can:
 - configure store tracking display
 - configure driver workload and assignment scope
 
-The admin driver UI now uses named selectors for stores and restaurant groups instead of raw IDs.
+The admin driver UI now uses named selectors for stores and merchant groups instead of raw IDs.
 
 ### Merchant
 

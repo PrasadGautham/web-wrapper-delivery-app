@@ -54,11 +54,11 @@ Admin can:
 - set store-level tracking display rules
 - set store-level currency and distance unit
 - set driver max live deliveries
-- set driver assignment scope by named stores and restaurant groups
+- set driver assignment scope by named stores and merchant groups
 
 ### Merchant
 
-Franchise or restaurant-group operator.
+Merchant-group operator.
 
 Merchant can:
 - see all restaurants under that merchant only
@@ -121,11 +121,11 @@ Per driver, admin can set:
 - max live deliveries
 - dispatch mode
 - allowed stores
-- allowed restaurant groups
+- allowed merchant groups
 
 Dispatch modes:
 - `open`: can receive eligible orders from anywhere
-- `allowListOnly`: only from selected stores and or selected restaurant groups
+- `allowListOnly`: only from selected stores and or selected merchant groups
 - `allowListWithFallback`: selected stores/groups first, fallback allowed after that
 
 ## Pricing Rules
@@ -233,12 +233,12 @@ C:\flutter\bin\flutter.bat run
 - store charge rule
 - tracking-display settings
 - currency and distance unit
-- driver offer distance mode
+- driver offer display mode
 5. Select a driver and change:
 - max live deliveries
 - assignment mode
 - allowed stores
-- allowed restaurant groups
+- allowed merchant groups
 6. Save driver settings
 
 Expected:
@@ -254,7 +254,7 @@ Expected:
 - driver pay
 - store charge
 - tracking-display settings
-- driver offer distance mode
+- driver offer display mode
 5. Create a store staff user
 
 Expected:

@@ -32,7 +32,7 @@ Current role boundaries:
 
 - driver: delivery execution only
 - restaurant staff: one store only
-- merchant user: all stores under one merchant or franchise group
+- merchant user: all stores under one merchant group
 - platform admin: global operational control
 
 ### 3. Loosely coupled infrastructure seams
