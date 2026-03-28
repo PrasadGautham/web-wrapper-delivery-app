@@ -16,6 +16,8 @@ export interface AppConfig {
   webSessionCookieDomain: string | null;
   webSessionCookieSameSite: 'Strict' | 'Lax' | 'None';
   webSessionCookieMaxAgeSeconds: number;
+  cspReportOnly: boolean;
+  cspReportUri: string | null;
   smtpHost: string | null;
   smtpPort: number | null;
   smtpUser: string | null;
@@ -151,6 +153,8 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     webSessionCookieDomain: readOptionalString(resolvedEnv.WEB_SESSION_COOKIE_DOMAIN),
     webSessionCookieSameSite,
     webSessionCookieMaxAgeSeconds: readPositiveInteger(resolvedEnv.WEB_SESSION_COOKIE_MAX_AGE_SECONDS, 12 * 60 * 60, 'WEB_SESSION_COOKIE_MAX_AGE_SECONDS'),
+    cspReportOnly: readBoolean(resolvedEnv.CSP_REPORT_ONLY, false, 'CSP_REPORT_ONLY'),
+    cspReportUri: readOptionalString(resolvedEnv.CSP_REPORT_URI) ?? '/api/security/csp-report',
     smtpHost: readOptionalString(resolvedEnv.SMTP_HOST),
     smtpPort: readOptionalPort(resolvedEnv.SMTP_PORT, 'SMTP_PORT'),
     smtpUser: readOptionalString(resolvedEnv.SMTP_USER),
@@ -168,3 +172,4 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     dispatchIntervalMs: readPositiveInteger(resolvedEnv.DISPATCH_INTERVAL_MS, 5000, 'DISPATCH_INTERVAL_MS'),
   };
 }
+

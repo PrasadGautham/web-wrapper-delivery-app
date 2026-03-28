@@ -9,6 +9,7 @@ export class ObservabilityService {
   readonly dispatchCycleFailuresTotal: Counter<string>;
   readonly uncaughtErrorsTotal: Counter<string>;
   readonly authFailuresTotal: Counter<string>;
+  readonly cspViolationReportsTotal: Counter<string>;
 
   constructor() {
     collectDefaultMetrics({ register: this.registry, prefix: 'driver_app_' });
@@ -53,9 +54,16 @@ export class ObservabilityService {
       labelNames: ['route'],
       registers: [this.registry],
     });
+    this.cspViolationReportsTotal = new Counter({
+      name: 'driver_app_csp_violation_reports_total',
+      help: 'CSP violation reports received by the backend',
+      labelNames: ['effective_directive'],
+      registers: [this.registry],
+    });
   }
 
   async metrics(): Promise<string> {
     return this.registry.metrics();
   }
 }
+

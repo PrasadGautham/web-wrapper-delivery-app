@@ -34,6 +34,28 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const htmlRoutes = new Set(['/restaurant', '/merchant', '/admin']);
 
+type CspReportPayload = {
+  'csp-report'?: {
+    'effective-directive'?: string;
+    'violated-directive'?: string;
+    'blocked-uri'?: string;
+    'document-uri'?: string;
+  };
+  body?: {
+    effectiveDirective?: string;
+    blockedURL?: string;
+    documentURL?: string;
+  };
+  type?: string;
+} | Array<{
+  body?: {
+    effectiveDirective?: string;
+    blockedURL?: string;
+    documentURL?: string;
+  };
+  type?: string;
+}>;
+
 function resolveRateLimitRule(url: string): RateLimitRule | null {
   if (
     url.startsWith('/api/auth/driver/login') ||
@@ -112,6 +134,36 @@ function applySecurityHeaders(reply: FastifyReply) {
   reply.header('Permissions-Policy', 'geolocation=(self), microphone=(), camera=()');
 }
 
+function buildCspHeader(config: AppConfig): string {
+  const directives = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+  ];
+
+  if (config.cspReportUri) {
+    directives.push(`report-uri ${config.cspReportUri}`);
+  }
+
+  return directives.join('; ');
+}
+
+function extractEffectiveDirective(payload: CspReportPayload): string {
+  if (Array.isArray(payload)) {
+    return payload[0]?.body?.effectiveDirective ?? payload[0]?.type ?? 'unknown';
+  }
+  return payload['csp-report']?.['effective-directive']
+    ?? payload['csp-report']?.['violated-directive']
+    ?? payload.body?.effectiveDirective
+    ?? payload.type
+    ?? 'unknown';
+}
+
 export async function buildApp(
   config: AppConfig,
 ): Promise<{ app: FastifyInstance; backendService: BackendService; observability: ObservabilityService }> {
@@ -125,6 +177,8 @@ export async function buildApp(
   process.env.WEB_SESSION_COOKIE_DOMAIN = config.webSessionCookieDomain ?? '';
   process.env.WEB_SESSION_COOKIE_SAME_SITE = config.webSessionCookieSameSite;
   process.env.WEB_SESSION_COOKIE_MAX_AGE_SECONDS = String(config.webSessionCookieMaxAgeSeconds);
+  process.env.CSP_REPORT_ONLY = String(config.cspReportOnly);
+  process.env.CSP_REPORT_URI = config.cspReportUri ?? '';
 
   const app = Fastify({ logger: true, trustProxy: true });
   const observability = new ObservabilityService();
@@ -150,9 +204,26 @@ export async function buildApp(
     restaurantRealtime,
     backofficeReadService,
   );
+  const cspHeaderValue = buildCspHeader(config);
+
+  app.addContentTypeParser('application/csp-report', { parseAs: 'string' }, (_request, body, done) => {
+    try {
+      done(null, body ? JSON.parse(String(body)) : {});
+    } catch (error) {
+      done(error as Error, undefined);
+    }
+  });
+  app.addContentTypeParser('application/reports+json', { parseAs: 'string' }, (_request, body, done) => {
+    try {
+      done(null, body ? JSON.parse(String(body)) : []);
+    } catch (error) {
+      done(error as Error, undefined);
+    }
+  });
 
   await app.register(cors, {
     origin: (origin, callback) => callback(null, isOriginAllowed(origin, config.allowedWebOrigins)),
+    credentials: true,
   });
   await app.register(fastifyStatic, {
     root: path.join(rootDir, 'public'),
@@ -167,7 +238,16 @@ export async function buildApp(
   app.addHook('onSend', async (request, reply, payload) => {
     applySecurityHeaders(reply);
     if (htmlRoutes.has(request.url)) {
-      reply.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+      reply.header(config.cspReportOnly ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy', cspHeaderValue);
+      if (config.cspReportUri) {
+        const reportEndpoint = `csp-endpoint=\"${config.cspReportUri}\"`;
+        reply.header('Reporting-Endpoints', reportEndpoint);
+        reply.header('Report-To', JSON.stringify({
+          group: 'csp-endpoint',
+          max_age: 10886400,
+          endpoints: [{ url: config.cspReportUri }],
+        }));
+      }
       reply.header('Cache-Control', 'no-store');
     }
     return payload;
@@ -228,6 +308,7 @@ export async function buildApp(
       reply.status(statusCode).send({ message });
     }
   });
+
   app.get('/api/health', async () => ({
     ok: true,
     service: 'driver-app-backend',
@@ -239,6 +320,12 @@ export async function buildApp(
     passwordResetDelivery: config.smtpHost && config.smtpPort && config.smtpFromEmail ? 'smtp' : 'noop',
     timestamp: new Date().toISOString(),
   }));
+
+  app.post('/api/security/csp-report', async (request, reply) => {
+    const payload = (request.body ?? {}) as CspReportPayload;
+    observability.cspViolationReportsTotal.inc({ effective_directive: extractEffectiveDirective(payload) });
+    return reply.status(204).send();
+  });
 
   app.get('/api/metrics', async (request, reply) => {
     if (config.metricsApiKey) {
@@ -271,7 +358,4 @@ export async function buildApp(
 
   return { app, backendService, observability };
 }
-
-
-
 

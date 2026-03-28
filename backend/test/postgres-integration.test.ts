@@ -56,13 +56,65 @@ export async function runPostgresIntegrationTests(): Promise<void> {
 
     const driverLogin = await service.loginDriver('driver@demo.com', 'Password123');
     const restaurantLogin = await service.loginRestaurant('falafel@demo.com', 'Password123');
+    const adminLogin = await service.loginAdmin('admin@demo.com', 'Password123');
     assert.ok(driverLogin.token);
     assert.ok(restaurantLogin.token);
+    assert.ok(adminLogin.token);
 
     const rotated = await service.refreshSession(driverLogin.token, 'driver');
     assert.notEqual(rotated.token, driverLogin.token);
     await assert.rejects(() => service.requireDriverFromToken(driverLogin.token), /Unauthorized/);
     await service.requireDriverFromToken(rotated.token);
+
+    const createdAdmin = await service.createAdminUser({
+      name: 'Ops Lead',
+      email: 'ops.lead@demo.com',
+      password: 'Password123',
+      role: 'opsAdmin',
+    });
+    assert.equal(createdAdmin.email, 'ops.lead@demo.com');
+
+    const updatedAdmin = await service.updateAdminUser(createdAdmin.id, {
+      name: 'Operations Lead',
+      isActive: true,
+      role: 'supportAdmin',
+    });
+    assert.equal(updatedAdmin.role, 'supportAdmin');
+
+    const createdMerchantUser = await service.createMerchantUser('merchant-001', {
+      name: 'Merchant Dispatcher',
+      email: 'merchant.dispatch@demo.com',
+      password: 'Password123',
+      role: 'merchantDispatcher',
+    });
+    assert.equal(createdMerchantUser.email, 'merchant.dispatch@demo.com');
+
+    const updatedMerchantUser = await service.updateMerchantUser('merchant-001', createdMerchantUser.id, {
+      name: 'Merchant Dispatcher Updated',
+      isActive: true,
+      role: 'merchantManager',
+    });
+    assert.equal(updatedMerchantUser.role, 'merchantManager');
+
+    const createdStaffUser = await service.createRestaurantStaffUser('restaurant-001', {
+      name: 'Night Dispatcher',
+      email: 'night.dispatch@demo.com',
+      password: 'Password123',
+      role: 'dispatcher',
+    });
+    assert.equal(createdStaffUser.email, 'night.dispatch@demo.com');
+
+    const updatedStaffUser = await service.updateRestaurantStaffUser('restaurant-001', createdStaffUser.id, {
+      name: 'Night Dispatch Lead',
+      isActive: true,
+      role: 'manager',
+    });
+    assert.equal(updatedStaffUser.role, 'manager');
+
+    const merchantLogin = await service.loginMerchant('merchant.dispatch@demo.com', 'Password123');
+    const staffLogin = await service.loginRestaurant('night.dispatch@demo.com', 'Password123');
+    assert.ok(merchantLogin.token);
+    assert.ok(staffLogin.token);
 
     await service.updateDriverDispatchPolicy('driver-001', {
       mode: 'allowListOnly',
@@ -82,6 +134,17 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     });
     await service.updateDriverAvailability('driver-001', true);
 
+    const rejectedOrder = await service.createRestaurantOrder('restaurant-001', {
+      customerName: 'Rejected Customer',
+      customerAddress: 'Business Bay',
+      customerLatitude: 25.188,
+      customerLongitude: 55.271,
+      deliveryArea: 'Business Bay',
+    });
+    assert.equal((await service.getIncomingOrder('driver-001'))?.id, rejectedOrder.id);
+    await service.rejectOrder('driver-001', rejectedOrder.id);
+    assert.equal(await service.getIncomingOrder('driver-001'), null);
+
     const createdOrder = await service.createRestaurantOrder('restaurant-001', {
       customerName: 'Integration Customer',
       customerAddress: 'Dubai Marina',
@@ -100,6 +163,9 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     await service.pickupOrder('driver-001', createdOrder.id);
     await service.completeOrder('driver-001', createdOrder.id);
 
+    await service.logout(merchantLogin.token);
+    await assert.rejects(() => service.requireMerchantFromToken(merchantLogin.token), /Unauthorized/);
+
     process.env.ALLOW_INSECURE_PASSWORD_RESET_TOKEN_RESPONSE = 'true';
     const resetRequest = await service.requestPasswordReset('driver', 'driver@demo.com');
     assert.ok(resetRequest.debugToken);
@@ -114,19 +180,28 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     assert.equal(earnings.total > 0, true);
 
     const report = await service.getRestaurantReport('restaurant-001');
-    assert.equal(report.totalOrders, 1);
+    assert.equal(report.totalOrders, 2);
     assert.equal(report.deliveredOrders, 1);
 
+    const merchantReport = await service.getMerchantReport('merchant-001');
+    assert.equal(merchantReport.totalOrders, 2);
+    assert.equal(merchantReport.totalRestaurants >= 1, true);
+
     const orders = await service.getRestaurantOrders('restaurant-001');
-    assert.equal(orders.length, 1);
-    assert.equal(orders[0]?.status, 'delivered');
+    assert.equal(orders.length, 2);
+    assert.equal(orders.some((item) => item.status === 'delivered'), true);
+    assert.equal(orders.some((item) => item.status === 'rejected'), true);
 
     const db = await store.read();
-    assert.equal(db.sessions.length >= 2, true);
+    assert.equal(db.sessions.length >= 4, true);
     assert.equal(db.orders.some((item) => item.id === createdOrder.id && item.status === 'delivered'), true);
+    assert.equal(db.orders.some((item) => item.id === rejectedOrder.id && item.status === 'rejected'), true);
     assert.equal(db.auditLogs.some((item) => item.action === 'auth.login.failed'), true);
     assert.equal(db.auditLogs.some((item) => item.action === 'driver.session.rotated'), true);
     assert.equal(db.auditLogs.some((item) => item.action === 'auth.password-reset.completed'), true);
+    assert.equal(db.auditLogs.some((item) => item.action === 'merchant-user.created'), true);
+    assert.equal(db.auditLogs.some((item) => item.action === 'restaurant-staff-user.created'), true);
+    assert.equal(db.auditLogs.some((item) => item.action === 'order.rejected'), true);
   } finally {
     await pool.end();
   }
