@@ -13,12 +13,45 @@ const nodes = {
   sessionStatus: document.getElementById('sessionStatus'),
   merchantUserStatus: document.getElementById('merchantUserStatus'),
   staffStatus: document.getElementById('staffStatus'),
-  restaurantSettingsStatus: document.getElementById('restaurantSettingsStatus'),
+  restaurantPricingStatus: document.getElementById('restaurantPricingStatus'),
+  restaurantTrackingStatus: document.getElementById('restaurantTrackingStatus'),
   driverControlsStatus: document.getElementById('driverControlsStatus'),
 };
 
 function parseCommaSeparatedIds(value) {
   return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function formatMoney(value, currency = 'AED') {
+  return `${currency} ${Number(value || 0).toFixed(2)}`;
+}
+
+function summarizePricingRule(rule, currency) {
+  if (Number(rule.additionalPerKm || 0) <= 0) {
+    return `${formatMoney(rule.baseAmount, currency)} flat per delivery`;
+  }
+  return `${formatMoney(rule.baseAmount, currency)} includes ${Number(rule.includedDistanceKm || 0).toFixed(1)} km, then ${formatMoney(rule.additionalPerKm, currency)} per extra km`;
+}
+
+function setRuleInputs(prefix, rule) {
+  document.getElementById(`${prefix}BaseAmount`).value = String(rule.baseAmount ?? 0);
+  document.getElementById(`${prefix}IncludedDistanceKm`).value = String(rule.includedDistanceKm ?? 0);
+  document.getElementById(`${prefix}AdditionalPerKm`).value = String(rule.additionalPerKm ?? 0);
+}
+
+function readRuleInputs(prefix) {
+  return {
+    baseAmount: Number(document.getElementById(`${prefix}BaseAmount`).value),
+    includedDistanceKm: Number(document.getElementById(`${prefix}IncludedDistanceKm`).value),
+    additionalPerKm: Number(document.getElementById(`${prefix}AdditionalPerKm`).value),
+  };
+}
+
+function updatePricingSummaries() {
+  const restaurant = restaurants.find((item) => item.id === nodes.settingsRestaurantSelect.value) || restaurants[0];
+  const currency = restaurant?.currency || 'AED';
+  document.getElementById('driverPayoutSummary').textContent = summarizePricingRule(readRuleInputs('driverPayout'), currency);
+  document.getElementById('merchantBillingSummary').textContent = summarizePricingRule(readRuleInputs('merchantBilling'), currency);
 }
 
 async function request(path, options = {}, attemptRefresh = true) {
@@ -81,11 +114,12 @@ function syncRestaurantSettingsForm() {
     return;
   }
   nodes.settingsRestaurantSelect.value = restaurant.id;
-  document.getElementById('driverRatePerOrder').value = String(restaurant.driverRatePerOrder);
-  document.getElementById('restaurantChargePerOrder').value = String(restaurant.restaurantChargePerOrder);
+  setRuleInputs('driverPayout', restaurant.pricing.driverPayoutRule);
+  setRuleInputs('merchantBilling', restaurant.pricing.merchantBillingRule);
   document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
+  updatePricingSummaries();
 }
 
 function syncDriverControlsForm() {
@@ -126,8 +160,9 @@ async function refreshDashboard() {
       <article class="card">
         <div><strong>${restaurant.name}</strong></div>
         <div class="muted">Merchant: ${restaurant.merchantId}</div>
-        <div class="muted">Charge ${Number(restaurant.restaurantChargePerOrder).toFixed(2)} | Driver ${Number(restaurant.driverRatePerOrder).toFixed(2)}</div>
-        <div class="muted">Picked up as in transit: ${restaurant.trackingSettings.showPickedUpAsInTransit ? 'On' : 'Off'} | Pickup ETA: ${restaurant.trackingSettings.showDriverEtaToPickup ? 'On' : 'Off'} | Destination ETA: ${restaurant.trackingSettings.showDestinationEta ? 'On' : 'Off'}</div>
+        <div class="muted">Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
+        <div class="muted">Merchant billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
+        <div class="muted">Pickup ETA visible: ${restaurant.trackingSettings.showDriverEtaToPickup ? 'Yes' : 'No'} | Destination ETA visible: ${restaurant.trackingSettings.showDestinationEta ? 'Yes' : 'No'}</div>
       </article>
     `);
     renderCollection('drivers', driverRows, (driver) => `
@@ -210,11 +245,11 @@ async function saveRestaurantPricing() {
   await request(`/api/admin/restaurants/${restaurantId}/pricing`, {
     method: 'PATCH',
     body: JSON.stringify({
-      driverRatePerOrder: Number(document.getElementById('driverRatePerOrder').value),
-      restaurantChargePerOrder: Number(document.getElementById('restaurantChargePerOrder').value),
+      driverPayoutRule: readRuleInputs('driverPayout'),
+      merchantBillingRule: readRuleInputs('merchantBilling'),
     }),
   });
-  nodes.restaurantSettingsStatus.textContent = 'Restaurant pricing updated.';
+  nodes.restaurantPricingStatus.textContent = 'Restaurant commercial terms updated.';
   await refreshDashboard();
 }
 
@@ -228,7 +263,7 @@ async function saveTrackingSettings() {
       showDestinationEta: document.getElementById('showDestinationEta').checked,
     }),
   });
-  nodes.restaurantSettingsStatus.textContent = 'Restaurant tracking settings updated.';
+  nodes.restaurantTrackingStatus.textContent = 'Restaurant tracking display updated.';
   await refreshDashboard();
 }
 
@@ -263,12 +298,15 @@ document.getElementById('logoutBtn').addEventListener('click', () => logout().ca
 document.getElementById('refreshBtn').addEventListener('click', () => refreshDashboard().catch((error) => { if (hasSession) alert(error.message); }));
 document.getElementById('createMerchantUserBtn').addEventListener('click', () => createMerchantUser().catch((error) => { nodes.merchantUserStatus.textContent = error.message; }));
 document.getElementById('createStaffBtn').addEventListener('click', () => createStaffUser().catch((error) => { nodes.staffStatus.textContent = error.message; }));
-document.getElementById('saveRestaurantPricingBtn').addEventListener('click', () => saveRestaurantPricing().catch((error) => { nodes.restaurantSettingsStatus.textContent = error.message; }));
-document.getElementById('saveTrackingBtn').addEventListener('click', () => saveTrackingSettings().catch((error) => { nodes.restaurantSettingsStatus.textContent = error.message; }));
+document.getElementById('saveRestaurantPricingBtn').addEventListener('click', () => saveRestaurantPricing().catch((error) => { nodes.restaurantPricingStatus.textContent = error.message; }));
+document.getElementById('saveTrackingBtn').addEventListener('click', () => saveTrackingSettings().catch((error) => { nodes.restaurantTrackingStatus.textContent = error.message; }));
 document.getElementById('saveCapacityBtn').addEventListener('click', () => saveDriverCapacity().catch((error) => { nodes.driverControlsStatus.textContent = error.message; }));
 document.getElementById('saveDispatchBtn').addEventListener('click', () => saveDriverDispatch().catch((error) => { nodes.driverControlsStatus.textContent = error.message; }));
 nodes.settingsRestaurantSelect.addEventListener('change', syncRestaurantSettingsForm);
 nodes.driverSelect.addEventListener('change', syncDriverControlsForm);
+['driverPayoutBaseAmount','driverPayoutIncludedDistanceKm','driverPayoutAdditionalPerKm','merchantBillingBaseAmount','merchantBillingIncludedDistanceKm','merchantBillingAdditionalPerKm'].forEach((id) => {
+  document.getElementById(id).addEventListener('input', updatePricingSummaries);
+});
 
 refreshDashboard().catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);

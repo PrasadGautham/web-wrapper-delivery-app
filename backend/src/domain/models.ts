@@ -119,6 +119,17 @@ export interface RestaurantTrackingSettings {
   showDestinationEta: boolean;
 }
 
+export interface DistancePricingRule {
+  baseAmount: number;
+  includedDistanceKm: number;
+  additionalPerKm: number;
+}
+
+export interface RestaurantPricingRules {
+  driverPayoutRule: DistancePricingRule;
+  merchantBillingRule: DistancePricingRule;
+}
+
 export interface RestaurantRecord {
   id: string;
   merchantId: string;
@@ -126,8 +137,7 @@ export interface RestaurantRecord {
   email: string;
   password: string;
   pickupLocation: LocationSnapshot;
-  driverRatePerOrder: number;
-  restaurantChargePerOrder: number;
+  pricing: RestaurantPricingRules;
   currency: string;
   trackingSettings: RestaurantTrackingSettings;
   staffUsers: RestaurantStaffUserRecord[];
@@ -138,8 +148,7 @@ export interface RestaurantProfile {
   merchantId: string;
   name: string;
   pickupLocation: LocationSnapshot;
-  driverRatePerOrder: number;
-  restaurantChargePerOrder: number;
+  pricing: RestaurantPricingRules;
   currency: string;
   trackingSettings: RestaurantTrackingSettings;
 }

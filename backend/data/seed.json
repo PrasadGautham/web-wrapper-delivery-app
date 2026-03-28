@@ -142,8 +142,6 @@
                                                    "latitude":  25.0763,
                                                    "longitude":  55.1442
                                                },
-                            "driverRatePerOrder":  23.5,
-                            "restaurantChargePerOrder":  37,
                             "currency":  "AED",
                             "trackingSettings":  {
                                                      "showPickedUpAsInTransit":  true,
@@ -169,7 +167,19 @@
                                                    "role":  "dispatcher",
                                                    "isActive":  true
                                                }
-                                           ]
+                                           ],
+                            "pricing":  {
+                                            "driverPayoutRule":  {
+                                                                     "baseAmount":  23.5,
+                                                                     "includedDistanceKm":  0,
+                                                                     "additionalPerKm":  0
+                                                                 },
+                                            "merchantBillingRule":  {
+                                                                        "baseAmount":  37,
+                                                                        "includedDistanceKm":  0,
+                                                                        "additionalPerKm":  0
+                                                                    }
+                                        }
                         },
                         {
                             "id":  "restaurant-002",
@@ -183,8 +193,6 @@
                                                    "latitude":  25.1868,
                                                    "longitude":  55.26
                                                },
-                            "driverRatePerOrder":  28,
-                            "restaurantChargePerOrder":  42,
                             "currency":  "AED",
                             "trackingSettings":  {
                                                      "showPickedUpAsInTransit":  true,
@@ -210,7 +218,19 @@
                                                    "role":  "manager",
                                                    "isActive":  true
                                                }
-                                           ]
+                                           ],
+                            "pricing":  {
+                                            "driverPayoutRule":  {
+                                                                     "baseAmount":  28,
+                                                                     "includedDistanceKm":  0,
+                                                                     "additionalPerKm":  0
+                                                                 },
+                                            "merchantBillingRule":  {
+                                                                        "baseAmount":  42,
+                                                                        "includedDistanceKm":  0,
+                                                                        "additionalPerKm":  0
+                                                                    }
+                                        }
                         }
                     ],
     "orders":  [

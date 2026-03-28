@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   AdminUserProfile,
+  DistancePricingRule,
   AuditLogRecord,
   DriverDispatchPolicy,
   DriverProfile,
@@ -26,6 +27,7 @@ import {
   toRestaurantStaffProfile,
 } from './profile-projections.js';
 import { WorkflowStoreContract } from './store-contract.js';
+import { assertValidPricingRule, normalizePricingRule } from './pricing-rules.js';
 
 function createAuditLog(input: Omit<AuditLogRecord, 'id' | 'at'>): AuditLogRecord {
   return {
@@ -376,13 +378,15 @@ export class AdminWorkflowService {
 
   async updateRestaurantPricing(
     restaurantId: string,
-    pricing: { driverRatePerOrder: number; restaurantChargePerOrder: number },
+    pricing: { driverPayoutRule: DistancePricingRule; merchantBillingRule: DistancePricingRule },
   ): Promise<RestaurantProfile> {
     if (!this.workflowStore) {
       return this.runtime.withMutableDb(async (db) => {
         const restaurant = this.runtime.requireRestaurant(db, restaurantId);
-        restaurant.driverRatePerOrder = pricing.driverRatePerOrder;
-        restaurant.restaurantChargePerOrder = pricing.restaurantChargePerOrder;
+        restaurant.pricing = {
+          driverPayoutRule: normalizePricingRule(pricing.driverPayoutRule),
+          merchantBillingRule: normalizePricingRule(pricing.merchantBillingRule),
+        };
         this.runtime.appendAuditLog(db, {
           actorType: 'admin',
           actorId: 'admin-api',
@@ -400,8 +404,10 @@ export class AdminWorkflowService {
       if (!restaurant) {
         throw new Error('Restaurant not found.');
       }
-      restaurant.driverRatePerOrder = pricing.driverRatePerOrder;
-      restaurant.restaurantChargePerOrder = pricing.restaurantChargePerOrder;
+      restaurant.pricing = {
+          driverPayoutRule: normalizePricingRule(pricing.driverPayoutRule),
+          merchantBillingRule: normalizePricingRule(pricing.merchantBillingRule),
+        };
       await context.saveRestaurant(restaurant);
       await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: 'admin-api', action: 'restaurant.pricing.updated', entityType: 'restaurant', entityId: restaurantId, metadata: pricing as unknown as Record<string, unknown> }));
       return toRestaurantProfile(restaurant);
@@ -443,4 +449,8 @@ export class AdminWorkflowService {
     };
   }
 }
+
+
+
+
 

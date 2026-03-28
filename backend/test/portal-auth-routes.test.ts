@@ -82,10 +82,13 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
         method: 'PATCH',
         url: '/api/merchant/me/restaurants/restaurant-001/pricing',
         headers: { cookie },
-        payload: { driverRatePerOrder: 12.5, restaurantChargePerOrder: 18.75 },
+        payload: {
+          driverPayoutRule: { baseAmount: 12.5, includedDistanceKm: 2, additionalPerKm: 1.25 },
+          merchantBillingRule: { baseAmount: 18.75, includedDistanceKm: 3, additionalPerKm: 2.25 },
+        },
       });
       assert.equal(pricingUpdate.statusCode, 200);
-      assert.equal(JSON.parse(pricingUpdate.body).driverRatePerOrder, 12.5);
+      assert.equal(JSON.parse(pricingUpdate.body).pricing.driverPayoutRule.baseAmount, 12.5);
 
       const trackingUpdate = await app.inject({
         method: 'PATCH',
@@ -141,7 +144,10 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
         method: 'PATCH',
         url: '/api/admin/restaurants/restaurant-001/pricing',
         headers: { cookie },
-        payload: { driverRatePerOrder: 8.25, restaurantChargePerOrder: 15.5 },
+        payload: {
+          driverPayoutRule: { baseAmount: 8.25, includedDistanceKm: 1.5, additionalPerKm: 1 },
+          merchantBillingRule: { baseAmount: 15.5, includedDistanceKm: 2.5, additionalPerKm: 1.75 },
+        },
       });
       assert.equal(pricingUpdate.statusCode, 200);
 
@@ -187,3 +193,5 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
     await app.close();
   }
 }
+
+

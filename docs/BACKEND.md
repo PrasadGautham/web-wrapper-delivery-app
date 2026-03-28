@@ -25,7 +25,7 @@ Use these companion docs for the broader picture:
 - driver eligibility rules by store and merchant
 - per-driver capacity via `maxActiveOrders`
 - restaurant tracking settings for status wording and ETA visibility
-- admin and merchant pricing management for restaurants
+- admin and merchant commercial-term management for restaurants
 - merchant-wide visibility across multiple restaurants
 - multiple store staff users per restaurant
 - platform admin and merchant user management
@@ -196,10 +196,11 @@ Optional when `POSTGRES_TEST_DATABASE_URL` is set:
 npm run test:postgres
 ```
 
-## Notes
+## Commercial Terms Model`r`n`r`nEach restaurant stores two pricing rules:`r`n`r`n- `driverPayoutRule`: what the driver earns`r`n- `merchantBillingRule`: what the store is billed`r`n`r`nEach rule supports:`r`n`r`n- `baseAmount``r`n- `includedDistanceKm``r`n- `additionalPerKm``r`n`r`nThis supports both flat pricing and “includes X km, then Y per km” pricing without exposing merchant billing to the driver app.`r`n`r`n## Notes
 
 - file-store mode is acceptable for local development only
 - deployed environments should use Postgres
 - `REDIS_URL` is optional and only needed for shared rate limiting across multiple backend instances
 - Android can be treated as the current release target
 - the iOS mobile path still needs real macOS/Xcode validation before claiming full production readiness
+

@@ -151,11 +151,11 @@ export async function runBackendServiceTests(): Promise<void> {
     const service = createService(store);
 
     const restaurant = await service.updateRestaurantPricing('restaurant-001', {
-      driverRatePerOrder: 9.5,
-      restaurantChargePerOrder: 16.75,
+      driverPayoutRule: { baseAmount: 9.5, includedDistanceKm: 2, additionalPerKm: 1.25 },
+      merchantBillingRule: { baseAmount: 16.75, includedDistanceKm: 3, additionalPerKm: 2.5 },
     });
-    assert.equal(restaurant.driverRatePerOrder, 9.5);
-    assert.equal(restaurant.restaurantChargePerOrder, 16.75);
+    assert.equal(restaurant.pricing.driverPayoutRule.baseAmount, 9.5);
+    assert.equal(restaurant.pricing.merchantBillingRule.baseAmount, 16.75);
 
     const trackingUpdated = await service.updateRestaurantTrackingSettings('restaurant-001', {
       showPickedUpAsInTransit: false,
@@ -166,11 +166,11 @@ export async function runBackendServiceTests(): Promise<void> {
 
     const merchant = await service.requireMerchantFromToken((await service.loginMerchant('falafel.group@demo.com', 'Password123')).token);
     const merchantPricing = await service.updateMerchantRestaurantPricing(merchant, 'restaurant-001', {
-      driverRatePerOrder: 11,
-      restaurantChargePerOrder: 19,
+      driverPayoutRule: { baseAmount: 11, includedDistanceKm: 1.5, additionalPerKm: 0.75 },
+      merchantBillingRule: { baseAmount: 19, includedDistanceKm: 2.5, additionalPerKm: 1.5 },
     });
-    assert.equal(merchantPricing.driverRatePerOrder, 11);
-    assert.equal(merchantPricing.restaurantChargePerOrder, 19);
+    assert.equal(merchantPricing.pricing.driverPayoutRule.baseAmount, 11);
+    assert.equal(merchantPricing.pricing.merchantBillingRule.baseAmount, 19);
 
     const merchantTracking = await service.updateMerchantRestaurantTrackingSettings(merchant, 'restaurant-001', {
       showPickedUpAsInTransit: true,
@@ -180,4 +180,6 @@ export async function runBackendServiceTests(): Promise<void> {
     assert.equal(merchantTracking.trackingSettings.showDestinationEta, true);
   }
 }
+
+
 

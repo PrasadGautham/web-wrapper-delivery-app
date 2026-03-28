@@ -41,8 +41,8 @@ type PrismaRestaurantRow = {
   email: string;
   password: string;
   pickupLocation: unknown;
-  driverRatePerOrder: number;
-  restaurantChargePerOrder: number;
+  driverPayoutRule: unknown;
+  merchantBillingRule: unknown;
   currency: string;
   trackingSettings: unknown;
   staffUsers?: unknown;
@@ -182,8 +182,10 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       email: restaurant.email,
       password: restaurant.password,
       pickupLocation: restaurant.pickupLocation as RestaurantRecord['pickupLocation'],
-      driverRatePerOrder: Number(restaurant.driverRatePerOrder),
-      restaurantChargePerOrder: Number(restaurant.restaurantChargePerOrder),
+      pricing: {
+        driverPayoutRule: restaurant.driverPayoutRule as RestaurantRecord['pricing']['driverPayoutRule'],
+        merchantBillingRule: restaurant.merchantBillingRule as RestaurantRecord['pricing']['merchantBillingRule'],
+      },
       currency: restaurant.currency,
       trackingSettings: restaurant.trackingSettings as RestaurantTrackingSettings,
       staffUsers: (restaurant.staffUsers as RestaurantRecord['staffUsers'] | null) ?? [],

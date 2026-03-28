@@ -63,11 +63,11 @@ Current admin UI can:
 - see all admin users
 - create merchant users
 - create restaurant staff users
-- update restaurant pricing
+- update restaurant commercial terms
 - update restaurant tracking settings
 - update driver capacity
 - update driver dispatch policy
-- review restaurant charge and driver payout values per restaurant
+- review driver payout rules and merchant billing rules per restaurant
 - review current driver capacity and dispatch mode values
 
 ### Merchant
@@ -78,7 +78,7 @@ Current merchant UI can:
 
 - see all restaurants under that merchant
 - see merchant-wide orders and reporting
-- update pricing values for owned restaurants
+- update commercial terms for owned restaurants
 - update tracking settings for owned restaurants
 - create and manage store staff users for owned restaurants
 - monitor live status updates for all owned restaurants
@@ -143,27 +143,38 @@ Can:
 - merchant portal updates live through SSE
 - driver app updates through backend APIs and push-driven flow
 
-### Pricing And Earnings
+### Pricing, Billing, And Driver Earnings
 
-- driver payout is stored per order
-- restaurant charge is stored per order
-- different restaurants can have different rates
-- historical orders keep their own rate snapshots even if rates change later
+- each order stores a snapped driver payout amount
+- each order stores a snapped merchant billing amount
+- different restaurants can use different commercial rules
+- historical orders keep their own payout and billing snapshots even if rules change later
 
-### Current Pricing Ownership
+### Current Commercial Ownership
 
-Current source of pricing values:
+Current source of commercial values:
 
-- pricing is stored on each restaurant configuration in the backend
-- the restaurant has:
-  - `driverRatePerOrder`
-  - `restaurantChargePerOrder`
+- commercial terms are stored on each restaurant configuration in the backend
+- each restaurant has two rule sets:
+  - `driverPayoutRule`: what the driver earns
+  - `merchantBillingRule`: what your company bills the store
+- each rule supports:
+  - base amount
+  - included distance in km
+  - additional amount per km after the included distance
+
+How the rules behave:
+
+- a flat delivery fee is represented by setting additional per km to `0`
+- a distance-based fee is represented by setting base amount, included km, and additional per km
+- the driver app only receives the snapped driver payout for the order
+- the driver app does not receive the merchant billing amount
 
 Current edit paths:
 
-- admin can update restaurant pricing from the admin portal
-- merchant can update pricing for owned restaurants from the merchant portal
-- pricing changes affect future dispatches and future orders
+- admin can update restaurant commercial terms from the admin portal
+- merchant can update commercial terms for owned restaurants from the merchant portal
+- commercial changes affect future dispatches and future orders
 - existing orders keep their snapped values
 
 ### Security And Access
@@ -192,14 +203,14 @@ Admin can change:
 Admin can change:
 
 - tracking settings
-- driver payout per order
-- restaurant charge per order
+- driver payout rule
+- merchant billing rule
 
 Merchant can change for owned restaurants:
 
 - tracking settings
-- driver payout per order
-- restaurant charge per order
+- driver payout rule
+- merchant billing rule
 
 ### Per merchant
 
@@ -275,7 +286,7 @@ Expected:
 Expected:
 
 - each restaurant shows merchant association
-- each restaurant shows driver payout and store charge values
+- each restaurant shows driver payout and merchant billing summaries
 - driver list shows current capacity and dispatch information
 
 ### Create a merchant user
@@ -298,11 +309,11 @@ Expected:
 
 - new restaurant staff user is created successfully
 
-### Update restaurant pricing
+### Update restaurant commercial terms
 
 1. Select a restaurant in the settings section
 2. Change driver rate and store charge
-3. Save pricing
+3. Save commercial terms
 
 Expected:
 
@@ -352,16 +363,16 @@ Expected:
 
 - cross-store visibility only within merchant scope
 
-### Update store pricing
+### Update store commercial terms
 
 1. Select a store
-2. Change driver payout or store charge
-3. Save pricing
+2. Change the driver payout rule or merchant billing rule
+3. Save commercial terms
 
 Expected:
 
 - updated values appear in the merchant store view
-- backend uses the new pricing for future orders
+- backend uses the new commercial terms for future orders
 
 ### Update store tracking settings
 
@@ -474,12 +485,12 @@ Use this as the main business demo:
 4. Log in as admin and show:
 - merchants
 - restaurants
-- pricing values
+- commercial terms
 - drivers, capacity, and dispatch policy controls
-5. Update one restaurant pricing value from admin
+5. Update one restaurant commercial term from admin
 6. Log in as merchant and show:
 - multi-store visibility
-- store pricing and tracking controls
+- store commercial-term and tracking controls
 - create staff user
 7. Log in as restaurant staff and create an order
 8. Confirm the driver receives the order
@@ -509,11 +520,11 @@ Show that the platform supports:
 
 1. Start with admin.
 Explain that admin is for platform operations and onboarding, not for restaurant staff.
-Show all merchants, restaurants, drivers, pricing controls, and driver dispatch controls.
+Show all merchants, restaurants, drivers, commercial-term controls, and driver dispatch controls.
 
 2. Move to merchant.
 Explain that a merchant can see all restaurants under one brand or franchise group.
-Show multi-store visibility, store pricing controls, tracking settings, and store staff creation.
+Show multi-store visibility, store commercial-term controls, tracking settings, and store staff creation.
 
 3. Move to restaurant.
 Explain that restaurant staff is store-scoped and can create delivery orders.
@@ -532,7 +543,7 @@ Capture these for business review or documentation:
 
 - Admin login screen
 - Admin dashboard with merchants, restaurants, and drivers visible
-- Admin settings section showing pricing, tracking, and driver dispatch controls
+- Admin settings section showing commercial terms, tracking, and driver dispatch controls
 - Merchant dashboard showing multiple restaurants
 - Merchant store settings section
 - Merchant staff creation section
@@ -579,3 +590,6 @@ These are not code gaps. They are production environment tasks:
 - Deployment: [DEPLOYMENT.md](/c:/dev/DriverApp/docs/DEPLOYMENT.md)
 - Environment checklist: [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
 - Go-live checklist: [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
+
+
+

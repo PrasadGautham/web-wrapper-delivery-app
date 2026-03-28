@@ -16,33 +16,35 @@
       }
       * { box-sizing: border-box; }
       body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); background: linear-gradient(160deg, #fbf3ea 0%, #ead5c6 100%); }
-      .shell { max-width: 1320px; margin: 0 auto; padding: 24px; }
+      .shell { max-width: 1360px; margin: 0 auto; padding: 24px; }
       .hero { border-radius: 28px; padding: 28px; color: white; background: linear-gradient(135deg, rgba(140,61,45,0.96), rgba(77,31,30,0.96)); }
-      .layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; margin-top: 20px; }
+      .layout { display: grid; grid-template-columns: 420px 1fr; gap: 20px; margin-top: 20px; }
       .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 20px; box-shadow: 0 14px 34px rgba(20, 29, 33, 0.08); }
       .stack { display: grid; gap: 12px; }
       input, select, button { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); font: inherit; }
       button { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: white; border: 0; font-weight: 700; cursor: pointer; }
       button.secondary { background: transparent; color: var(--accent-strong); border: 1px solid rgba(77,31,30,0.3); }
       .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-      .stat, .card { border: 1px solid var(--line); border-radius: 18px; background: white; padding: 16px; }
+      .stat, .card, .section { border: 1px solid var(--line); border-radius: 18px; background: white; padding: 16px; }
       .muted { color: var(--muted); }
       .cards { display: grid; gap: 12px; }
       .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
       .inline { display: flex; gap: 10px; }
+      .triple { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
       .pill { display: inline-flex; padding: 5px 10px; border-radius: 999px; background: #f7ddd4; color: var(--accent-strong); font-size: 12px; font-weight: 800; text-transform: uppercase; }
       .status-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 8px; background: #b0521e; }
       .status-dot.live { background: #2b9a6d; }
       label.toggle { display:flex; align-items:center; gap:10px; font-size:14px; color:var(--ink); }
       label.toggle input { width:auto; }
-      @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2, 1fr); } }
+      .eyebrow { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; }
+      @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .stats, .triple { grid-template-columns: repeat(2, 1fr); } }
     </style>
   </head>
   <body>
     <div class="shell">
       <section class="hero">
         <h1>Merchant Ops Portal</h1>
-        <p>Franchise and merchant teams can watch all stores, review order flow, manage store staff, and maintain store settings from one session.</p>
+        <p>Franchise and merchant teams can watch all stores, review order flow, manage store staff, and maintain commercial and tracking settings from one session.</p>
         <div><span class="status-dot" id="connectionDot"></span><span id="connectionText">Waiting for merchant session.</span></div>
       </section>
       <div class="layout">
@@ -57,17 +59,40 @@
           <p class="muted" id="sessionStatus">Not logged in</p>
 
           <section class="stack">
-            <div class="section-head"><h3>Store Settings</h3></div>
+            <div class="section-head"><h3>Store Commercial Terms</h3></div>
+            <p class="muted">Select a store and manage what your company bills the store and what the driver earns. Set additional per km to 0 for a flat-rate delivery.</p>
             <select id="restaurantSelect"></select>
-            <div class="inline">
-              <input id="driverRatePerOrder" type="number" min="0" step="0.01" placeholder="Driver rate" />
-              <input id="restaurantChargePerOrder" type="number" min="0" step="0.01" placeholder="Store charge" />
+            <div class="section stack">
+              <div class="eyebrow">Driver payout to courier</div>
+              <strong>What the driver earns</strong>
+              <div class="triple">
+                <input id="driverPayoutBaseAmount" type="number" min="0" step="0.01" placeholder="Base amount" />
+                <input id="driverPayoutIncludedDistanceKm" type="number" min="0" step="0.1" placeholder="Included km" />
+                <input id="driverPayoutAdditionalPerKm" type="number" min="0" step="0.01" placeholder="Additional per km" />
+              </div>
+              <div id="driverPayoutSummary" class="muted"></div>
             </div>
-            <label class="toggle"><input id="showPickedUpAsInTransit" type="checkbox" /> Show picked up as In transit</label>
+            <div class="section stack">
+              <div class="eyebrow">Merchant billing to store</div>
+              <strong>What the store is billed</strong>
+              <div class="triple">
+                <input id="merchantBillingBaseAmount" type="number" min="0" step="0.01" placeholder="Base amount" />
+                <input id="merchantBillingIncludedDistanceKm" type="number" min="0" step="0.1" placeholder="Included km" />
+                <input id="merchantBillingAdditionalPerKm" type="number" min="0" step="0.01" placeholder="Additional per km" />
+              </div>
+              <div id="merchantBillingSummary" class="muted"></div>
+            </div>
+            <button id="savePricingBtn" type="button">Save Commercial Terms</button>
+            <div id="pricingStatus" class="muted">Select a store to review or update its commercial terms.</div>
+          </section>
+
+          <section class="stack">
+            <div class="section-head"><h3>Store Tracking Display</h3></div>
+            <label class="toggle"><input id="showPickedUpAsInTransit" type="checkbox" /> Show status as “In transit” after pickup</label>
             <label class="toggle"><input id="showDriverEtaToPickup" type="checkbox" /> Show driver ETA to pickup</label>
-            <label class="toggle"><input id="showDestinationEta" type="checkbox" /> Show destination ETA</label>
-            <div class="inline"><button id="savePricingBtn" type="button">Save Pricing</button><button id="saveTrackingBtn" type="button" class="secondary">Save Tracking</button></div>
-            <div id="settingsStatus" class="muted">Select a store to review or update its settings.</div>
+            <label class="toggle"><input id="showDestinationEta" type="checkbox" /> Show destination ETA after pickup</label>
+            <button id="saveTrackingBtn" type="button" class="secondary">Save Tracking Display</button>
+            <div id="trackingStatus" class="muted">Update how restaurant staff see delivery progress for this store.</div>
           </section>
 
           <section class="stack">
@@ -91,7 +116,7 @@
             <div class="stat"><div class="muted">Stores</div><strong id="statStores">0</strong></div>
             <div class="stat"><div class="muted">Total orders</div><strong id="statOrders">0</strong></div>
             <div class="stat"><div class="muted">Driver payout</div><strong id="statPayout">AED 0.00</strong></div>
-            <div class="stat"><div class="muted">Store charges</div><strong id="statCharges">AED 0.00</strong></div>
+            <div class="stat"><div class="muted">Billed to stores</div><strong id="statCharges">AED 0.00</strong></div>
           </section>
           <section class="panel stack">
             <div class="section-head"><div><h2>Store Overview</h2><p class="muted">Merchant-wide visibility across all linked restaurants.</p></div><button id="refreshBtn" class="secondary" type="button">Refresh now</button></div>
@@ -107,3 +132,4 @@
     <script type="module" src="/merchant.js"></script>
   </body>
 </html>
+

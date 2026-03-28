@@ -26,8 +26,8 @@ create table if not exists restaurants (
   email text not null unique,
   password text not null,
   pickup_location jsonb not null,
-  driver_rate_per_order double precision not null,
-  restaurant_charge_per_order double precision not null,
+  driver_payout_rule jsonb not null,
+  merchant_billing_rule jsonb not null,
   currency text not null,
   tracking_settings jsonb not null,
   staff_users jsonb not null default '[]'::jsonb
@@ -98,3 +98,4 @@ create index if not exists idx_orders_status on orders(status);
 create index if not exists idx_sessions_expires_at on sessions(expires_at);
 create index if not exists idx_password_reset_tokens_expires_at on password_reset_tokens(expires_at);
 create index if not exists idx_audit_logs_at on audit_logs(at desc);
+

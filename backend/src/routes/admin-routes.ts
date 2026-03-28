@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { DriverDispatchMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
+import { DistancePricingRule, DriverDispatchMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
+import { assertValidPricingRule, normalizePricingRule } from '../services/pricing-rules.js';
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
 import {
@@ -289,22 +290,20 @@ export async function registerAdminRoutes(
 
   app.patch('/api/admin/restaurants/:restaurantId/pricing', async (request, reply) => {
     const params = request.params as { restaurantId: string };
-    const body = request.body as { driverRatePerOrder?: number; restaurantChargePerOrder?: number };
-    if (
-      typeof body.driverRatePerOrder !== 'number' ||
-      Number.isNaN(body.driverRatePerOrder) ||
-      body.driverRatePerOrder < 0 ||
-      typeof body.restaurantChargePerOrder !== 'number' ||
-      Number.isNaN(body.restaurantChargePerOrder) ||
-      body.restaurantChargePerOrder < 0
-    ) {
-      return reply.status(400).send({ message: 'driverRatePerOrder and restaurantChargePerOrder must be non-negative numbers.' });
-    }
+    const body = request.body as {
+      driverPayoutRule?: DistancePricingRule;
+      merchantBillingRule?: DistancePricingRule;
+    };
 
     try {
+      if (!body.driverPayoutRule || !body.merchantBillingRule) {
+        throw new Error('driverPayoutRule and merchantBillingRule are required.');
+      }
+      assertValidPricingRule(body.driverPayoutRule, 'Driver payout rule');
+      assertValidPricingRule(body.merchantBillingRule, 'Merchant billing rule');
       const updated = await backendService.updateRestaurantPricing(params.restaurantId, {
-        driverRatePerOrder: Number(body.driverRatePerOrder.toFixed(2)),
-        restaurantChargePerOrder: Number(body.restaurantChargePerOrder.toFixed(2)),
+        driverPayoutRule: normalizePricingRule(body.driverPayoutRule),
+        merchantBillingRule: normalizePricingRule(body.merchantBillingRule),
       });
       restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
       return updated;
@@ -342,3 +341,4 @@ export async function registerAdminRoutes(
     }
   });
 }
+

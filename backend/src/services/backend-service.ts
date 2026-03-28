@@ -1,5 +1,6 @@
 import {
   AdminUserProfile,
+  DistancePricingRule,
   DriverDispatchPolicy,
   DriverProfile,
   DriverRecord,
@@ -245,7 +246,7 @@ export class BackendService {
 
   updateRestaurantPricing(
     restaurantId: string,
-    pricing: { driverRatePerOrder: number; restaurantChargePerOrder: number },
+    pricing: { driverPayoutRule: DistancePricingRule; merchantBillingRule: DistancePricingRule },
   ): Promise<RestaurantProfile> {
     return this.adminWorkflow.updateRestaurantPricing(restaurantId, pricing);
   }
@@ -302,7 +303,7 @@ export class BackendService {
   updateMerchantRestaurantPricing(
     merchant: MerchantRecord,
     restaurantId: string,
-    pricing: { driverRatePerOrder: number; restaurantChargePerOrder: number },
+    pricing: { driverPayoutRule: DistancePricingRule; merchantBillingRule: DistancePricingRule },
   ): Promise<RestaurantProfile> {
     return this.merchantWorkflow.updateRestaurantPricing(merchant, restaurantId, pricing);
   }
@@ -379,4 +380,5 @@ export class BackendService {
     return this.restaurantWorkflow.getRestaurantReport(restaurantId);
   }
 }
+
 

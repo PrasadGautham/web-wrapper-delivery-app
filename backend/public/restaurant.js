@@ -141,7 +141,7 @@ function renderOrders(orders) {
           <div>${currency(order.tripEarnings)}</div>
         </div>
         <div class="meta">
-          <div><strong>Store charge</strong></div>
+          <div><strong>Billed to store</strong></div>
           <div>${currency(order.companyCharge)}</div>
         </div>
       </div>
@@ -313,3 +313,4 @@ setInterval(() => {
     refreshSession().catch(() => {});
   }
 }, 10 * 60 * 1000);
+

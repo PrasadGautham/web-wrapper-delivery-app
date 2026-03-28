@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  DistancePricingRule,
   MerchantProfile,
   MerchantRecord,
   MerchantReport,
@@ -16,6 +17,7 @@ import { BackofficeReadService } from './backoffice-read-service.js';
 import { BackendRuntime } from './backend-runtime.js';
 import { DispatchService } from './dispatch-service.js';
 import { toMerchantProfile, toRestaurantProfile, toRestaurantStaffProfile } from './profile-projections.js';
+import { assertValidPricingRule, normalizePricingRule } from './pricing-rules.js';
 
 export class MerchantWorkflowService {
   constructor(
@@ -138,12 +140,14 @@ export class MerchantWorkflowService {
   async updateRestaurantPricing(
     merchant: MerchantRecord,
     restaurantId: string,
-    pricing: { driverRatePerOrder: number; restaurantChargePerOrder: number },
+    pricing: { driverPayoutRule: DistancePricingRule; merchantBillingRule: DistancePricingRule },
   ): Promise<RestaurantProfile> {
     return this.runtime.withMutableDb(async (db) => {
       const restaurant = this.requireMerchantRestaurant(db.restaurants, merchant.id, restaurantId);
-      restaurant.driverRatePerOrder = pricing.driverRatePerOrder;
-      restaurant.restaurantChargePerOrder = pricing.restaurantChargePerOrder;
+      restaurant.pricing = {
+        driverPayoutRule: normalizePricingRule(pricing.driverPayoutRule),
+        merchantBillingRule: normalizePricingRule(pricing.merchantBillingRule),
+      };
       this.runtime.appendAuditLog(db, {
         actorType: 'merchant',
         actorId: merchant.id,
@@ -183,4 +187,8 @@ export class MerchantWorkflowService {
     return restaurant;
   }
 }
+
+
+
+
 

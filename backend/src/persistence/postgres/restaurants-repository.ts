@@ -11,8 +11,10 @@ function mapRestaurant(row: Record<string, unknown>): RestaurantRecord {
     email: row.email as string,
     password: row.password as string,
     pickupLocation: row.pickup_location as RestaurantRecord['pickupLocation'],
-    driverRatePerOrder: Number(row.driver_rate_per_order),
-    restaurantChargePerOrder: Number(row.restaurant_charge_per_order),
+    pricing: {
+      driverPayoutRule: row.driver_payout_rule as RestaurantRecord['pricing']['driverPayoutRule'],
+      merchantBillingRule: row.merchant_billing_rule as RestaurantRecord['pricing']['merchantBillingRule'],
+    },
     currency: row.currency as string,
     trackingSettings: row.tracking_settings as RestaurantRecord['trackingSettings'],
     staffUsers: (row.staff_users as RestaurantRecord['staffUsers'] | null) ?? [],
@@ -20,7 +22,7 @@ function mapRestaurant(row: Record<string, unknown>): RestaurantRecord {
 }
 
 const baseSelect = `select id, merchant_id, name, email, password, pickup_location,
-                           driver_rate_per_order, restaurant_charge_per_order, currency, tracking_settings, staff_users
+                           driver_payout_rule, merchant_billing_rule, currency, tracking_settings, staff_users
                     from restaurants`;
 
 export class PostgresRestaurantsRepository {
@@ -55,16 +57,16 @@ export class PostgresRestaurantsRepository {
 
   async upsertOne(client: PoolClient, item: RestaurantRecord): Promise<void> {
     await client.query(
-      `insert into restaurants(id, merchant_id, name, email, password, pickup_location, driver_rate_per_order, restaurant_charge_per_order, currency, tracking_settings, staff_users)
-       values($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10::jsonb,$11::jsonb)
+      `insert into restaurants(id, merchant_id, name, email, password, pickup_location, driver_payout_rule, merchant_billing_rule, currency, tracking_settings, staff_users)
+       values($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb)
        on conflict (id) do update set
          merchant_id = excluded.merchant_id,
          name = excluded.name,
          email = excluded.email,
          password = excluded.password,
          pickup_location = excluded.pickup_location,
-         driver_rate_per_order = excluded.driver_rate_per_order,
-         restaurant_charge_per_order = excluded.restaurant_charge_per_order,
+         driver_payout_rule = excluded.driver_payout_rule,
+         merchant_billing_rule = excluded.merchant_billing_rule,
          currency = excluded.currency,
          tracking_settings = excluded.tracking_settings,
          staff_users = excluded.staff_users`,
@@ -75,8 +77,8 @@ export class PostgresRestaurantsRepository {
         item.email,
         item.password,
         toJson(item.pickupLocation),
-        item.driverRatePerOrder,
-        item.restaurantChargePerOrder,
+        toJson(item.pricing.driverPayoutRule),
+        toJson(item.pricing.merchantBillingRule),
         item.currency,
         toJson(item.trackingSettings),
         toJson(item.staffUsers ?? []),

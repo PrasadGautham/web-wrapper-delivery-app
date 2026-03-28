@@ -56,8 +56,8 @@ model Restaurant {
   email                    String   @unique
   password                 String
   pickupLocation           Json     @map("pickup_location")
-  driverRatePerOrder       Float    @map("driver_rate_per_order")
-  restaurantChargePerOrder Float    @map("restaurant_charge_per_order")
+  driverPayoutRule         Json     @map("driver_payout_rule")
+  merchantBillingRule      Json     @map("merchant_billing_rule")
   currency                 String
   trackingSettings         Json     @map("tracking_settings")
   staffUsers               Json     @map("staff_users") @default("[]")
@@ -143,3 +143,5 @@ model AuditLog {
   @@index([at(sort: Desc)], map: "idx_audit_logs_at")
   @@map("audit_logs")
 }
+
+

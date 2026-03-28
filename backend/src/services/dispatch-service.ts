@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import {
-  DatabaseShape,
-  DriverRecord,
-  LocationSnapshot,
-  OrderRecord,
-  RestaurantRecord,
-} from '../domain/models.js';
+import { DatabaseShape, DriverRecord, LocationSnapshot, OrderRecord, RestaurantRecord } from '../domain/models.js';
+import { calculatePricingAmount } from './pricing-rules.js';
 import { haversineDistanceKm } from '../utils/geo.js';
 
 const offerWindowSeconds = 30;
@@ -83,8 +78,8 @@ export class DispatchService {
       distanceKm: Number((estimatedKm * 0.45).toFixed(1)),
       estimatedKm,
       estimatedMinutes: Math.max(10, Math.round(estimatedKm * 4)),
-      tripEarnings: restaurant.driverRatePerOrder,
-      companyCharge: restaurant.restaurantChargePerOrder,
+      tripEarnings: calculatePricingAmount(restaurant.pricing.driverPayoutRule, estimatedKm),
+      companyCharge: calculatePricingAmount(restaurant.pricing.merchantBillingRule, estimatedKm),
       createdAt: nowIso(),
       expiresAt: null,
       assignedDriverId: null,
@@ -272,8 +267,8 @@ export class DispatchService {
     order.assignedDriverId = selectedDriver.id;
     order.status = 'pending';
     order.expiresAt = new Date(Date.now() + offerWindowSeconds * 1000).toISOString();
-    order.tripEarnings = restaurant.driverRatePerOrder;
-    order.companyCharge = restaurant.restaurantChargePerOrder;
+    order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm);
+    order.companyCharge = calculatePricingAmount(restaurant.pricing.merchantBillingRule, order.estimatedKm);
     order.pendingDispatchNotification = true;
     order.events.push({
       type: 'offerAssigned',
@@ -382,3 +377,4 @@ export class DispatchService {
     return restaurant;
   }
 }
+
