@@ -12,8 +12,13 @@ class AppConfig {
   static const defaultMapZoom = 13.5;
   static const restaurantLatLng = LatLngData(25.2048, 55.2708);
   static const customerLatLng = LatLngData(25.2176, 55.2797);
+  static const configuredBackendApiBaseUrl = String.fromEnvironment('BACKEND_API_BASE_URL', defaultValue: '');
 
   static String get backendApiBaseUrl {
+    final configured = configuredBackendApiBaseUrl.trim();
+    if (configured.isNotEmpty) {
+      return configured;
+    }
     if (kIsWeb) {
       return 'http://localhost:8080/api';
     }

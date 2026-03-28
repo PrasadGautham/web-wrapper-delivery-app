@@ -242,7 +242,7 @@ class OrderController extends StateNotifier<OrderState> {
       AppNotification(
         title: order.restaurant.name,
         body:
-            '${order.deliveryArea} | ${order.driverDisplayDistanceUnit == 'mile' ? (order.driverDisplayDistanceKm * 0.621371).toStringAsFixed(1) + ' mi' : order.driverDisplayDistanceKm.toStringAsFixed(1) + ' km'} | ${order.displayCurrency} ${order.tripEarnings.toStringAsFixed(2)}',
+            '${order.deliveryArea} | ${order.driverDisplayDistanceUnit == 'mile' ? '${(order.driverDisplayDistanceKm * 0.621371).toStringAsFixed(1)} mi' : '${order.driverDisplayDistanceKm.toStringAsFixed(1)} km'} | ${order.displayCurrency} ${order.tripEarnings.toStringAsFixed(2)}',
         route: '/incoming-order',
         payload: {'orderId': order.id, 'route': '/incoming-order'},
       ),

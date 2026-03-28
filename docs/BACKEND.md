@@ -144,6 +144,8 @@ cd C:\dev\DriverApp\backend
 
 Normal backend startup preserves data. Reset is a separate local operator action.
 
+When `backend/.env.local-postgres` exists, the backend test suite also derives a separate `_test` Postgres database automatically so integration tests do not touch your main local database.
+
 ## Validation
 
 ```powershell

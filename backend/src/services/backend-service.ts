@@ -332,15 +332,6 @@ export class BackendService {
   ): Promise<RestaurantProfile> {
     return this.merchantWorkflow.updateRestaurantTrackingSettings(merchant, restaurantId, settings);
   }
-
-  updateMerchantRestaurantDisplaySettings(
-    merchant: MerchantRecord,
-    restaurantId: string,
-    settings: { currency: string; distanceUnit: DistanceUnit },
-  ): Promise<RestaurantProfile> {
-    return this.merchantWorkflow.updateRestaurantDisplaySettings(merchant, restaurantId, settings);
-  }
-
   updateMerchantRestaurantDriverOfferSettings(
     merchant: MerchantRecord,
     restaurantId: string,

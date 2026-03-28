@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { Pool } from 'pg';
 
@@ -15,10 +15,84 @@ import {
   nullEtaProvider,
 } from './helpers.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..');
+const rootDir = process.cwd();
 const schemaPath = path.join(rootDir, 'sql', 'schema.sql');
+
+function parseEnvFile(raw: string): NodeJS.ProcessEnv {
+  const parsed: NodeJS.ProcessEnv = {};
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+    const separatorIndex = trimmed.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    const key = trimmed.slice(0, separatorIndex).trim();
+    const value = trimmed.slice(separatorIndex + 1).trim().replace(/^["']|["']$/g, '');
+    parsed[key] = value;
+  }
+  return parsed;
+}
+
+function loadLocalPostgresEnv(): NodeJS.ProcessEnv {
+  const envFilePath = path.join(rootDir, '.env.local-postgres');
+  if (!existsSync(envFilePath)) {
+    return {};
+  }
+  return parseEnvFile(readFileSync(envFilePath, 'utf8'));
+}
+
+function deriveTestDatabaseUrl(connectionString: string): string {
+  const url = new URL(connectionString);
+  const databaseName = url.pathname.replace(/^\//, '');
+  if (!databaseName) {
+    throw new Error('DATABASE_URL must include a database name to derive POSTGRES_TEST_DATABASE_URL.');
+  }
+  if (databaseName.endsWith('_test')) {
+    return connectionString;
+  }
+  url.pathname = `/${databaseName}_test`;
+  return url.toString();
+}
+
+async function ensureTestDatabaseExists(connectionString: string): Promise<string> {
+  const testConnectionString = deriveTestDatabaseUrl(connectionString);
+  const testUrl = new URL(testConnectionString);
+  const testDatabaseName = testUrl.pathname.replace(/^\//, '');
+
+  const adminUrl = new URL(connectionString);
+  adminUrl.pathname = '/postgres';
+
+  const adminPool = new Pool({ connectionString: adminUrl.toString() });
+  try {
+    const existing = await adminPool.query('select 1 from pg_database where datname = $1', [testDatabaseName]);
+    if (existing.rowCount === 0) {
+      const escapedName = testDatabaseName.replace(/"/g, '""');
+      await adminPool.query(`create database "${escapedName}"`);
+    }
+  } finally {
+    await adminPool.end();
+  }
+
+  return testConnectionString;
+}
+
+async function resolveTestDatabaseUrl(): Promise<string | null> {
+  const explicit = process.env.POSTGRES_TEST_DATABASE_URL?.trim();
+  if (explicit) {
+    return ensureTestDatabaseExists(explicit);
+  }
+
+  const localEnv = loadLocalPostgresEnv();
+  const localDatabaseUrl = localEnv.DATABASE_URL?.trim() || process.env.DATABASE_URL?.trim();
+  if (!localDatabaseUrl) {
+    return null;
+  }
+
+  return ensureTestDatabaseExists(localDatabaseUrl);
+}
 
 async function resetDatabase(pool: Pool): Promise<void> {
   await pool.query(`
@@ -28,9 +102,9 @@ async function resetDatabase(pool: Pool): Promise<void> {
 }
 
 export async function runPostgresIntegrationTests(): Promise<void> {
-  const connectionString = process.env.POSTGRES_TEST_DATABASE_URL?.trim();
+  const connectionString = await resolveTestDatabaseUrl();
   if (!connectionString) {
-    console.log('SKIP postgres-integration (POSTGRES_TEST_DATABASE_URL not set)');
+    console.log('SKIP postgres-integration (local Postgres test database not configured)');
     return;
   }
 
@@ -183,6 +257,7 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     assert.equal(report.totalOrders, 2);
     assert.equal(report.deliveredOrders, 1);
 
+
     const merchantReport = await service.getMerchantReport('mrc_7f3a2d91');
     assert.equal(merchantReport.totalOrders, 2);
     assert.equal(merchantReport.totalRestaurants >= 1, true);
@@ -190,12 +265,15 @@ export async function runPostgresIntegrationTests(): Promise<void> {
     const orders = await service.getRestaurantOrders('rst_a13c5f20');
     assert.equal(orders.length, 2);
     assert.equal(orders.some((item) => item.status === 'delivered'), true);
-    assert.equal(orders.some((item) => item.status === 'rejected'), true);
+    assert.equal(orders.some((item) => item.id === rejectedOrder.id && item.status === 'queued'), true);
 
     const db = await store.read();
-    assert.equal(db.sessions.length >= 4, true);
+    const rejectedOrderRecord = db.orders.find((item) => item.id === rejectedOrder.id);
+    assert.ok(rejectedOrderRecord);
+    assert.deepEqual(rejectedOrderRecord?.rejectedDriverIds, ['drv_1f2c9a44']);
+    assert.equal(db.sessions.length >= 3, true);
     assert.equal(db.orders.some((item) => item.id === createdOrder.id && item.status === 'delivered'), true);
-    assert.equal(db.orders.some((item) => item.id === rejectedOrder.id && item.status === 'rejected'), true);
+    assert.equal(db.orders.some((item) => item.id === rejectedOrder.id && item.status === 'queued'), true);
     assert.equal(db.auditLogs.some((item) => item.action === 'auth.login.failed'), true);
     assert.equal(db.auditLogs.some((item) => item.action === 'driver.session.rotated'), true);
     assert.equal(db.auditLogs.some((item) => item.action === 'auth.password-reset.completed'), true);

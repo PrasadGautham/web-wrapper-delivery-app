@@ -54,6 +54,7 @@ Current business separation:
 
 - Android app works locally from Windows
 - backend integration is active
+- Flutter backend base URL is now build-time configurable with `BACKEND_API_BASE_URL`
 - secure token storage is implemented
 - FCM token registration is implemented
 - live location sync is implemented

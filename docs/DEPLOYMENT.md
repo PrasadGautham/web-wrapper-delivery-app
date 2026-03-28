@@ -26,7 +26,6 @@ Production mode should run with:
 
 Required:
 - `DATABASE_URL`
-- `SESSION_SECRET`
 - `FIREBASE_SERVICE_ACCOUNT_PATH`
 - `ALLOWED_WEB_ORIGINS`
 - secure cookie envs
@@ -40,7 +39,7 @@ Recommended:
 
 You can keep the same codebase and switch deployment behavior by env only.
 
-No code change should be required to go from local file-store mode to Postgres-backed mode. For local Windows testing, keep your real `DATABASE_URL` in `backend/.env.local-postgres` and use `start-local-postgres.ps1`.
+No backend code change should be required to go from local file-store mode to Postgres-backed mode. For local Windows testing, keep your real `DATABASE_URL` in `backend/.env.local-postgres` and use `start-local-postgres.ps1`. The Flutter app should point to the hosted backend with `--dart-define=BACKEND_API_BASE_URL=https://your-host/api`.
 
 Important:
 - normal startup must preserve existing data

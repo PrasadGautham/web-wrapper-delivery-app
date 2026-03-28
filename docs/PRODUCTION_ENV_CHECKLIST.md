@@ -7,7 +7,6 @@ Use this when preparing staging or production environment values.
 ## Required Backend Values
 
 - `DATABASE_URL`
-- `SESSION_SECRET`
 - `FIREBASE_SERVICE_ACCOUNT_PATH`
 - `ALLOWED_WEB_ORIGINS`
 - `WEB_SESSION_COOKIE_SECURE`
@@ -18,7 +17,7 @@ Use this when preparing staging or production environment values.
 - `METRICS_API_KEY`
 - `SMTP_HOST`
 - `SMTP_PORT`
-- `SMTP_USERNAME`
+- `SMTP_USER`
 - `SMTP_PASSWORD`
 - `SMTP_FROM_EMAIL`
 - alert webhook envs if used
@@ -36,7 +35,7 @@ Use this when preparing staging or production environment values.
 
 ## Mobile-Related Notes
 
-- backend URL must point to deployed backend
+- build the Flutter app with `--dart-define=BACKEND_API_BASE_URL=https://your-host/api`
 - Firebase app config must match deployed project
 - Android signing and release configuration must be prepared before store release
 

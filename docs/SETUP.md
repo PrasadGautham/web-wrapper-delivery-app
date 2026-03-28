@@ -87,6 +87,8 @@ C:\flutter\bin\flutter.bat run -d emulator-5556
 
 Use the actual device id shown by `flutter devices`.
 
+For a hosted backend instead of local development, add `--dart-define=BACKEND_API_BASE_URL=https://your-host/api`.
+
 ## Demo Accounts
 
 - Admin: `admin@demo.com` / `Password123`
@@ -117,6 +119,7 @@ C:\flutter\bin\flutter.bat test
 ## Notes
 
 - Use Postgres for normal local development and production-like testing.
+- Backend tests will derive and use a separate local Postgres test database (for example `driverapp_test`) when `.env.local-postgres` is present.
 - `reset-local-postgres.ps1` is a manual dev or demo reset only. It is not part of normal startup.
 - File-store local mode is only a fallback demo option and no longer injects local secrets automatically.
 - Android is the current supported launch track from this Windows environment.

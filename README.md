@@ -43,6 +43,7 @@ Admin controls those market settings. Merchant users can view them but cannot ch
 
 - Backend server: [server.ts](/c:/dev/DriverApp/backend/src/server.ts)
 - Driver app config: [app_config.dart](/c:/dev/DriverApp/lib/core/config/app_config.dart)
+  Use `--dart-define=BACKEND_API_BASE_URL=https://your-host/api` for hosted environments.
 - Admin portal: `http://127.0.0.1:8080/admin`
 - Merchant portal: `http://127.0.0.1:8080/merchant`
 - Restaurant portal: `http://127.0.0.1:8080/restaurant`
@@ -93,6 +94,8 @@ Optional explicit local reset back to seed data:
 cd C:\dev\DriverApp\backend
 .\reset-local-postgres.ps1
 ```
+
+Backend tests will automatically use a derived local Postgres test database such as `driverapp_test` when `backend/.env.local-postgres` is present.
 
 File-store mode remains available only as a quick fallback demo path:
 

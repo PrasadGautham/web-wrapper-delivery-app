@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../presentation/widgets/primary_button.dart';
@@ -14,9 +13,9 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController(text: AppConstants.demoEmail);
-  final _passwordController = TextEditingController(text: AppConstants.demoPassword);
-  final _resetEmailController = TextEditingController(text: AppConstants.demoEmail);
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _resetEmailController = TextEditingController();
   final _resetTokenController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
