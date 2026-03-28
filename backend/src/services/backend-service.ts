@@ -19,6 +19,7 @@ import {
   RestaurantStaffUserProfile,
   RestaurantTrackingSettings,
   DriverOfferSettings,
+  DistanceUnit,
   UserType,
 } from '../domain/models.js';
 import { AdminWorkflowService } from './admin-workflow-service.js';
@@ -246,6 +247,13 @@ export class BackendService {
     return this.adminWorkflow.updateRestaurantTrackingSettings(restaurantId, settings);
   }
 
+  updateRestaurantDisplaySettings(
+    restaurantId: string,
+    settings: { currency: string; distanceUnit: DistanceUnit },
+  ): Promise<RestaurantProfile> {
+    return this.adminWorkflow.updateRestaurantDisplaySettings(restaurantId, settings);
+  }
+
   updateRestaurantDriverOfferSettings(
     restaurantId: string,
     settings: DriverOfferSettings,
@@ -323,6 +331,14 @@ export class BackendService {
     settings: RestaurantTrackingSettings,
   ): Promise<RestaurantProfile> {
     return this.merchantWorkflow.updateRestaurantTrackingSettings(merchant, restaurantId, settings);
+  }
+
+  updateMerchantRestaurantDisplaySettings(
+    merchant: MerchantRecord,
+    restaurantId: string,
+    settings: { currency: string; distanceUnit: DistanceUnit },
+  ): Promise<RestaurantProfile> {
+    return this.merchantWorkflow.updateRestaurantDisplaySettings(merchant, restaurantId, settings);
   }
 
   updateMerchantRestaurantDriverOfferSettings(

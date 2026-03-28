@@ -151,12 +151,14 @@ export class BackendRuntime {
   }
 
   private normalizeOperationalState(db: Pick<DatabaseShape, 'restaurants' | 'orders'>): void {
+    for (const restaurant of db.restaurants) {
+      restaurant.currency ??= 'AED';
+    }
     for (const order of db.orders) {
       const restaurant = db.restaurants.find((item) => item.id === order.restaurantId);
       if (!restaurant) {
         continue;
       }
-      restaurant.driverOfferSettings ??= { distanceMode: 'storeToCustomer' };
       if (typeof order.tripEarnings !== 'number' || !Number.isFinite(order.tripEarnings)) {
         order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm ?? 0);
       }
@@ -171,6 +173,12 @@ export class BackendRuntime {
       }
       if (order.driverDisplayMode !== 'storeToCustomer' && order.driverDisplayMode !== 'includeCommuteToStore') {
         order.driverDisplayMode = restaurant.driverOfferSettings.distanceMode ?? 'storeToCustomer';
+      }
+      if (order.driverDisplayDistanceUnit !== 'kilometer' && order.driverDisplayDistanceUnit !== 'mile') {
+        order.driverDisplayDistanceUnit = restaurant.distanceUnit ?? 'kilometer';
+      }
+      if (typeof order.displayCurrency !== 'string' || order.displayCurrency.trim().length !== 3) {
+        order.displayCurrency = restaurant.currency ?? 'AED';
       }
     }
   }

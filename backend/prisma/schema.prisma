@@ -59,6 +59,7 @@ model Restaurant {
   driverPayoutRule         Json     @map("driver_payout_rule")
   merchantBillingRule      Json     @map("merchant_billing_rule")
   currency                 String
+  distanceUnit             String   @default("kilometer") @map("distance_unit")
   trackingSettings         Json     @map("tracking_settings")
   driverOfferSettings      Json     @map("driver_offer_settings")
   staffUsers               Json     @map("staff_users") @default("[]")

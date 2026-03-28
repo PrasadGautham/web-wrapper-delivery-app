@@ -29,6 +29,7 @@ create table if not exists restaurants (
   driver_payout_rule jsonb not null,
   merchant_billing_rule jsonb not null,
   currency text not null,
+  distance_unit text not null default 'kilometer',
   tracking_settings jsonb not null,
   driver_offer_settings jsonb not null default '{"distanceMode":"storeToCustomer"}'::jsonb,
   staff_users jsonb not null default '[]'::jsonb
@@ -111,3 +112,7 @@ alter table restaurants add column if not exists driver_offer_settings jsonb not
 alter table orders add column if not exists driver_display_distance_km double precision not null default 0;
 alter table orders add column if not exists driver_display_minutes integer not null default 0;
 alter table orders add column if not exists driver_display_mode text not null default 'storeToCustomer';
+
+alter table restaurants add column if not exists distance_unit text not null default 'kilometer';
+alter table orders add column if not exists driver_display_distance_unit text not null default 'kilometer';
+alter table orders add column if not exists display_currency text not null default 'AED';

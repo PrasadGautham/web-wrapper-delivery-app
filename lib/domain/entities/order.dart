@@ -36,6 +36,8 @@ class Order {
     required this.driverDisplayDistanceKm,
     required this.driverDisplayMinutes,
     required this.driverDisplayMode,
+    required this.driverDisplayDistanceUnit,
+    required this.displayCurrency,
     required this.tripEarnings,
     required this.createdAt,
     required this.expiresAt,
@@ -52,6 +54,8 @@ class Order {
   final double driverDisplayDistanceKm;
   final int driverDisplayMinutes;
   final String driverDisplayMode;
+  final String driverDisplayDistanceUnit;
+  final String displayCurrency;
   final double tripEarnings;
   final DateTime createdAt;
   final DateTime? expiresAt;
@@ -75,6 +79,8 @@ class Order {
       driverDisplayDistanceKm: driverDisplayDistanceKm,
       driverDisplayMinutes: driverDisplayMinutes,
       driverDisplayMode: driverDisplayMode,
+      driverDisplayDistanceUnit: driverDisplayDistanceUnit,
+      displayCurrency: displayCurrency,
       tripEarnings: tripEarnings,
       createdAt: createdAt,
       expiresAt: clearExpiresAt ? null : expiresAt ?? this.expiresAt,

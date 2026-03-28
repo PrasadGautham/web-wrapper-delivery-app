@@ -125,6 +125,8 @@ export interface DriverOfferSettings {
   distanceMode: DriverOfferDistanceMode;
 }
 
+export type DistanceUnit = 'kilometer' | 'mile';
+
 export interface DistancePricingRule {
   baseAmount: number;
   includedDistanceKm: number;
@@ -145,6 +147,7 @@ export interface RestaurantRecord {
   pickupLocation: LocationSnapshot;
   pricing: RestaurantPricingRules;
   currency: string;
+  distanceUnit: DistanceUnit;
   trackingSettings: RestaurantTrackingSettings;
   driverOfferSettings: DriverOfferSettings;
   staffUsers: RestaurantStaffUserRecord[];
@@ -157,6 +160,7 @@ export interface RestaurantProfile {
   pickupLocation: LocationSnapshot;
   pricing: RestaurantPricingRules;
   currency: string;
+  distanceUnit: DistanceUnit;
   trackingSettings: RestaurantTrackingSettings;
   driverOfferSettings: DriverOfferSettings;
 }
@@ -212,6 +216,8 @@ export interface OrderRecord {
   driverDisplayDistanceKm: number;
   driverDisplayMinutes: number;
   driverDisplayMode: DriverOfferDistanceMode;
+  driverDisplayDistanceUnit: DistanceUnit;
+  displayCurrency: string;
   tripEarnings: number;
   companyCharge: number;
   createdAt: string;

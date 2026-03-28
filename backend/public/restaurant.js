@@ -2,6 +2,7 @@ const apiBase = '';
 let hasSession = false;
 let stream = null;
 let refreshingSession = null;
+let currentProfile = null;
 
 const nodes = {
   sessionStatus: document.getElementById('sessionStatus'),
@@ -18,8 +19,13 @@ const nodes = {
   resetPanel: document.getElementById('resetPanel'),
 };
 
-function currency(value) {
-  return `AED ${Number(value || 0).toFixed(2)}`;
+function currency(value, code = 'AED') {
+  const normalized = String(code || 'AED').trim().toUpperCase();
+  try {
+    return new Intl.NumberFormat('en', { style: 'currency', currency: normalized, minimumFractionDigits: 2 }).format(Number(value || 0));
+  } catch {
+    return `${normalized} ${Number(value || 0).toFixed(2)}`;
+  }
 }
 
 function setConnectionState(text, live) {
@@ -155,11 +161,11 @@ function renderOrders(orders) {
         </div>
         <div class="meta">
           <div><strong>Courier pay for this trip</strong></div>
-          <div>${currency(order.tripEarnings)}</div>
+          <div>${currency(order.tripEarnings, order.displayCurrency || currentProfile?.currency)}</div>
         </div>
         <div class="meta">
           <div><strong>Store charge for this trip</strong></div>
-          <div>${currency(order.companyCharge)}</div>
+          <div>${currency(order.companyCharge, order.displayCurrency || currentProfile?.currency)}</div>
         </div>
       </div>
     `;
@@ -176,16 +182,20 @@ async function refreshDashboard() {
     ]);
 
     hasSession = true;
+    currentProfile = profile;
     nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
+    nodes.storeSummary.textContent = `${profile.name} | ${String(profile.currency || 'AED').toUpperCase()} | ${profile.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)'}`;
     nodes.statTotal.textContent = report.totalOrders;
     nodes.statActive.textContent = report.activeOrders;
-    nodes.statPayout.textContent = currency(report.totalDriverPayout);
-    nodes.statCharges.textContent = currency(report.totalRestaurantCharges);
+    nodes.statPayout.textContent = currency(report.totalDriverPayout, profile.currency);
+    nodes.statCharges.textContent = currency(report.totalRestaurantCharges, profile.currency);
     renderTrackingSettings(profile);
     renderOrders(orders);
   } catch (error) {
     hasSession = false;
+    currentProfile = null;
     nodes.sessionStatus.textContent = 'Not logged in';
+    nodes.storeSummary.textContent = 'No active store session.';
     renderTrackingSettings(null);
     renderOrders([]);
     setConnectionState('Waiting for restaurant session.', false);

@@ -44,6 +44,7 @@ type PrismaRestaurantRow = {
   driverPayoutRule: unknown;
   merchantBillingRule: unknown;
   currency: string;
+  distanceUnit?: string;
   trackingSettings: unknown;
   driverOfferSettings?: unknown;
   staffUsers?: unknown;
@@ -188,6 +189,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         merchantBillingRule: restaurant.merchantBillingRule as RestaurantRecord['pricing']['merchantBillingRule'],
       },
       currency: restaurant.currency,
+      distanceUnit: (restaurant.distanceUnit as RestaurantRecord['distanceUnit'] | null) ?? 'kilometer',
       trackingSettings: restaurant.trackingSettings as RestaurantTrackingSettings,
       driverOfferSettings: (restaurant.driverOfferSettings as RestaurantRecord['driverOfferSettings'] | null) ?? { distanceMode: 'storeToCustomer' },
       staffUsers: (restaurant.staffUsers as RestaurantRecord['staffUsers'] | null) ?? [],

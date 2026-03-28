@@ -1,258 +1,260 @@
 {
-    "merchants": [
+  "merchants": [
+    {
+      "users": [
         {
-            "users": [
-                {
-                    "id": "musr_1a0f001",
-                    "name": "Falafel Group Owner",
-                    "lastLoginAt": null,
-                    "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-                    "email": "falafel.group@demo.com",
-                    "role": "merchantOwner",
-                    "isActive": true
-                },
-                {
-                    "id": "musr_1a0f002",
-                    "name": "Falafel Group Manager",
-                    "lastLoginAt": null,
-                    "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-                    "email": "falafel.ops@demo.com",
-                    "role": "merchantManager",
-                    "isActive": true
-                }
-            ],
-            "name": "Falafel Group",
-            "id": "mrc_7f3a2d91"
+          "id": "musr_1a0f001",
+          "name": "Falafel Group Owner",
+          "lastLoginAt": null,
+          "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+          "email": "falafel.group@demo.com",
+          "role": "merchantOwner",
+          "isActive": true
         },
         {
-            "users": [
-                {
-                    "id": "musr_2b0f001",
-                    "name": "Burger Collective Owner",
-                    "lastLoginAt": null,
-                    "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-                    "email": "burger.group@demo.com",
-                    "role": "merchantOwner",
-                    "isActive": true
-                }
-            ],
-            "name": "Burger Collective",
-            "id": "mrc_5c8b1e44"
+          "id": "musr_1a0f002",
+          "name": "Falafel Group Manager",
+          "lastLoginAt": null,
+          "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+          "email": "falafel.ops@demo.com",
+          "role": "merchantManager",
+          "isActive": true
         }
-    ],
-    "drivers": [
+      ],
+      "name": "Falafel Group",
+      "id": "mrc_7f3a2d91"
+    },
+    {
+      "users": [
         {
-            "id": "drv_1f2c9a44",
-            "name": "Alex Driver",
-            "email": "driver@demo.com",
-            "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-            "rating": 4.9,
-            "completedOrders": 0,
-            "totalDistanceKm": 0,
-            "isOnline": false,
-            "deviceToken": null,
-            "currentLocation": {
-                "latitude": 25.0829,
-                "longitude": 55.1451,
-                "accuracyMeters": null,
-                "speedMetersPerSecond": null,
-                "headingDegrees": null,
-                "capturedAt": null
-            },
-            "dispatchPolicy": {
-                "mode": "allowListOnly",
-                "restaurantIds": [
-                    "rst_a13c5f20"
-                ],
-                "merchantIds": []
-            },
-            "maxActiveOrders": 1
-        },
-        {
-            "id": "drv_3d8b6e21",
-            "name": "Nadia Rider",
-            "email": "nadia@demo.com",
-            "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-            "rating": 4.8,
-            "completedOrders": 0,
-            "totalDistanceKm": 0,
-            "isOnline": false,
-            "deviceToken": null,
-            "currentLocation": {
-                "latitude": 25.1939,
-                "longitude": 55.2738,
-                "accuracyMeters": null,
-                "speedMetersPerSecond": null,
-                "headingDegrees": null,
-                "capturedAt": null
-            },
-            "dispatchPolicy": {
-                "mode": "open",
-                "restaurantIds": [],
-                "merchantIds": []
-            },
-            "maxActiveOrders": 1
-        },
-        {
-            "id": "drv_7a4e1c90",
-            "name": "Omar Flex",
-            "email": "omar@demo.com",
-            "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-            "rating": 4.7,
-            "completedOrders": 0,
-            "totalDistanceKm": 0,
-            "isOnline": false,
-            "deviceToken": null,
-            "currentLocation": {
-                "latitude": 25.1046,
-                "longitude": 55.1729,
-                "accuracyMeters": null,
-                "speedMetersPerSecond": null,
-                "headingDegrees": null,
-                "capturedAt": null
-            },
-            "dispatchPolicy": {
-                "mode": "allowListWithFallback",
-                "restaurantIds": [],
-                "merchantIds": [
-                    "mrc_7f3a2d91"
-                ]
-            },
-            "maxActiveOrders": 2
+          "id": "musr_2b0f001",
+          "name": "Burger Collective Owner",
+          "lastLoginAt": null,
+          "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+          "email": "burger.group@demo.com",
+          "role": "merchantOwner",
+          "isActive": true
         }
-    ],
-    "restaurants": [
+      ],
+      "name": "Burger Collective",
+      "id": "mrc_5c8b1e44"
+    }
+  ],
+  "drivers": [
+    {
+      "id": "drv_1f2c9a44",
+      "name": "Alex Driver",
+      "email": "driver@demo.com",
+      "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+      "rating": 4.9,
+      "completedOrders": 0,
+      "totalDistanceKm": 0,
+      "isOnline": false,
+      "deviceToken": null,
+      "currentLocation": {
+        "latitude": 25.0829,
+        "longitude": 55.1451,
+        "accuracyMeters": null,
+        "speedMetersPerSecond": null,
+        "headingDegrees": null,
+        "capturedAt": null
+      },
+      "dispatchPolicy": {
+        "mode": "allowListOnly",
+        "restaurantIds": [
+          "rst_a13c5f20"
+        ],
+        "merchantIds": []
+      },
+      "maxActiveOrders": 1
+    },
+    {
+      "id": "drv_3d8b6e21",
+      "name": "Nadia Rider",
+      "email": "nadia@demo.com",
+      "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+      "rating": 4.8,
+      "completedOrders": 0,
+      "totalDistanceKm": 0,
+      "isOnline": false,
+      "deviceToken": null,
+      "currentLocation": {
+        "latitude": 25.1939,
+        "longitude": 55.2738,
+        "accuracyMeters": null,
+        "speedMetersPerSecond": null,
+        "headingDegrees": null,
+        "capturedAt": null
+      },
+      "dispatchPolicy": {
+        "mode": "open",
+        "restaurantIds": [],
+        "merchantIds": []
+      },
+      "maxActiveOrders": 1
+    },
+    {
+      "id": "drv_7a4e1c90",
+      "name": "Omar Flex",
+      "email": "omar@demo.com",
+      "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+      "rating": 4.7,
+      "completedOrders": 0,
+      "totalDistanceKm": 0,
+      "isOnline": false,
+      "deviceToken": null,
+      "currentLocation": {
+        "latitude": 25.1046,
+        "longitude": 55.1729,
+        "accuracyMeters": null,
+        "speedMetersPerSecond": null,
+        "headingDegrees": null,
+        "capturedAt": null
+      },
+      "dispatchPolicy": {
+        "mode": "allowListWithFallback",
+        "restaurantIds": [],
+        "merchantIds": [
+          "mrc_7f3a2d91"
+        ]
+      },
+      "maxActiveOrders": 2
+    }
+  ],
+  "restaurants": [
+    {
+      "id": "rst_a13c5f20",
+      "merchantId": "mrc_7f3a2d91",
+      "name": "Falafel Corner",
+      "email": "falafel@demo.com",
+      "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+      "pickupLocation": {
+        "name": "Falafel Corner",
+        "address": "Jumeirah Lake Towers, Dubai",
+        "latitude": 25.0763,
+        "longitude": 55.1442
+      },
+      "currency": "AED",
+      "trackingSettings": {
+        "showPickedUpAsInTransit": true,
+        "showDriverEtaToPickup": true,
+        "showDestinationEta": true
+      },
+      "staffUsers": [
         {
-            "id": "rst_a13c5f20",
-            "merchantId": "mrc_7f3a2d91",
-            "name": "Falafel Corner",
-            "email": "falafel@demo.com",
-            "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-            "pickupLocation": {
-                "name": "Falafel Corner",
-                "address": "Jumeirah Lake Towers, Dubai",
-                "latitude": 25.0763,
-                "longitude": 55.1442
-            },
-            "currency": "AED",
-            "trackingSettings": {
-                "showPickedUpAsInTransit": true,
-                "showDriverEtaToPickup": true,
-                "showDestinationEta": true
-            },
-            "staffUsers": [
-                {
-                    "id": "staff-rst_a13c5f20-owner",
-                    "name": "Falafel Owner",
-                    "lastLoginAt": null,
-                    "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-                    "email": "falafel.owner@demo.com",
-                    "role": "owner",
-                    "isActive": true
-                },
-                {
-                    "id": "staff-rst_a13c5f20-dispatch",
-                    "name": "Falafel Dispatch",
-                    "lastLoginAt": null,
-                    "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-                    "email": "falafel.dispatch@demo.com",
-                    "role": "dispatcher",
-                    "isActive": true
-                }
-            ],
-            "pricing": {
-                "driverPayoutRule": {
-                    "baseAmount": 23.5,
-                    "includedDistanceKm": 0,
-                    "additionalPerKm": 0
-                },
-                "merchantBillingRule": {
-                    "baseAmount": 37,
-                    "includedDistanceKm": 0,
-                    "additionalPerKm": 0
-                }
-            },
-            "driverOfferSettings": {
-                "distanceMode": "storeToCustomer"
-            }
+          "id": "staff-rst_a13c5f20-owner",
+          "name": "Falafel Owner",
+          "lastLoginAt": null,
+          "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+          "email": "falafel.owner@demo.com",
+          "role": "owner",
+          "isActive": true
         },
         {
-            "id": "rst_b72e4d11",
-            "merchantId": "mrc_5c8b1e44",
-            "name": "Burger Express",
-            "email": "burger@demo.com",
-            "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-            "pickupLocation": {
-                "name": "Burger Express",
-                "address": "Business Bay, Dubai",
-                "latitude": 25.1868,
-                "longitude": 55.26
-            },
-            "currency": "AED",
-            "trackingSettings": {
-                "showPickedUpAsInTransit": true,
-                "showDriverEtaToPickup": true,
-                "showDestinationEta": false
-            },
-            "staffUsers": [
-                {
-                    "id": "staff-rst_b72e4d11-owner",
-                    "name": "Burger Owner",
-                    "lastLoginAt": null,
-                    "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-                    "email": "burger.owner@demo.com",
-                    "role": "owner",
-                    "isActive": true
-                },
-                {
-                    "id": "staff-rst_b72e4d11-manager",
-                    "name": "Burger Manager",
-                    "lastLoginAt": null,
-                    "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-                    "email": "burger.manager@demo.com",
-                    "role": "manager",
-                    "isActive": true
-                }
-            ],
-            "pricing": {
-                "driverPayoutRule": {
-                    "baseAmount": 28,
-                    "includedDistanceKm": 0,
-                    "additionalPerKm": 0
-                },
-                "merchantBillingRule": {
-                    "baseAmount": 42,
-                    "includedDistanceKm": 0,
-                    "additionalPerKm": 0
-                }
-            },
-            "driverOfferSettings": {
-                "distanceMode": "storeToCustomer"
-            }
+          "id": "staff-rst_a13c5f20-dispatch",
+          "name": "Falafel Dispatch",
+          "lastLoginAt": null,
+          "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+          "email": "falafel.dispatch@demo.com",
+          "role": "dispatcher",
+          "isActive": true
         }
-    ],
-    "orders": [],
-    "sessions": [],
-    "auditLogs": [],
-    "passwordResetTokens": [],
-    "adminUsers": [
+      ],
+      "pricing": {
+        "driverPayoutRule": {
+          "baseAmount": 23.5,
+          "includedDistanceKm": 0,
+          "additionalPerKm": 0
+        },
+        "merchantBillingRule": {
+          "baseAmount": 37,
+          "includedDistanceKm": 0,
+          "additionalPerKm": 0
+        }
+      },
+      "driverOfferSettings": {
+        "distanceMode": "storeToCustomer"
+      },
+      "distanceUnit": "kilometer"
+    },
+    {
+      "id": "rst_b72e4d11",
+      "merchantId": "mrc_5c8b1e44",
+      "name": "Burger Express",
+      "email": "burger@demo.com",
+      "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+      "pickupLocation": {
+        "name": "Burger Express",
+        "address": "Business Bay, Dubai",
+        "latitude": 25.1868,
+        "longitude": 55.26
+      },
+      "currency": "AED",
+      "trackingSettings": {
+        "showPickedUpAsInTransit": true,
+        "showDriverEtaToPickup": true,
+        "showDestinationEta": false
+      },
+      "staffUsers": [
         {
-            "id": "adm_4c9a1e22",
-            "name": "Platform Admin",
-            "lastLoginAt": null,
-            "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-            "email": "admin@demo.com",
-            "role": "platformAdmin",
-            "isActive": true
+          "id": "staff-rst_b72e4d11-owner",
+          "name": "Burger Owner",
+          "lastLoginAt": null,
+          "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+          "email": "burger.owner@demo.com",
+          "role": "owner",
+          "isActive": true
         },
         {
-            "id": "adm_8b2f6d10",
-            "name": "Ops Lead",
-            "lastLoginAt": null,
-            "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
-            "email": "ops@demo.com",
-            "role": "opsAdmin",
-            "isActive": true
+          "id": "staff-rst_b72e4d11-manager",
+          "name": "Burger Manager",
+          "lastLoginAt": null,
+          "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+          "email": "burger.manager@demo.com",
+          "role": "manager",
+          "isActive": true
         }
-    ]
+      ],
+      "pricing": {
+        "driverPayoutRule": {
+          "baseAmount": 28,
+          "includedDistanceKm": 0,
+          "additionalPerKm": 0
+        },
+        "merchantBillingRule": {
+          "baseAmount": 42,
+          "includedDistanceKm": 0,
+          "additionalPerKm": 0
+        }
+      },
+      "driverOfferSettings": {
+        "distanceMode": "storeToCustomer"
+      },
+      "distanceUnit": "kilometer"
+    }
+  ],
+  "orders": [],
+  "sessions": [],
+  "auditLogs": [],
+  "passwordResetTokens": [],
+  "adminUsers": [
+    {
+      "id": "adm_4c9a1e22",
+      "name": "Platform Admin",
+      "lastLoginAt": null,
+      "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+      "email": "admin@demo.com",
+      "role": "platformAdmin",
+      "isActive": true
+    },
+    {
+      "id": "adm_8b2f6d10",
+      "name": "Ops Lead",
+      "lastLoginAt": null,
+      "password": "scrypt$27dd0d5ee3918e34f9b6b57a67a14f49$5d26ed334ccee659c5abb48d2d8d6fabfd17bf4ee3965f9cb8f2adf76d51cec137ada5db7ede591648d05875fff36f0b56c07a6e06fde82e46eedffea547cc6a",
+      "email": "ops@demo.com",
+      "role": "opsAdmin",
+      "isActive": true
+    }
+  ]
 }

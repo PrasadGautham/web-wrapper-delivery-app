@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { DistancePricingRule, DriverDispatchMode, DriverOfferDistanceMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
+import { DistancePricingRule, DistanceUnit, DriverDispatchMode, DriverOfferDistanceMode, MerchantUserRole, PlatformAdminRole, RestaurantStaffRole } from '../domain/models.js';
 import { assertValidPricingRule, normalizePricingRule } from '../services/pricing-rules.js';
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
@@ -48,6 +48,14 @@ function isMerchantUserRole(value: unknown): value is MerchantUserRole {
 
 function isDriverOfferDistanceMode(value: unknown): value is DriverOfferDistanceMode {
   return value === 'storeToCustomer' || value === 'includeCommuteToStore';
+}
+
+function isDistanceUnit(value: unknown): value is DistanceUnit {
+  return value === 'kilometer' || value === 'mile';
+}
+
+function isCurrencyCode(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Z]{3}$/.test(value.trim());
 }
 
 export async function registerAdminRoutes(
@@ -287,6 +295,26 @@ export async function registerAdminRoutes(
 
     try {
       return await backendService.updateDriverCapacity(params.driverId, Math.floor(body.maxActiveOrders));
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.patch('/api/admin/restaurants/:restaurantId/display-settings', async (request, reply) => {
+    const params = request.params as { restaurantId: string };
+    const body = request.body as { currency?: string; distanceUnit?: DistanceUnit };
+
+    if (!isCurrencyCode(body.currency) || !isDistanceUnit(body.distanceUnit)) {
+      return reply.status(400).send({ message: 'currency must be a 3-letter ISO code and distanceUnit must be kilometer or mile.' });
+    }
+
+    try {
+      const updated = await backendService.updateRestaurantDisplaySettings(params.restaurantId, {
+        currency: body.currency,
+        distanceUnit: body.distanceUnit,
+      });
+      restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
+      return updated;
     } catch (error) {
       return reply.status(400).send({ message: (error as Error).message });
     }

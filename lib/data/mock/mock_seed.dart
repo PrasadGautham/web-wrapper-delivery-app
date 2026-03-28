@@ -48,6 +48,8 @@ class MockSeed {
         'driverDisplayDistanceKm': 4.6,
         'driverDisplayMinutes': 18,
         'driverDisplayMode': 'storeToCustomer',
+        'driverDisplayDistanceUnit': 'kilometer',
+        'displayCurrency': 'AED',
         'tripEarnings': 23.5,
         'createdAt': DateTime.now().toUtc().toIso8601String(),
         'expiresAt': DateTime.now().toUtc().add(const Duration(seconds: 30)).toIso8601String(),

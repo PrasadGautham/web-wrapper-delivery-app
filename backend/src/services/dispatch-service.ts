@@ -85,6 +85,8 @@ export class DispatchService {
       driverDisplayDistanceKm: estimatedKm,
       driverDisplayMinutes: estimatedMinutes,
       driverDisplayMode: restaurant.driverOfferSettings?.distanceMode ?? 'storeToCustomer',
+      driverDisplayDistanceUnit: restaurant.distanceUnit ?? 'kilometer',
+      displayCurrency: restaurant.currency ?? 'AED',
       tripEarnings: calculatePricingAmount(restaurant.pricing.driverPayoutRule, estimatedKm),
       companyCharge: calculatePricingAmount(restaurant.pricing.merchantBillingRule, estimatedKm),
       createdAt: nowIso(),
@@ -282,6 +284,8 @@ export class DispatchService {
     order.driverDisplayDistanceKm = driverDisplay.distanceKm;
     order.driverDisplayMinutes = driverDisplay.minutes;
     order.driverDisplayMode = driverDisplay.mode;
+    order.driverDisplayDistanceUnit = restaurant.distanceUnit ?? 'kilometer';
+    order.displayCurrency = restaurant.currency ?? 'AED';
     order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm);
     order.companyCharge = calculatePricingAmount(restaurant.pricing.merchantBillingRule, order.estimatedKm);
     order.pendingDispatchNotification = true;

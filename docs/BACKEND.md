@@ -82,12 +82,23 @@ Policy can be tied to:
 
 ## Tracking Display Rules
 
-Per restaurant, admin and merchant can set:
+Per restaurant, admin can set:
 - show picked up as `In transit`
 - show driver ETA to pickup
 - show destination ETA after pickup
 
 These rules change restaurant-facing display only.
+
+## Store Market Settings
+
+Per restaurant, admin can set:
+- `currency`, using a 3-letter ISO code such as `AED`, `USD`, or `KWD`
+- `distanceUnit`, either `kilometer` or `mile`
+
+The backend uses these settings to:
+- format pricing and payout values consistently across portals and the driver app
+- convert pricing-rule distance thresholds and per-distance rates between internal kilometers and the selected business unit
+- snapshot the driver-facing currency and distance unit onto each order
 
 ## Driver Offer Display Rules
 
@@ -161,8 +172,10 @@ The admin driver UI now uses named selectors for stores and restaurant groups in
 Merchant can:
 - manage owned-store commercial rules
 - manage owned-store tracking-display rules
+- manage owned-store driver-offer display rules
 - manage owned-store staff
 - see merchant-wide reporting and live order updates
+- view admin-controlled store market settings
 
 ### Restaurant
 

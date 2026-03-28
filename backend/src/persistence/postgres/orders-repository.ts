@@ -7,7 +7,8 @@ export class PostgresOrdersRepository {
   async list(client: PoolClient): Promise<OrderRecord[]> {
     const result = await client.query(`
       select id, restaurant_id, restaurant, customer, delivery_area, status, distance_km,
-             estimated_km, estimated_minutes, driver_display_distance_km, driver_display_minutes, driver_display_mode, trip_earnings, company_charge, created_at,
+             estimated_km, estimated_minutes, driver_display_distance_km, driver_display_minutes, driver_display_mode,
+             driver_display_distance_unit, display_currency, trip_earnings, company_charge, created_at,
              expires_at, assigned_driver_id, rejected_driver_ids, delivered_at,
              pending_dispatch_notification, events
       from orders
@@ -26,6 +27,8 @@ export class PostgresOrdersRepository {
       driverDisplayDistanceKm: Number(row.driver_display_distance_km ?? row.estimated_km),
       driverDisplayMinutes: row.driver_display_minutes ?? row.estimated_minutes,
       driverDisplayMode: row.driver_display_mode ?? 'storeToCustomer',
+      driverDisplayDistanceUnit: row.driver_display_distance_unit ?? 'kilometer',
+      displayCurrency: row.display_currency ?? 'AED',
       tripEarnings: Number(row.trip_earnings),
       companyCharge: Number(row.company_charge),
       createdAt: row.created_at.toISOString(),
@@ -41,8 +44,8 @@ export class PostgresOrdersRepository {
   async upsertMany(client: PoolClient, items: OrderRecord[]): Promise<void> {
     for (const item of items) {
       await client.query(
-        `insert into orders(id, restaurant_id, restaurant, customer, delivery_area, status, distance_km, estimated_km, estimated_minutes, driver_display_distance_km, driver_display_minutes, driver_display_mode, trip_earnings, company_charge, created_at, expires_at, assigned_driver_id, rejected_driver_ids, delivered_at, pending_dispatch_notification, events)
-         values($1,$2,$3::jsonb,$4::jsonb,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20,$21::jsonb)
+        `insert into orders(id, restaurant_id, restaurant, customer, delivery_area, status, distance_km, estimated_km, estimated_minutes, driver_display_distance_km, driver_display_minutes, driver_display_mode, driver_display_distance_unit, display_currency, trip_earnings, company_charge, created_at, expires_at, assigned_driver_id, rejected_driver_ids, delivered_at, pending_dispatch_notification, events)
+         values($1,$2,$3::jsonb,$4::jsonb,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb,$21,$22,$23::jsonb)
          on conflict (id) do update set
            restaurant_id = excluded.restaurant_id,
            restaurant = excluded.restaurant,
@@ -55,6 +58,8 @@ export class PostgresOrdersRepository {
            driver_display_distance_km = excluded.driver_display_distance_km,
            driver_display_minutes = excluded.driver_display_minutes,
            driver_display_mode = excluded.driver_display_mode,
+           driver_display_distance_unit = excluded.driver_display_distance_unit,
+           display_currency = excluded.display_currency,
            trip_earnings = excluded.trip_earnings,
            company_charge = excluded.company_charge,
            created_at = excluded.created_at,
@@ -77,6 +82,8 @@ export class PostgresOrdersRepository {
           item.driverDisplayDistanceKm,
           item.driverDisplayMinutes,
           item.driverDisplayMode,
+          item.driverDisplayDistanceUnit ?? 'kilometer',
+          item.displayCurrency ?? 'AED',
           item.tripEarnings,
           item.companyCharge,
           item.createdAt,

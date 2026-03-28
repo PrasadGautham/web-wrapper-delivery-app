@@ -41,7 +41,7 @@ class DeliveryConfirmationScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Text(order.customer.address),
                   const SizedBox(height: 16),
-                  Text('Trip payout: ${Formatters.currency(order.tripEarnings)}'),
+                  Text('Trip payout: ${Formatters.currency(order.tripEarnings, code: order.displayCurrency)}'),
                   const SizedBox(height: 8),
                   const Text('Confirm the order was delivered successfully.'),
                 ],

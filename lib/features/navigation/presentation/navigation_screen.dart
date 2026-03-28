@@ -105,9 +105,9 @@ class NavigationScreen extends ConsumerWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _Metric(label: l10n.text('distance'), value: Formatters.kilometers(order.driverDisplayDistanceKm)),
+                      _Metric(label: l10n.text('distance'), value: Formatters.distance(order.driverDisplayDistanceKm, unit: order.driverDisplayDistanceUnit)),
                       _Metric(label: l10n.text('eta'), value: '${order.driverDisplayMinutes} min'),
-                      _Metric(label: l10n.text('earningsTrip'), value: Formatters.currency(order.tripEarnings)),
+                      _Metric(label: l10n.text('earningsTrip'), value: Formatters.currency(order.tripEarnings, code: order.displayCurrency)),
                     ],
                   ),
                 ],

@@ -5,6 +5,13 @@ import { getMessaging } from 'firebase-admin/messaging';
 
 import { DriverRecord, OrderRecord } from '../domain/models.js';
 
+function formatDistance(distanceKm: number, unit: OrderRecord['driverDisplayDistanceUnit']): string {
+  if (unit === 'mile') {
+    return `${(distanceKm * 0.621371).toFixed(1)} mi`;
+  }
+  return `${distanceKm.toFixed(1)} km`;
+}
+
 export class PushGateway {
   private readonly enabled: boolean;
   private readonly warnedDisabled: boolean = false;
@@ -50,7 +57,7 @@ export class PushGateway {
       token: driver.deviceToken,
       notification: {
         title: restaurantName,
-        body: `${order.deliveryArea} | ${estimatedKm.toFixed(1)} km | AED ${tripEarnings.toFixed(2)}`,
+        body: `${order.deliveryArea} | ${formatDistance(estimatedKm, order.driverDisplayDistanceUnit ?? 'kilometer')} | ${(order.displayCurrency ?? 'AED').toUpperCase()} ${tripEarnings.toFixed(2)}`,
       },
       data: {
         type: 'incoming_order_offer',

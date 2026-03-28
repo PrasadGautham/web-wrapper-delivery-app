@@ -51,6 +51,8 @@ export async function runStoreContextsTests(): Promise<void> {
         driverDisplayDistanceKm: 1.5,
         driverDisplayMinutes: 8,
         driverDisplayMode: 'storeToCustomer',
+        driverDisplayDistanceUnit: 'kilometer',
+        displayCurrency: 'AED',
         tripEarnings: 10,
         companyCharge: 15,
         createdAt: new Date().toISOString(),

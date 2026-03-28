@@ -219,8 +219,8 @@
               <h4>What your fleet company pays the driver</h4>
               <div class="triple">
                 <label>Base amount<input id="driverPayoutBaseAmount" type="number" min="0" step="0.01" /></label>
-                <label>Included km<input id="driverPayoutIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
-                <label>Additional per km<input id="driverPayoutAdditionalPerKm" type="number" min="0" step="0.01" /></label>
+                <label><span id="driverPayoutIncludedDistanceLabel">Included distance (km)</span><input id="driverPayoutIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
+                <label><span id="driverPayoutAdditionalPerUnitLabel">Additional amount per extra km</span><input id="driverPayoutAdditionalPerKm" type="number" min="0" step="0.01" /></label>
               </div>
               <div id="driverPayoutSummary" class="muted"></div>
             </div>
@@ -229,13 +229,35 @@
               <h4>What your fleet company charges the store</h4>
               <div class="triple">
                 <label>Base amount<input id="merchantBillingBaseAmount" type="number" min="0" step="0.01" /></label>
-                <label>Included km<input id="merchantBillingIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
-                <label>Additional per km<input id="merchantBillingAdditionalPerKm" type="number" min="0" step="0.01" /></label>
+                <label><span id="merchantBillingIncludedDistanceLabel">Included distance (km)</span><input id="merchantBillingIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
+                <label><span id="merchantBillingAdditionalPerUnitLabel">Additional amount per extra km</span><input id="merchantBillingAdditionalPerKm" type="number" min="0" step="0.01" /></label>
               </div>
               <div id="merchantBillingSummary" class="muted"></div>
             </div>
             <button id="saveRestaurantPricingBtn" type="button">Save Commercial Terms</button>
             <div id="restaurantPricingStatus" class="muted"></div>
+          </section>
+
+
+          <section class="section stack">
+            <div class="section-headline">
+              <div>
+                <div class="eyebrow">Store market settings</div>
+                <h3>Currency And Distance Unit</h3>
+                <p class="section-copy">Choose the pricing currency and distance unit shown for this store across admin, merchant, restaurant, and driver order views.</p>
+              </div>
+              <span class="pill">Regional</span>
+            </div>
+            <label>Currency code (ISO 4217)<input id="currencyCode" maxlength="3" placeholder="AED" /></label>
+            <label>Distance unit shown for this store
+              <select id="distanceUnit">
+                <option value="kilometer">Kilometers (km)</option>
+                <option value="mile">Miles (mi)</option>
+              </select>
+            </label>
+            <div class="hint">Save these settings first if you want the pricing fields above to switch between kilometers and miles.</div>
+            <button id="saveDisplaySettingsBtn" type="button" class="secondary">Save Store Market Settings</button>
+            <div id="displaySettingsStatus" class="muted"></div>
           </section>
 
           <section class="section stack">

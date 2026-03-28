@@ -52,6 +52,7 @@ Admin can:
 - set store-level driver pay rules
 - set store-level store-charge rules
 - set store-level tracking display rules
+- set store-level currency and distance unit
 - set driver max live deliveries
 - set driver assignment scope by named stores and restaurant groups
 
@@ -154,6 +155,17 @@ Examples:
   - included km = `3`
   - additional per km = `2`
 
+## Store Market Settings
+
+Per store, admin can also set:
+- pricing currency, for example `AED`, `USD`, `KWD`
+- distance unit, `kilometer` or `mile`
+
+These settings control:
+- how commercial values are shown in admin, merchant, restaurant, and driver trip screens
+- whether pricing-rule distance thresholds are entered and described in kilometers or miles
+- how driver-offer distance is shown on incoming orders
+
 ## Tracking Display Rules
 
 Per store, admin and merchant can decide what restaurant staff see:
@@ -220,6 +232,7 @@ C:\flutter\bin\flutter.bat run
 - driver pay rule
 - store charge rule
 - tracking-display settings
+- currency and distance unit
 - driver offer distance mode
 5. Select a driver and change:
 - max live deliveries
@@ -247,6 +260,7 @@ Expected:
 Expected:
 - merchant sees only its own restaurants
 - updates apply only to owned stores
+- store currency and distance unit remain admin-controlled
 
 ### Restaurant Test
 

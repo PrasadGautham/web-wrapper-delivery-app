@@ -27,11 +27,17 @@ Each restaurant has two separate commercial rule sets:
 - `driver pay`: what the fleet company pays the driver
 - `store charge`: what the fleet company charges the restaurant
 
+Each restaurant also has store-level market settings for how amounts and distances are shown:
+- `currency`: for example `AED`, `USD`, `KWD`
+- `distanceUnit`: `kilometer` or `mile`
+
 Each restaurant also has a driver-offer display setting for what the courier sees in the app:
 - `store to customer only`
 - `include commute to store plus delivery`
 
 Those values are snapped onto each order so historical reporting and driver-facing offer metrics stay correct even if rules change later.
+
+Admin controls those market settings. Merchant users can view them but cannot change them.
 
 ## Main Entry Points
 

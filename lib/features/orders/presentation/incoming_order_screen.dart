@@ -62,11 +62,11 @@ class IncomingOrderScreen extends ConsumerWidget {
             children: [
               _InfoTile(label: 'Delivery area', value: order.deliveryArea),
               _InfoTile(label: 'Distance shown', value: order.driverDisplayMode == 'includeCommuteToStore' ? 'Commute to store + delivery' : 'Store to customer only'),
-              _InfoTile(label: l10n.text('distance'), value: Formatters.kilometers(order.driverDisplayDistanceKm)),
+              _InfoTile(label: l10n.text('distance'), value: Formatters.distance(order.driverDisplayDistanceKm, unit: order.driverDisplayDistanceUnit)),
               _InfoTile(label: l10n.text('eta'), value: '${order.driverDisplayMinutes} min'),
               _InfoTile(
                 label: l10n.text('earningsTrip'),
-                value: Formatters.currency(order.tripEarnings),
+                value: Formatters.currency(order.tripEarnings, code: order.displayCurrency),
               ),
             ],
           ),

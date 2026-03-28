@@ -26,6 +26,7 @@ function isDriverOfferDistanceMode(value: unknown): value is DriverOfferDistance
   return value === 'storeToCustomer' || value === 'includeCommuteToStore';
 }
 
+
 export async function registerMerchantRoutes(
   app: FastifyInstance,
   backendService: BackendService,

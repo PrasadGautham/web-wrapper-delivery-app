@@ -15,6 +15,7 @@ import {
   RestaurantStaffUserProfile,
   RestaurantTrackingSettings,
   DriverOfferSettings,
+  DistanceUnit,
 } from '../domain/models.js';
 import { hashPassword } from '../utils/passwords.js';
 import { BackofficeReadService } from './backoffice-read-service.js';
@@ -345,6 +346,38 @@ export class AdminWorkflowService {
       await context.saveDriver(driver);
       await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: 'admin-api', action: 'driver.capacity.updated', entityType: 'driver', entityId: driverId, metadata: { maxActiveOrders } }));
       return toDriverProfile(driver, await context.countDriverActiveLoad(driver.id));
+    });
+  }
+
+
+  async updateRestaurantDisplaySettings(restaurantId: string, settings: { currency: string; distanceUnit: DistanceUnit }): Promise<RestaurantProfile> {
+    if (!this.workflowStore) {
+      return this.runtime.withMutableDb(async (db) => {
+        const restaurant = this.runtime.requireRestaurant(db, restaurantId);
+        restaurant.currency = settings.currency;
+        restaurant.distanceUnit = settings.distanceUnit;
+        this.runtime.appendAuditLog(db, {
+          actorType: 'admin',
+          actorId: 'admin-api',
+          action: 'restaurant.display-settings.updated',
+          entityType: 'restaurant',
+          entityId: restaurantId,
+          metadata: settings as unknown as Record<string, unknown>,
+        });
+        return toRestaurantProfile(restaurant);
+      });
+    }
+
+    return this.workflowStore.withWorkflowWriteContext(async (context) => {
+      const restaurant = await context.findRestaurantById(restaurantId);
+      if (!restaurant) {
+        throw new Error('Restaurant not found.');
+      }
+      restaurant.currency = settings.currency;
+      restaurant.distanceUnit = settings.distanceUnit;
+      await context.saveRestaurant(restaurant);
+      await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: 'admin-api', action: 'restaurant.display-settings.updated', entityType: 'restaurant', entityId: restaurantId, metadata: settings as unknown as Record<string, unknown> }));
+      return toRestaurantProfile(restaurant);
     });
   }
 

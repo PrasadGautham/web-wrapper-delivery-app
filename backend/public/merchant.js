@@ -4,6 +4,9 @@ let stream = null;
 let refreshingSession = null;
 let restaurants = [];
 
+const MILES_PER_KILOMETER = 0.621371;
+const KILOMETERS_PER_MILE = 1.609344;
+
 const nodes = {
   connectionDot: document.getElementById('connectionDot'),
   connectionText: document.getElementById('connectionText'),
@@ -22,69 +25,126 @@ const nodes = {
   selectedStoreSummary: document.getElementById('selectedStoreSummary'),
 };
 
-function currency(value, code = 'AED') {
-  return `${code} ${Number(value || 0).toFixed(2)}`;
+function currentRestaurant() {
+  return restaurants.find((item) => item.id === nodes.restaurantSelect.value) || restaurants[0] || null;
 }
 
-function summarizePricingRule(rule, code) {
-  if (Number(rule.additionalPerKm || 0) <= 0) {
-    return `${currency(rule.baseAmount, code)} flat per delivery`;
+function normalizeCurrencyCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function formatMoney(value, code = 'AED') {
+  const normalized = normalizeCurrencyCode(code) || 'AED';
+  try {
+    return new Intl.NumberFormat('en', { style: 'currency', currency: normalized, minimumFractionDigits: 2 }).format(Number(value || 0));
+  } catch {
+    return `${normalized} ${Number(value || 0).toFixed(2)}`;
   }
-  return `${currency(rule.baseAmount, code)} includes ${Number(rule.includedDistanceKm || 0).toFixed(1)} km, then ${currency(rule.additionalPerKm, code)} per extra km`;
+}
+
+function toDisplayDistance(kmValue, unit = 'kilometer') {
+  const numeric = Number(kmValue || 0);
+  return unit === 'mile' ? numeric * MILES_PER_KILOMETER : numeric;
+}
+
+function fromDisplayDistance(displayValue, unit = 'kilometer') {
+  const numeric = Number(displayValue || 0);
+  return unit === 'mile' ? numeric * KILOMETERS_PER_MILE : numeric;
+}
+
+function toDisplayRate(perKmValue, unit = 'kilometer') {
+  const numeric = Number(perKmValue || 0);
+  return unit === 'mile' ? numeric * KILOMETERS_PER_MILE : numeric;
+}
+
+function fromDisplayRate(displayRate, unit = 'kilometer') {
+  const numeric = Number(displayRate || 0);
+  return unit === 'mile' ? numeric / KILOMETERS_PER_MILE : numeric;
+}
+
+function distanceUnitShort(unit = 'kilometer') {
+  return unit === 'mile' ? 'mi' : 'km';
+}
+
+function distanceUnitWord(unit = 'kilometer') {
+  return unit === 'mile' ? 'mile' : 'km';
+}
+
+function formatDistance(kmValue, unit = 'kilometer') {
+  return `${toDisplayDistance(kmValue, unit).toFixed(1)} ${distanceUnitShort(unit)}`;
+}
+
+function summarizePricingRule(rule, code, unit = 'kilometer') {
+  const included = toDisplayDistance(rule.includedDistanceKm || 0, unit);
+  const extraRate = toDisplayRate(rule.additionalPerKm || 0, unit);
+  if (Number(extraRate) <= 0) {
+    return `${formatMoney(rule.baseAmount, code)} flat per delivery`;
+  }
+  return `${formatMoney(rule.baseAmount, code)} includes ${included.toFixed(1)} ${distanceUnitShort(unit)}, then ${formatMoney(extraRate, code)} per extra ${distanceUnitWord(unit)}`;
 }
 
 function formatStatus(value) {
-  if (!value) {
-    return 'Unknown';
-  }
-  if (value === 'inTransit') {
-    return 'In transit';
-  }
+  if (!value) return 'Unknown';
+  if (value === 'inTransit') return 'In transit';
   return value.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase());
 }
 
 function formatMinutes(value) {
-  if (value == null) {
-    return 'Not available';
-  }
+  if (value == null) return 'Not available';
   return `${value} min`;
 }
 
 function formatEtaSource(value) {
-  if (!value || value === 'not-available') {
-    return 'Not available';
-  }
-  if (value === 'static-estimate') {
-    return 'Static estimate';
-  }
-  if (value === 'live-driver-location') {
-    return 'Live driver location';
-  }
-  if (value === 'google-routes') {
-    return 'Google traffic routing';
-  }
+  if (!value || value === 'not-available') return 'Not available';
+  if (value === 'static-estimate') return 'Static estimate';
+  if (value === 'live-driver-location') return 'Live driver location';
+  if (value === 'google-routes') return 'Google traffic routing';
   return value;
 }
 
-function setRuleInputs(prefix, rule) {
-  document.getElementById(`${prefix}BaseAmount`).value = String(rule.baseAmount ?? 0);
-  document.getElementById(`${prefix}IncludedDistanceKm`).value = String(rule.includedDistanceKm ?? 0);
-  document.getElementById(`${prefix}AdditionalPerKm`).value = String(rule.additionalPerKm ?? 0);
+function updatePricingFieldLabels(unit = 'kilometer') {
+  const short = distanceUnitShort(unit);
+  document.getElementById('driverPayoutIncludedDistanceLabel').textContent = `Included distance (${short})`;
+  document.getElementById('driverPayoutAdditionalPerUnitLabel').textContent = `Additional amount per extra ${distanceUnitWord(unit)}`;
+  document.getElementById('merchantBillingIncludedDistanceLabel').textContent = `Included distance (${short})`;
+  document.getElementById('merchantBillingAdditionalPerUnitLabel').textContent = `Additional amount per extra ${distanceUnitWord(unit)}`;
 }
 
-function readRuleInputs(prefix) {
+function setRuleInputs(prefix, rule, unit) {
+  document.getElementById(`${prefix}BaseAmount`).value = String(rule.baseAmount ?? 0);
+  document.getElementById(`${prefix}IncludedDistanceKm`).value = toDisplayDistance(rule.includedDistanceKm ?? 0, unit).toFixed(1);
+  document.getElementById(`${prefix}AdditionalPerKm`).value = toDisplayRate(rule.additionalPerKm ?? 0, unit).toFixed(2);
+}
+
+function readRuleInputs(prefix, unit) {
   return {
     baseAmount: Number(document.getElementById(`${prefix}BaseAmount`).value),
-    includedDistanceKm: Number(document.getElementById(`${prefix}IncludedDistanceKm`).value),
-    additionalPerKm: Number(document.getElementById(`${prefix}AdditionalPerKm`).value),
+    includedDistanceKm: Number(fromDisplayDistance(document.getElementById(`${prefix}IncludedDistanceKm`).value, unit).toFixed(3)),
+    additionalPerKm: Number(fromDisplayRate(document.getElementById(`${prefix}AdditionalPerKm`).value, unit).toFixed(4)),
   };
 }
 
 function updatePricingSummaries() {
-  const restaurant = restaurants.find((item) => item.id === nodes.restaurantSelect.value) || restaurants[0];
-  const code = restaurant?.currency || 'AED';
-  document.getElementById('driverPayoutSummary').textContent = summarizePricingRule(readRuleInputs('driverPayout'), code);
-  document.getElementById('merchantBillingSummary').textContent = summarizePricingRule(readRuleInputs('merchantBilling'), code);
+  const restaurant = currentRestaurant();
+  const currencyCode = normalizeCurrencyCode(restaurant?.currency || 'AED');
+  const distanceUnit = restaurant?.distanceUnit || 'kilometer';
+  updatePricingFieldLabels(distanceUnit);
+  document.getElementById('driverPayoutSummary').textContent = summarizePricingRule(readRuleInputs('driverPayout', distanceUnit), currencyCode, distanceUnit);
+  document.getElementById('merchantBillingSummary').textContent = summarizePricingRule(readRuleInputs('merchantBilling', distanceUnit), currencyCode, distanceUnit);
+}
+
+function summarizeCurrencyTotals(groups, field) {
+  const totals = new Map();
+  for (const group of groups) {
+    const currencyCode = normalizeCurrencyCode(group.restaurant.currency || 'AED');
+    const total = group.orders.reduce((sum, order) => sum + Number(order[field] || 0), 0);
+    totals.set(currencyCode, (totals.get(currencyCode) || 0) + total);
+  }
+  if (!totals.size) return '0';
+  return Array.from(totals.entries())
+    .filter(([, amount]) => amount > 0)
+    .map(([currencyCode, amount]) => formatMoney(amount, currencyCode))
+    .join(' / ') || formatMoney(0, 'AED');
 }
 
 function clearSessionState(message = 'Merchant session expired. Please log in again.') {
@@ -139,9 +199,7 @@ async function request(path, options = {}, attemptRefresh = true) {
 }
 
 async function refreshSession() {
-  if (!hasSession) {
-    throw new Error('No active session');
-  }
+  if (!hasSession) throw new Error('No active session');
   if (!refreshingSession) {
     refreshingSession = request('/api/auth/merchant/refresh', { method: 'POST' }, false)
       .then(() => {
@@ -164,14 +222,15 @@ function populateRestaurantSelect() {
 }
 
 function syncSelectedRestaurant() {
-  const restaurant = restaurants.find((item) => item.id === nodes.restaurantSelect.value) || restaurants[0];
+  const restaurant = currentRestaurant();
   if (!restaurant) {
     nodes.selectedStoreSummary.textContent = 'Select a store to review its current settings and staff setup.';
     return;
   }
   nodes.restaurantSelect.value = restaurant.id;
-  setRuleInputs('driverPayout', restaurant.pricing.driverPayoutRule);
-  setRuleInputs('merchantBilling', restaurant.pricing.merchantBillingRule);
+  updatePricingFieldLabels(restaurant.distanceUnit || 'kilometer');
+  setRuleInputs('driverPayout', restaurant.pricing.driverPayoutRule, restaurant.distanceUnit || 'kilometer');
+  setRuleInputs('merchantBilling', restaurant.pricing.merchantBillingRule, restaurant.distanceUnit || 'kilometer');
   document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
@@ -179,8 +238,10 @@ function syncSelectedRestaurant() {
   nodes.selectedStoreSummary.innerHTML = `
     <strong>${restaurant.name}</strong>
     <div>${restaurant.pickupLocation.address}</div>
-    <div>Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency)}</div>
-    <div>Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency)}</div>
+    <div>Commercial currency: ${normalizeCurrencyCode(restaurant.currency)}</div>
+    <div>Distance unit: ${restaurant.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)'}</div>
+    <div>Driver payout: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency, restaurant.distanceUnit)}</div>
+    <div>Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency, restaurant.distanceUnit)}</div>
     <div>Tracking view: pickup ETA ${restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'}, destination ETA ${restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
     <div>Driver app offer view: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute to store plus delivery' : 'Store to customer only'}</div>
   `;
@@ -190,14 +251,15 @@ function syncSelectedRestaurant() {
 function renderRestaurantCards(groups, report) {
   nodes.statStores.textContent = report.totalRestaurants;
   nodes.statOrders.textContent = report.totalOrders;
-  nodes.statPayout.textContent = currency(report.totalDriverPayout);
-  nodes.statCharges.textContent = currency(report.totalRestaurantCharges);
+  nodes.statPayout.textContent = summarizeCurrencyTotals(groups, 'tripEarnings');
+  nodes.statCharges.textContent = summarizeCurrencyTotals(groups, 'companyCharge');
   nodes.restaurants.innerHTML = groups.map((group) => `
     <article class="card">
       <div class="section-head"><strong>${group.restaurant.name}</strong><span class="pill">${group.orders.length} orders</span></div>
       <div class="muted">${group.restaurant.pickupLocation.address}</div>
-      <div class="muted">Driver payout: ${summarizePricingRule(group.restaurant.pricing.driverPayoutRule, group.restaurant.currency)}</div>
-      <div class="muted">Store billing: ${summarizePricingRule(group.restaurant.pricing.merchantBillingRule, group.restaurant.currency)}</div>
+      <div class="muted">Currency: ${normalizeCurrencyCode(group.restaurant.currency)} | Distance unit: ${group.restaurant.distanceUnit === 'mile' ? 'Miles' : 'Kilometers'}</div>
+      <div class="muted">Driver payout: ${summarizePricingRule(group.restaurant.pricing.driverPayoutRule, group.restaurant.currency, group.restaurant.distanceUnit)}</div>
+      <div class="muted">Store billing: ${summarizePricingRule(group.restaurant.pricing.merchantBillingRule, group.restaurant.currency, group.restaurant.distanceUnit)}</div>
       <div class="muted">Pickup ETA ${group.restaurant.trackingSettings.showDriverEtaToPickup ? 'visible' : 'hidden'} | Destination ETA ${group.restaurant.trackingSettings.showDestinationEta ? 'visible' : 'hidden'}</div>
       <div class="muted">Driver app offer: ${group.restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer only'}</div>
     </article>
@@ -211,7 +273,9 @@ function renderOrders(groups) {
       <div class="section-head"><strong>${restaurant.name}</strong><span class="pill">${formatStatus(order.tracking.displayStatus)}</span></div>
       <div>${order.customer.name}</div>
       <div class="muted">${order.customer.address}</div>
-      <div class="muted">Driver: ${order.tracking.assignedDriverName || 'Waiting'} | Pickup ETA: ${formatMinutes(order.tracking.driverEtaToPickupMinutes)} | Destination ETA: ${formatMinutes(order.tracking.destinationEtaMinutes)} | ETA source: ${formatEtaSource(order.tracking.etaSource)}</div>
+      <div class="muted">Courier: ${order.tracking.assignedDriverName || 'Waiting'} | Pickup ETA: ${formatMinutes(order.tracking.driverEtaToPickupMinutes)} | Destination ETA: ${formatMinutes(order.tracking.destinationEtaMinutes)} | ETA source: ${formatEtaSource(order.tracking.etaSource)}</div>
+      <div class="muted">Courier pay: ${formatMoney(order.tripEarnings, order.displayCurrency || restaurant.currency)} | Store charge: ${formatMoney(order.companyCharge, order.displayCurrency || restaurant.currency)}</div>
+      <div class="muted">Driver app distance: ${formatDistance(order.driverDisplayDistanceKm, order.driverDisplayDistanceUnit || restaurant.distanceUnit)}</div>
     </article>
   `).join('') || '<div class="muted">No merchant-wide orders yet.</div>';
 }
@@ -255,8 +319,8 @@ async function refreshDashboard() {
     nodes.staffList.innerHTML = '';
     nodes.statStores.textContent = '0';
     nodes.statOrders.textContent = '0';
-    nodes.statPayout.textContent = 'AED 0.00';
-    nodes.statCharges.textContent = 'AED 0.00';
+    nodes.statPayout.textContent = '--';
+    nodes.statCharges.textContent = '--';
     nodes.restaurantSelect.innerHTML = '';
     setConnectionState('Waiting for merchant session.', false);
     throw error;
@@ -272,9 +336,7 @@ function stopStream() {
 
 async function connectStream() {
   stopStream();
-  if (!hasSession) {
-    return;
-  }
+  if (!hasSession) return;
   try {
     const { ticket } = await request('/api/auth/merchant/stream-ticket', { method: 'POST' });
     stream = new EventSource(`/api/merchant/me/stream?ticket=${encodeURIComponent(ticket)}`);
@@ -321,12 +383,13 @@ async function logout() {
 }
 
 async function savePricing() {
-  const restaurantId = nodes.restaurantSelect.value;
-  await request(`/api/merchant/me/restaurants/${restaurantId}/pricing`, {
+  const restaurant = currentRestaurant();
+  if (!restaurant) return;
+  await request(`/api/merchant/me/restaurants/${restaurant.id}/pricing`, {
     method: 'PATCH',
     body: JSON.stringify({
-      driverPayoutRule: readRuleInputs('driverPayout'),
-      merchantBillingRule: readRuleInputs('merchantBilling'),
+      driverPayoutRule: readRuleInputs('driverPayout', restaurant.distanceUnit || 'kilometer'),
+      merchantBillingRule: readRuleInputs('merchantBilling', restaurant.distanceUnit || 'kilometer'),
     }),
   });
   nodes.pricingStatus.textContent = 'Store commercial terms updated.';
@@ -334,8 +397,9 @@ async function savePricing() {
 }
 
 async function saveTracking() {
-  const restaurantId = nodes.restaurantSelect.value;
-  await request(`/api/merchant/me/restaurants/${restaurantId}/tracking-settings`, {
+  const restaurant = currentRestaurant();
+  if (!restaurant) return;
+  await request(`/api/merchant/me/restaurants/${restaurant.id}/tracking-settings`, {
     method: 'PATCH',
     body: JSON.stringify({
       showPickedUpAsInTransit: document.getElementById('showPickedUpAsInTransit').checked,
@@ -343,7 +407,7 @@ async function saveTracking() {
       showDestinationEta: document.getElementById('showDestinationEta').checked,
     }),
   });
-  await request(`/api/merchant/me/restaurants/${restaurantId}/driver-offer-settings`, {
+  await request(`/api/merchant/me/restaurants/${restaurant.id}/driver-offer-settings`, {
     method: 'PATCH',
     body: JSON.stringify({
       distanceMode: document.getElementById('driverOfferDistanceMode').value,
