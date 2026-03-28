@@ -63,7 +63,7 @@ Only use the explicit split admin routes above. `/admin` is no longer supported.
 
 The platform now separates:
 - `platform admin`: your internal team, with access across tenants
-- `tenant`: one client workspace
+- `tenant`: one fleet-company client workspace
 - `merchant group`: a restaurant group or franchise group inside a tenant
 - `restaurant`: one store inside a merchant group
 - `driver`: one courier account owned by one tenant
@@ -73,14 +73,14 @@ This keeps client data isolated without needing a separate database per client a
 ## Seeded Local Demo Data
 
 Local Postgres resets and local file-store demo mode both seed from [seed.json](/c:/dev/DriverApp/backend/data/seed.json). The current seed is tenant-aware and represents two sample client tenants:
-- `tnt_fleet_001` = `Falafel Delivery Operations`
-- `tnt_fleet_002` = `Burger Logistics Client`
+- `tnt_fleet_001` = `Desert Fleet Services`
+- `tnt_fleet_002` = `Metro Fleet Partners`
 
 Primary demo accounts:
 - Platform admin: `admin@demo.com` / `Password123`
-- Platform ops admin: `ops@demo.com` / `Password123`
-- Tenant admin: `falafel.admin@demo.com` / `Password123`
-- Tenant admin: `burger.admin@demo.com` / `Password123`
+- Platform ops admin: `platform.ops@demo.com` / `Password123`
+- Tenant admin: `desertfleet.admin@demo.com` / `Password123`
+- Tenant admin: `metrofleet.admin@demo.com` / `Password123`
 - Merchant owner: `falafel.group@demo.com` / `Password123`
 - Merchant manager: `falafel.ops@demo.com` / `Password123`
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`

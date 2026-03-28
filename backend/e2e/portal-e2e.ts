@@ -86,7 +86,7 @@ async function run() {
 
     await loginAndLogout('/merchant', 'falafel.group@demo.com', 'Password123', 'driverapp_merchant_session', 'Logged in as');
     await loginAndLogout('/restaurant', 'falafel.dispatch@demo.com', 'Password123', 'driverapp_restaurant_session', 'Logged in as');
-    await loginAndLogout('/tenant-admin', 'falafel.admin@demo.com', 'Password123', 'driverapp_admin_session', 'Logged in as');
+    await loginAndLogout('/tenant-admin', 'desertfleet.admin@demo.com', 'Password123', 'driverapp_admin_session', 'Logged in as');
 
     const merchantPage = await context.newPage();
     const restaurantPage = await context.newPage();

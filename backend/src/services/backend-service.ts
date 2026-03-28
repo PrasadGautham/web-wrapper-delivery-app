@@ -9,14 +9,16 @@ import {
   MerchantProfile,
   MerchantRecord,
   MerchantReport,
+  MerchantRestaurantProfile,
   MerchantUserProfile,
   MerchantUserRole,
   MerchantView,
   OrderRecord,
-  RestaurantOrderView,
   RestaurantProfile,
+  RestaurantPortalProfile,
   RestaurantRecord,
   RestaurantReport,
+  StoreOrderView,
   RestaurantStaffRole,
   RestaurantStaffUserProfile,
   RestaurantTrackingSettings,
@@ -301,7 +303,7 @@ export class BackendService {
     return this.driverWorkflow.getDriverProfile(driverId);
   }
 
-  getRestaurantProfile(restaurantId: string): Promise<RestaurantProfile> {
+  getRestaurantProfile(restaurantId: string): Promise<RestaurantPortalProfile> {
     return this.restaurantWorkflow.getRestaurantProfile(restaurantId);
   }
 
@@ -309,7 +311,7 @@ export class BackendService {
     return this.merchantWorkflow.getMerchantProfile(merchantId);
   }
 
-  listMerchantRestaurants(merchantId: string): Promise<RestaurantProfile[]> {
+  listMerchantRestaurants(merchantId: string): Promise<MerchantRestaurantProfile[]> {
     return this.merchantWorkflow.listMerchantRestaurants(merchantId);
   }
 
@@ -342,26 +344,19 @@ export class BackendService {
     return this.merchantWorkflow.updateRestaurantStaffUser(merchant, restaurantId, staffUserId, input);
   }
 
-  updateMerchantRestaurantPricing(
-    merchant: MerchantRecord,
-    restaurantId: string,
-    pricing: { driverPayoutRule: DistancePricingRule; merchantBillingRule: DistancePricingRule },
-  ): Promise<RestaurantProfile> {
-    return this.merchantWorkflow.updateRestaurantPricing(merchant, restaurantId, pricing);
-  }
-
   updateMerchantRestaurantTrackingSettings(
     merchant: MerchantRecord,
     restaurantId: string,
     settings: RestaurantTrackingSettings,
-  ): Promise<RestaurantProfile> {
+  ): Promise<MerchantRestaurantProfile> {
     return this.merchantWorkflow.updateRestaurantTrackingSettings(merchant, restaurantId, settings);
   }
+
   updateMerchantRestaurantDriverOfferSettings(
     merchant: MerchantRecord,
     restaurantId: string,
     settings: DriverOfferSettings,
-  ): Promise<RestaurantProfile> {
+  ): Promise<MerchantRestaurantProfile> {
     return this.merchantWorkflow.updateRestaurantDriverOfferSettings(merchant, restaurantId, settings);
   }
 
@@ -421,7 +416,7 @@ export class BackendService {
     return this.restaurantWorkflow.createRestaurantOrder(restaurantId, input);
   }
 
-  getRestaurantOrders(restaurantId: string): Promise<RestaurantOrderView[]> {
+  getRestaurantOrders(restaurantId: string): Promise<StoreOrderView[]> {
     return this.restaurantWorkflow.getRestaurantOrders(restaurantId);
   }
 

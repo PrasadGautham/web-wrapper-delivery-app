@@ -170,7 +170,7 @@
               <div>
                 <div class="eyebrow">Selected store</div>
                 <h3>Store Snapshot</h3>
-                <p class="section-copy">Switch between stores to review staff access, pricing rules, and customer-facing tracking settings.</p>
+                <p class="section-copy">Switch between stores to review staff access, store billing terms, and customer-facing tracking settings.</p>
               </div>
               <span class="pill">Context</span>
             </div>
@@ -178,39 +178,17 @@
             <div id="selectedStoreSummary" class="muted">Select a store to review its current settings and staff setup.</div>
           </section>
 
-          <section class="section stack">
+          <section class="section stack card-highlight">
             <div class="section-head">
               <div>
-                <div class="eyebrow">Commercial terms</div>
-                <h3>Driver Pay And Store Charges</h3>
-                <p class="section-copy">Change what your fleet company pays the driver and what your fleet company charges the store. The courier only sees the driver-pay side.</p>
+                <div class="eyebrow">Store billing</div>
+                <h3>Billing Summary</h3>
+                <p class="section-copy">Review what your stores are billed for delivery. Internal courier payout rules stay private to the fleet company.</p>
               </div>
-              <span class="pill">Commercial</span>
+              <span class="pill">Read only</span>
             </div>
-            <div class="card stack">
-              <div class="eyebrow">Driver pay</div>
-              <strong>What your fleet company pays the driver</strong>
-              <div class="triple">
-                <label>Base amount<input id="driverPayoutBaseAmount" type="number" min="0" step="0.01" /></label>
-                <label><span id="driverPayoutIncludedDistanceLabel">Included distance (km)</span><input id="driverPayoutIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
-                <label><span id="driverPayoutAdditionalPerUnitLabel">Additional amount per extra km</span><input id="driverPayoutAdditionalPerKm" type="number" min="0" step="0.01" /></label>
-              </div>
-              <div id="driverPayoutSummary" class="muted"></div>
-            </div>
-            <div class="card stack">
-              <div class="eyebrow">Store charge</div>
-              <strong>What your fleet company charges the store</strong>
-              <div class="triple">
-                <label>Base amount<input id="merchantBillingBaseAmount" type="number" min="0" step="0.01" /></label>
-                <label><span id="merchantBillingIncludedDistanceLabel">Included distance (km)</span><input id="merchantBillingIncludedDistanceKm" type="number" min="0" step="0.1" /></label>
-                <label><span id="merchantBillingAdditionalPerUnitLabel">Additional amount per extra km</span><input id="merchantBillingAdditionalPerKm" type="number" min="0" step="0.01" /></label>
-              </div>
-              <div id="merchantBillingSummary" class="muted"></div>
-            </div>
-            <button id="savePricingBtn" type="button">Save Commercial Terms</button>
-            <div id="pricingStatus" class="muted">Select a store to review or update its commercial terms.</div>
+            <div id="billingSummary" class="muted">Select a store to review its billing terms.</div>
           </section>
-
 
                     <section class="section stack">
             <div class="section-head">
@@ -257,8 +235,7 @@
           <section class="stats">
             <div class="stat"><div class="muted">Stores</div><strong id="statStores">0</strong></div>
             <div class="stat"><div class="muted">Total orders</div><strong id="statOrders">0</strong></div>
-            <div class="stat"><div class="muted">Driver payout</div><strong id="statPayout">--</strong></div>
-            <div class="stat"><div class="muted">Billed to stores</div><strong id="statCharges">--</strong></div>
+                        <div class="stat"><div class="muted">Billed to stores</div><strong id="statCharges">--</strong></div>
           </section>
           <section class="panel stack">
             <div class="section-head"><div><div class="eyebrow">Merchant-wide visibility</div><h2 style="margin:6px 0 0">Store Overview</h2><p class="section-copy">Scan the current operating picture across all restaurants linked to your merchant account.</p></div><button id="refreshBtn" class="secondary" type="button">Refresh now</button></div>

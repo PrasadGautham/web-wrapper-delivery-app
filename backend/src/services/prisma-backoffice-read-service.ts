@@ -98,7 +98,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
   }
 
   async getRestaurantReport(restaurantId: string): Promise<RestaurantReport> {
-    const [totalOrders, activeOrders, deliveredOrders, payouts, charges] = await this.prisma.$transaction([
+    const [totalOrders, activeOrders, deliveredOrders, charges] = await this.prisma.$transaction([
       this.prisma.order.count({ where: { restaurantId } }),
       this.prisma.order.count({
         where: {
@@ -107,7 +107,6 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         },
       }),
       this.prisma.order.count({ where: { restaurantId, status: 'delivered' } }),
-      this.prisma.order.aggregate({ where: { restaurantId }, _sum: { tripEarnings: true } }),
       this.prisma.order.aggregate({ where: { restaurantId }, _sum: { companyCharge: true } }),
     ]);
 
@@ -115,7 +114,6 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       totalOrders,
       activeOrders,
       deliveredOrders,
-      totalDriverPayout: Number((payouts._sum.tripEarnings ?? 0).toFixed(2)),
       totalRestaurantCharges: Number((charges._sum.companyCharge ?? 0).toFixed(2)),
     };
   }
@@ -134,12 +132,11 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         totalOrders: 0,
         activeOrders: 0,
         deliveredOrders: 0,
-        totalDriverPayout: 0,
         totalRestaurantCharges: 0,
       };
     }
 
-    const [totalOrders, activeOrders, deliveredOrders, payouts, charges] = await this.prisma.$transaction([
+    const [totalOrders, activeOrders, deliveredOrders, charges] = await this.prisma.$transaction([
       this.prisma.order.count({ where: { restaurantId: { in: restaurantIds } } }),
       this.prisma.order.count({
         where: {
@@ -148,7 +145,6 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         },
       }),
       this.prisma.order.count({ where: { restaurantId: { in: restaurantIds }, status: 'delivered' } }),
-      this.prisma.order.aggregate({ where: { restaurantId: { in: restaurantIds } }, _sum: { tripEarnings: true } }),
       this.prisma.order.aggregate({ where: { restaurantId: { in: restaurantIds } }, _sum: { companyCharge: true } }),
     ]);
 
@@ -157,7 +153,6 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       totalOrders,
       activeOrders,
       deliveredOrders,
-      totalDriverPayout: Number((payouts._sum.tripEarnings ?? 0).toFixed(2)),
       totalRestaurantCharges: Number((charges._sum.companyCharge ?? 0).toFixed(2)),
     };
   }

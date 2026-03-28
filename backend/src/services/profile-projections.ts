@@ -4,9 +4,11 @@ import {
   DriverRecord,
   MerchantProfile,
   MerchantRecord,
+  MerchantRestaurantProfile,
   MerchantUserProfile,
   MerchantView,
   OrderStatus,
+  RestaurantPortalProfile,
   RestaurantProfile,
   RestaurantRecord,
   RestaurantStaffUserProfile,
@@ -41,6 +43,22 @@ export function toDriverProfile(driver: DriverRecord, currentLoad: number): Driv
 export function toRestaurantProfile(restaurant: RestaurantRecord): RestaurantProfile {
   const { password: _password, email: _email, staffUsers: _staffUsers, ...profile } = restaurant;
   return profile;
+}
+
+export function toRestaurantPortalProfile(restaurant: RestaurantRecord): RestaurantPortalProfile {
+  const profile = toRestaurantProfile(restaurant);
+  const { pricing: _pricing, ...storeProfile } = profile;
+  return storeProfile;
+}
+
+export function toMerchantRestaurantProfile(restaurant: RestaurantRecord): MerchantRestaurantProfile {
+  const profile = toRestaurantProfile(restaurant);
+  return {
+    ...profile,
+    pricing: {
+      merchantBillingRule: profile.pricing.merchantBillingRule,
+    },
+  };
 }
 
 export function toMerchantProfile(merchant: MerchantRecord): MerchantProfile {

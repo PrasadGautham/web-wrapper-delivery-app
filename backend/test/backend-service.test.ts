@@ -223,12 +223,9 @@ export async function runBackendServiceTests(): Promise<void> {
     assert.equal(trackingUpdated.trackingSettings.showPickedUpAsInTransit, false);
 
     const merchant = await service.requireMerchantFromToken((await service.loginMerchant('falafel.group@demo.com', 'Password123')).token);
-    const merchantPricing = await service.updateMerchantRestaurantPricing(merchant, 'rst_a13c5f20', {
-      driverPayoutRule: { baseAmount: 11, includedDistanceKm: 1.5, additionalPerKm: 0.75 },
-      merchantBillingRule: { baseAmount: 19, includedDistanceKm: 2.5, additionalPerKm: 1.5 },
-    });
-    assert.equal(merchantPricing.pricing.driverPayoutRule.baseAmount, 11);
-    assert.equal(merchantPricing.pricing.merchantBillingRule.baseAmount, 19);
+    const merchantRestaurants = await service.listMerchantRestaurants(merchant.id);
+    assert.equal('driverPayoutRule' in merchantRestaurants[0]!.pricing, false);
+    assert.equal(merchantRestaurants[0]!.pricing.merchantBillingRule.baseAmount > 0, true);
 
     const merchantTracking = await service.updateMerchantRestaurantTrackingSettings(merchant, 'rst_a13c5f20', {
       showPickedUpAsInTransit: true,
@@ -236,6 +233,27 @@ export async function runBackendServiceTests(): Promise<void> {
       showDestinationEta: true,
     });
     assert.equal(merchantTracking.trackingSettings.showDestinationEta, true);
+
+    const merchantDriverOffer = await service.updateMerchantRestaurantDriverOfferSettings(merchant, 'rst_a13c5f20', {
+      distanceMode: 'includeCommuteToStore',
+    });
+    assert.equal(merchantDriverOffer.driverOfferSettings.distanceMode, 'includeCommuteToStore');
+  }
+
+  {
+    const store = new InMemoryStore(loadSeed());
+    const service = createService(store);
+
+    const merchantOrders = await service.getMerchantOrders('mrc_7f3a2d91');
+    const restaurantOrders = await service.getRestaurantOrders('rst_a13c5f20');
+    const restaurantProfile = await service.getRestaurantProfile('rst_a13c5f20');
+    const restaurantReport = await service.getRestaurantReport('rst_a13c5f20');
+
+    assert.equal('driverPayoutRule' in merchantOrders[0]!.restaurant.pricing, false);
+    assert.equal('tripEarnings' in (merchantOrders[0]!.orders[0] ?? {}), false);
+    assert.equal('pricing' in restaurantProfile, false);
+    assert.equal('tripEarnings' in (restaurantOrders[0] ?? {}), false);
+    assert.equal('totalDriverPayout' in restaurantReport, false);
   }
 
   {

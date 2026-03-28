@@ -57,7 +57,7 @@ Platform admin can:
 
 ### Tenant Admin
 
-Client-specific admin user inside one tenant only.
+Fleet-company admin user inside one tenant only.
 
 Tenant admin can:
 - see only merchants, restaurants, drivers, and admin users inside the assigned tenant
@@ -77,8 +77,9 @@ Merchant-group operator.
 Merchant can:
 - see all restaurants under that merchant only
 - see merchant-wide reporting across owned stores
-- update driver pay and store charges for owned stores
+- view store billing terms for owned stores
 - update store tracking-display settings
+- update owned-store driver-offer display rules
 - create store staff accounts for owned stores
 - watch live cross-store order updates
 
@@ -144,7 +145,7 @@ Dispatch modes:
 
 ## Pricing Rules
 
-Per store, admin and merchant can set two separate rule sets:
+Per store, tenant admin can set two separate rule sets:
 
 ### Driver pay
 
@@ -182,7 +183,7 @@ These settings control:
 
 ## Tracking Display Rules
 
-Per store, admin and merchant can decide what restaurant staff see:
+Per store, tenant admin and merchant can decide what restaurant staff see:
 - show picked up as `In transit`
 - show driver ETA to pickup
 - show destination ETA after pickup
@@ -191,7 +192,7 @@ These settings are per store, not global.
 
 ## Driver Offer Distance Rules
 
-Per store, admin and merchant can also decide what the courier sees when an offer appears in the driver app:
+Per store, tenant admin and merchant can also decide what the courier sees when an offer appears in the driver app:
 - `Store to customer only`
 - `Include commute to store plus delivery`
 
@@ -232,14 +233,14 @@ C:\flutter\bin\flutter.bat run
 ## Demo Accounts
 
 The local source of truth for demo tenants, users, stores, and drivers is [seed.json](/c:/dev/DriverApp/backend/data/seed.json). The current seed includes two tenants:
-- `tnt_fleet_001` = `Falafel Delivery Operations`
-- `tnt_fleet_002` = `Burger Logistics Client`
+- `tnt_fleet_001` = `Desert Fleet Services`
+- `tnt_fleet_002` = `Metro Fleet Partners`
 
 Commonly used demo accounts:
 - Platform admin: `admin@demo.com` / `Password123`
-- Platform ops admin: `ops@demo.com` / `Password123`
-- Tenant admin: `falafel.admin@demo.com` / `Password123`
-- Tenant admin: `burger.admin@demo.com` / `Password123`
+- Platform ops admin: `platform.ops@demo.com` / `Password123`
+- Tenant admin: `desertfleet.admin@demo.com` / `Password123`
+- Tenant admin: `metrofleet.admin@demo.com` / `Password123`
 - Merchant owner: `falafel.group@demo.com` / `Password123`
 - Merchant manager: `falafel.ops@demo.com` / `Password123`
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
@@ -276,15 +277,16 @@ Expected:
 2. Log in as merchant
 3. Confirm only owned stores are visible
 4. Select a store and update:
-- driver pay
-- store charge
 - tracking-display settings
-- driver offer display mode
-5. Create a store staff user
+- driver-offer display mode
+5. Review store billing terms
+6. Create a store staff user
 
 Expected:
 - merchant sees only its own restaurants
+- merchant cannot see driver pay
 - updates apply only to owned stores
+- store billing terms are visible but fleet-company payout rules remain private
 - store currency and distance unit remain admin-controlled
 
 ### Restaurant Test

@@ -1,16 +1,16 @@
 import {
   DatabaseShape,
   OrderRecord,
-  RestaurantOrderView,
-  RestaurantProfile,
+  RestaurantPortalProfile,
   RestaurantRecord,
   RestaurantReport,
+  StoreOrderView,
 } from '../domain/models.js';
 import { BackofficeReadService } from './backoffice-read-service.js';
 import { BackendRuntime } from './backend-runtime.js';
 import { DispatchService } from './dispatch-service.js';
 import { DriverWorkflowService } from './driver-workflow-service.js';
-import { toRestaurantProfile } from './profile-projections.js';
+import { toRestaurantPortalProfile } from './profile-projections.js';
 import { RestaurantRealtimeService } from './restaurant-realtime-service.js';
 
 export class RestaurantWorkflowService {
@@ -22,10 +22,10 @@ export class RestaurantWorkflowService {
     private readonly backofficeReadService: BackofficeReadService | null,
   ) {}
 
-  async getRestaurantProfile(restaurantId: string): Promise<RestaurantProfile> {
+  async getRestaurantProfile(restaurantId: string): Promise<RestaurantPortalProfile> {
     return this.runtime.withOperationalDb(async (state) => {
       this.dispatchService.tick(state as never);
-      return toRestaurantProfile(this.runtime.requireRestaurant(state, restaurantId));
+      return toRestaurantPortalProfile(this.runtime.requireRestaurant(state, restaurantId));
     });
   }
 
@@ -55,7 +55,7 @@ export class RestaurantWorkflowService {
     });
   }
 
-  async getRestaurantOrders(restaurantId: string): Promise<RestaurantOrderView[]> {
+  async getRestaurantOrders(restaurantId: string): Promise<StoreOrderView[]> {
     return this.runtime.withOperationalDb(async (state) => {
       this.dispatchService.tick(state as never);
       const restaurant = this.runtime.requireRestaurant(state, restaurantId);
@@ -79,7 +79,6 @@ export class RestaurantWorkflowService {
           ['queued', 'pending', 'accepted', 'atRestaurant', 'pickedUp'].includes(order.status),
         ).length,
         deliveredOrders: orders.filter((order) => order.status === 'delivered').length,
-        totalDriverPayout: Number(orders.reduce((sum, order) => sum + order.tripEarnings, 0).toFixed(2)),
         totalRestaurantCharges: Number(orders.reduce((sum, order) => sum + order.companyCharge, 0).toFixed(2)),
       };
     });
@@ -89,7 +88,7 @@ export class RestaurantWorkflowService {
     db: DatabaseShape,
     restaurant: RestaurantRecord,
     order: OrderRecord,
-  ): Promise<RestaurantOrderView> {
+  ): Promise<StoreOrderView> {
     const driver = order.assignedDriverId
       ? db.drivers.find((item) => item.id === order.assignedDriverId) ?? null
       : null;
@@ -113,8 +112,10 @@ export class RestaurantWorkflowService {
         ? 'inTransit'
         : order.status;
 
+    const { tripEarnings: _tripEarnings, ...storeVisibleOrder } = order;
+
     return {
-      ...order,
+      ...storeVisibleOrder,
       tracking: {
         displayStatus,
         driverEtaToPickupMinutes: pickupEta?.minutes ?? null,

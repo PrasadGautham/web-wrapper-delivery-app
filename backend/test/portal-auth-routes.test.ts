@@ -87,8 +87,7 @@ export async function runPortalAuthRoutesTests(): Promise<void> {
           merchantBillingRule: { baseAmount: 18.75, includedDistanceKm: 3, additionalPerKm: 2.25 },
         },
       });
-      assert.equal(pricingUpdate.statusCode, 200);
-      assert.equal(JSON.parse(pricingUpdate.body).pricing.driverPayoutRule.baseAmount, 12.5);
+      assert.equal(pricingUpdate.statusCode, 404);
 
       const trackingUpdate = await app.inject({
         method: 'PATCH',

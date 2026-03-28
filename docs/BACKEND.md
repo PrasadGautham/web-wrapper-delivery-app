@@ -27,7 +27,7 @@ The backend handles:
 - `/platform-admin`
   - platform admin mode for your internal team
 - `/tenant-admin`
-  - tenant admin mode for one client workspace
+  - tenant admin mode for one fleet-company client workspace
 - `/merchant`
 - `/restaurant`
 - Flutter driver app APIs
@@ -47,7 +47,7 @@ One PostgreSQL database is still used, but tenant-owned data carries `tenantId`,
 - audit logs
 
 Important boundary:
-- `tenant` means one client workspace
+- `tenant` means one fleet-company client workspace
 - `merchant group` means a restaurant group inside a tenant
 
 Dispatch policy validation and driver assignment now enforce tenant boundaries so a driver cannot be tied to stores or merchant groups from another tenant.
@@ -127,7 +127,7 @@ The backend uses these settings to:
 
 ## Driver Offer Display Rules
 
-Per restaurant, admin and merchant can set what the driver app shows on an incoming offer:
+Per restaurant, tenant admin and merchant can set what the driver app shows on an incoming offer:
 - `storeToCustomer`: only the delivery leg
 - `includeCommuteToStore`: driver to store plus delivery
 
@@ -198,12 +198,13 @@ The admin driver UI now uses named selectors for stores and merchant groups inst
 ### Merchant
 
 Merchant can:
-- manage owned-store commercial rules
+- view owned-store billing terms
 - manage owned-store tracking-display rules
 - manage owned-store driver-offer display rules
 - manage owned-store staff
 - see merchant-wide reporting and live order updates
 - view admin-controlled store market settings
+- does not receive driver-pay data from the backend
 
 ### Restaurant
 
@@ -212,3 +213,4 @@ Restaurant can:
 - watch live movement
 - see store-facing billing and ETA status
 - use password reset flow
+- does not receive driver-pay data from the backend

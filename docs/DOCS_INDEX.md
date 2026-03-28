@@ -71,9 +71,9 @@ Use it if you are new to the repository and want to know:
 ## Portal Quick Access
 
 - Platform admin portal: `http://127.0.0.1:8080/platform-admin`
-  Demo users: `admin@demo.com` / `Password123`, `ops@demo.com` / `Password123`
+  Demo users: `admin@demo.com` / `Password123`, `platform.ops@demo.com` / `Password123`
 - Tenant admin portal: `http://127.0.0.1:8080/tenant-admin`
-  Demo users: `falafel.admin@demo.com` / `Password123`, `burger.admin@demo.com` / `Password123`
+  Demo users: `desertfleet.admin@demo.com` / `Password123`, `metrofleet.admin@demo.com` / `Password123`
 - Merchant portal: `http://127.0.0.1:8080/merchant`
   Demo users: `falafel.group@demo.com` / `Password123`, `falafel.ops@demo.com` / `Password123`
 - Restaurant portal: `http://127.0.0.1:8080/restaurant`
@@ -82,8 +82,8 @@ Use it if you are new to the repository and want to know:
 
 Seed source: [seed.json](/c:/dev/DriverApp/backend/data/seed.json)
 Current seeded tenants:
-- `tnt_fleet_001` = `Falafel Delivery Operations`
-- `tnt_fleet_002` = `Burger Logistics Client`
+- `tnt_fleet_001` = `Desert Fleet Services`
+- `tnt_fleet_002` = `Metro Fleet Partners`
 
 Only use `/platform-admin` and `/tenant-admin` for admin access. `/admin` is no longer supported.
 

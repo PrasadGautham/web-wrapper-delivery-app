@@ -13,7 +13,6 @@ const nodes = {
   resetStatus: document.getElementById('resetStatus'),
   statTotal: document.getElementById('statTotal'),
   statActive: document.getElementById('statActive'),
-  statPayout: document.getElementById('statPayout'),
   statCharges: document.getElementById('statCharges'),
   orders: document.getElementById('orders'),
   resetPanel: document.getElementById('resetPanel'),
@@ -160,10 +159,6 @@ function renderOrders(orders) {
           <div>${formatEtaSource(order.tracking.etaSource)}</div>
         </div>
         <div class="meta">
-          <div><strong>Courier pay for this trip</strong></div>
-          <div>${currency(order.tripEarnings, order.displayCurrency || currentProfile?.currency)}</div>
-        </div>
-        <div class="meta">
           <div><strong>Store charge for this trip</strong></div>
           <div>${currency(order.companyCharge, order.displayCurrency || currentProfile?.currency)}</div>
         </div>
@@ -187,7 +182,6 @@ async function refreshDashboard() {
     nodes.storeSummary.textContent = `${profile.name} | ${String(profile.currency || 'AED').toUpperCase()} | ${profile.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)'}`;
     nodes.statTotal.textContent = report.totalOrders;
     nodes.statActive.textContent = report.activeOrders;
-    nodes.statPayout.textContent = currency(report.totalDriverPayout, profile.currency);
     nodes.statCharges.textContent = currency(report.totalRestaurantCharges, profile.currency);
     renderTrackingSettings(profile);
     renderOrders(orders);

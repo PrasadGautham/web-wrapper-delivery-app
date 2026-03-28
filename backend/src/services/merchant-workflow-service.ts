@@ -1,31 +1,29 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-  DistancePricingRule,
   MerchantProfile,
   MerchantRecord,
   MerchantReport,
-  RestaurantOrderView,
-  RestaurantProfile,
+  MerchantRestaurantProfile,
   RestaurantRecord,
   RestaurantReport,
   RestaurantStaffRole,
   RestaurantStaffUserProfile,
+  StoreOrderView,
   DriverOfferSettings,
 } from '../domain/models.js';
 import { hashPassword } from '../utils/passwords.js';
 import { BackofficeReadService } from './backoffice-read-service.js';
 import { BackendRuntime } from './backend-runtime.js';
 import { DispatchService } from './dispatch-service.js';
-import { toMerchantProfile, toRestaurantProfile, toRestaurantStaffProfile } from './profile-projections.js';
-import { assertValidPricingRule, normalizePricingRule } from './pricing-rules.js';
+import { toMerchantProfile, toMerchantRestaurantProfile, toRestaurantStaffProfile } from './profile-projections.js';
 
 export class MerchantWorkflowService {
   constructor(
     private readonly runtime: BackendRuntime,
     private readonly dispatchService: DispatchService,
     private readonly restaurantWorkflowService: {
-      getRestaurantOrders(restaurantId: string): Promise<RestaurantOrderView[]>;
+      getRestaurantOrders(restaurantId: string): Promise<StoreOrderView[]>;
       getRestaurantReport(restaurantId: string): Promise<RestaurantReport>;
     },
     private readonly backofficeReadService: BackofficeReadService | null,
@@ -41,13 +39,13 @@ export class MerchantWorkflowService {
     });
   }
 
-  async listMerchantRestaurants(merchantId: string): Promise<RestaurantProfile[]> {
+  async listMerchantRestaurants(merchantId: string): Promise<MerchantRestaurantProfile[]> {
     return this.runtime.withOperationalDb(async (state) =>
-      state.restaurants.filter((restaurant) => restaurant.merchantId === merchantId).map((restaurant) => toRestaurantProfile(restaurant)),
+      state.restaurants.filter((restaurant) => restaurant.merchantId === merchantId).map((restaurant) => toMerchantRestaurantProfile(restaurant)),
     );
   }
 
-  async getMerchantOrders(merchantId: string): Promise<Array<{ restaurant: RestaurantProfile; orders: RestaurantOrderView[] }>> {
+  async getMerchantOrders(merchantId: string): Promise<Array<{ restaurant: MerchantRestaurantProfile; orders: StoreOrderView[] }>> {
     const restaurants = await this.listMerchantRestaurants(merchantId);
     return Promise.all(restaurants.map(async (restaurant) => ({
       restaurant,
@@ -66,7 +64,6 @@ export class MerchantWorkflowService {
       totalOrders: reports.reduce((sum, item) => sum + item.totalOrders, 0),
       activeOrders: reports.reduce((sum, item) => sum + item.activeOrders, 0),
       deliveredOrders: reports.reduce((sum, item) => sum + item.deliveredOrders, 0),
-      totalDriverPayout: Number(reports.reduce((sum, item) => sum + item.totalDriverPayout, 0).toFixed(2)),
       totalRestaurantCharges: Number(reports.reduce((sum, item) => sum + item.totalRestaurantCharges, 0).toFixed(2)),
     };
   }
@@ -138,34 +135,11 @@ export class MerchantWorkflowService {
     });
   }
 
-  async updateRestaurantPricing(
-    merchant: MerchantRecord,
-    restaurantId: string,
-    pricing: { driverPayoutRule: DistancePricingRule; merchantBillingRule: DistancePricingRule },
-  ): Promise<RestaurantProfile> {
-    return this.runtime.withMutableDb(async (db) => {
-      const restaurant = this.requireMerchantRestaurant(db.restaurants, merchant.id, restaurantId);
-      restaurant.pricing = {
-        driverPayoutRule: normalizePricingRule(pricing.driverPayoutRule),
-        merchantBillingRule: normalizePricingRule(pricing.merchantBillingRule),
-      };
-      this.runtime.appendAuditLog(db, {
-        actorType: 'merchant',
-        actorId: merchant.id,
-        action: 'merchant.restaurant-pricing.updated',
-        entityType: 'restaurant',
-        entityId: restaurantId,
-        metadata: pricing as unknown as Record<string, unknown>,
-      });
-      return toRestaurantProfile(restaurant);
-    });
-  }
-
   async updateRestaurantDriverOfferSettings(
     merchant: MerchantRecord,
     restaurantId: string,
     settings: DriverOfferSettings,
-  ): Promise<RestaurantProfile> {
+  ): Promise<MerchantRestaurantProfile> {
     return this.runtime.withMutableDb(async (db) => {
       const restaurant = this.requireMerchantRestaurant(db.restaurants, merchant.id, restaurantId);
       restaurant.driverOfferSettings = { ...settings };
@@ -177,7 +151,7 @@ export class MerchantWorkflowService {
         entityId: restaurantId,
         metadata: settings as unknown as Record<string, unknown>,
       });
-      return toRestaurantProfile(restaurant);
+      return toMerchantRestaurantProfile(restaurant);
     });
   }
 
@@ -185,7 +159,7 @@ export class MerchantWorkflowService {
     merchant: MerchantRecord,
     restaurantId: string,
     settings: RestaurantRecord['trackingSettings'],
-  ): Promise<RestaurantProfile> {
+  ): Promise<MerchantRestaurantProfile> {
     return this.runtime.withMutableDb(async (db) => {
       const restaurant = this.requireMerchantRestaurant(db.restaurants, merchant.id, restaurantId);
       restaurant.trackingSettings = { ...settings };
@@ -197,7 +171,7 @@ export class MerchantWorkflowService {
         entityId: restaurantId,
         metadata: settings as unknown as Record<string, unknown>,
       });
-      return toRestaurantProfile(restaurant);
+      return toMerchantRestaurantProfile(restaurant);
     });
   }
   private requireMerchantRestaurant(restaurants: RestaurantRecord[], merchantId: string, restaurantId: string): RestaurantRecord {

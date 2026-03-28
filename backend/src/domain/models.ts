@@ -270,15 +270,22 @@ export interface RestaurantOrderTracking {
   etaSource: 'google-routes' | 'live-driver-location' | 'static-estimate' | 'not-available';
 }
 
-export interface RestaurantOrderView extends OrderRecord {
+export interface StoreOrderView extends Omit<OrderRecord, 'tripEarnings'> {
   tracking: RestaurantOrderTracking;
+}
+
+export interface RestaurantPortalProfile extends Omit<RestaurantProfile, 'pricing'> {}
+
+export interface MerchantRestaurantProfile extends Omit<RestaurantProfile, 'pricing'> {
+  pricing: {
+    merchantBillingRule: DistancePricingRule;
+  };
 }
 
 export interface RestaurantReport {
   totalOrders: number;
   activeOrders: number;
   deliveredOrders: number;
-  totalDriverPayout: number;
   totalRestaurantCharges: number;
 }
 
@@ -287,7 +294,6 @@ export interface MerchantReport {
   totalOrders: number;
   activeOrders: number;
   deliveredOrders: number;
-  totalDriverPayout: number;
   totalRestaurantCharges: number;
 }
 

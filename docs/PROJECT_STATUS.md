@@ -50,7 +50,7 @@ Current business separation:
 - Restaurant portal: `/restaurant`
 - browser portals use HttpOnly cookie sessions
 - merchant and restaurant portals use SSE live updates
-- admin and merchant pricing, tracking, and driver-offer display controls are available in the UI
+- tenant admin pricing controls are available in the UI, while merchant is limited to tracking and driver-offer display controls
 
 ### Flutter Driver App
 
@@ -108,9 +108,9 @@ The local seed source is [seed.json](/c:/dev/DriverApp/backend/data/seed.json). 
 
 Common demo accounts:
 - Platform admin: `admin@demo.com` / `Password123`
-- Platform ops admin: `ops@demo.com` / `Password123`
-- Tenant admin: `falafel.admin@demo.com` / `Password123`
-- Tenant admin: `burger.admin@demo.com` / `Password123`
+- Platform ops admin: `platform.ops@demo.com` / `Password123`
+- Tenant admin: `desertfleet.admin@demo.com` / `Password123`
+- Tenant admin: `metrofleet.admin@demo.com` / `Password123`
 - Merchant owner: `falafel.group@demo.com` / `Password123`
 - Merchant manager: `falafel.ops@demo.com` / `Password123`
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
