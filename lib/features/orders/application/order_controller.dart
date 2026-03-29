@@ -239,7 +239,7 @@ class OrderController extends StateNotifier<OrderState> {
       final nextActiveOrders = _sortActiveOrders(_upsertOrder(state.activeOrders, updated));
       state = state.copyWith(
         activeOrders: nextActiveOrders,
-        selectedActiveOrderId: updated.id,
+        selectedActiveOrderId: _resolveSelectedActiveId(nextActiveOrders, null),
         isLoading: false,
       );
     } catch (error) {
@@ -392,12 +392,12 @@ class OrderController extends StateNotifier<OrderState> {
 
   int _activeOrderPriority(Order order) {
     switch (order.status) {
+      case OrderStatus.atRestaurant:
+        return 0;
+      case OrderStatus.accepted:
+        return 1;
       case OrderStatus.pickedUp:
       case OrderStatus.delivering:
-        return 0;
-      case OrderStatus.atRestaurant:
-        return 1;
-      case OrderStatus.accepted:
         return 2;
       case OrderStatus.pending:
         return 3;
