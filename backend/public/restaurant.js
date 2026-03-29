@@ -12,6 +12,7 @@ let currentReport = null;
 let currentOrders = [];
 let currentView = 'dashboard';
 let reportFilterState = { preset: 'last30', startDate: '', endDate: '' };
+let sessionEpoch = 0;
 
 const nodes = {
   sessionStatus: document.getElementById('sessionStatus'),
@@ -196,6 +197,7 @@ function renderReports(profile, report, orders) {
 }
 
 function clearDashboard() {
+  sessionEpoch += 1;
   currentProfile = null;
   currentReport = null;
   currentOrders = [];
@@ -221,7 +223,23 @@ function clearDashboard() {
   setSessionUi();
 }
 
+async function bootstrapSession() {
+  const session = await request('/api/auth/restaurant/session', {}, false);
+  if (!session.authenticated) {
+    hasSession = false;
+    clearDashboard();
+    return false;
+  }
+  hasSession = true;
+  currentProfile = session;
+  nodes.sessionStatus.textContent = `Logged in as ${session.name}`;
+  nodes.gateStatus.textContent = `Logged in as ${session.name}`;
+  setSessionUi();
+  return true;
+}
+
 async function refreshDashboard() {
+  const epoch = sessionEpoch;
   try {
     const query = rangeQueryString();
     const [profile, report, orders] = await Promise.all([
@@ -232,6 +250,7 @@ async function refreshDashboard() {
     hasSession = true;
     currentProfile = profile;
     currentReport = report;
+    if (epoch !== sessionEpoch || !hasSession) return;
     currentOrders = orders;
     nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
     nodes.gateStatus.textContent = `Logged in as ${profile.name}`;
@@ -256,14 +275,15 @@ function stopStream() { if (stream) { stream.close(); stream = null; } }
 async function connectStream() {
   stopStream();
   if (!hasSession) return;
+  const epoch = sessionEpoch;
   try {
     const { ticket } = await request('/api/auth/restaurant/stream-ticket', { method: 'POST' });
     stream = new EventSource(`/api/restaurants/me/stream?ticket=${encodeURIComponent(ticket)}`);
     setConnectionState('Connecting to live restaurant updates...', false);
-    stream.addEventListener('ready', () => { setConnectionState('Live restaurant updates connected.', true); });
-    stream.addEventListener('restaurant-updated', async () => { await refreshDashboard().catch((error) => console.error(error)); });
-    stream.addEventListener('ping', () => { setConnectionState('Live restaurant updates connected.', true); });
-    stream.onerror = () => { setConnectionState('Realtime link interrupted. Reconnecting...', false); stopStream(); setTimeout(() => { connectStream().catch((error) => console.error(error)); }, 2000); };
+    stream.addEventListener('ready', () => { if (epoch === sessionEpoch && hasSession) setConnectionState('Live restaurant updates connected.', true); });
+    stream.addEventListener('restaurant-updated', async () => { if (epoch === sessionEpoch && hasSession) await refreshDashboard().catch((error) => console.error(error)); });
+    stream.addEventListener('ping', () => { if (epoch === sessionEpoch && hasSession) setConnectionState('Live restaurant updates connected.', true); });
+    stream.onerror = () => { if (epoch !== sessionEpoch || !hasSession) return; setConnectionState('Realtime link interrupted. Reconnecting...', false); stopStream(); setTimeout(() => { if (epoch === sessionEpoch && hasSession) connectStream().catch((error) => console.error(error)); }, 2000); };
   } catch (error) {
     setConnectionState(`Realtime unavailable: ${error.message}`, false);
   }
@@ -280,17 +300,20 @@ function getLoginCredentials() {
 
 async function login() {
   await request('/api/auth/restaurant/login', { method: 'POST', body: JSON.stringify(getLoginCredentials()) }, false);
-  hasSession = true;
+  const authenticated = await bootstrapSession();
+  if (!authenticated) throw new Error('Unable to establish restaurant session.');
   await refreshDashboard();
   await connectStream();
 }
 
 async function logout() {
+  const shouldLogout = hasSession;
+  hasSession = false;
+  stopStream();
+  sessionEpoch += 1;
   try {
-    if (hasSession) await request('/api/auth/restaurant/logout', { method: 'POST' }, false);
+    if (shouldLogout) await request('/api/auth/restaurant/logout', { method: 'POST' }, false);
   } finally {
-    hasSession = false;
-    stopStream();
     clearDashboard();
   }
 }
@@ -366,4 +389,4 @@ document.querySelectorAll('[data-view]').forEach((button) => { button.addEventLi
 clearDashboard();
 updateFilterInputs();
 setView(currentView);
-refreshDashboard().then(() => connectStream()).catch(() => {});
+bootstrapSession().then((authenticated) => { if (authenticated) return refreshDashboard().then(() => connectStream()); return null; }).catch(() => {});

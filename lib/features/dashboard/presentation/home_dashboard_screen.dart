@@ -18,6 +18,9 @@ class HomeDashboardScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final dashboard = ref.watch(dashboardControllerProvider);
     final orders = ref.watch(orderControllerProvider);
+    final secondsRemaining = orders.secondsRemaining == null
+        ? 0
+        : (orders.secondsRemaining! < 0 ? 0 : orders.secondsRemaining!);
 
     return AppShell(
       title: l10n.text('dashboard'),
@@ -79,8 +82,8 @@ class HomeDashboardScreen extends ConsumerWidget {
                           ref.read(dashboardControllerProvider.notifier).toggleOnline(value),
                       title: Text(
                         dashboard.driver?.isOnline == true
-                            ? 'Available for orders'
-                            : 'Go online to receive orders',
+                            ? 'Available to receive orders'
+                            : 'Go online to receive new orders',
                       ),
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -95,7 +98,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                 child: ListTile(
                   title: Text(orders.incomingOrder!.restaurant.name),
                   subtitle: Text(
-                    'Incoming request • ${orders.secondsRemaining ?? 0}s remaining',
+                    'Incoming delivery request • ${secondsRemaining}s remaining',
                   ),
                   trailing: FilledButton(
                     onPressed: () => context.push('/incoming-order'),
@@ -142,13 +145,13 @@ class HomeDashboardScreen extends ConsumerWidget {
                 subtitle: Text(
                   orders.activeOrder == null
                       ? l10n.text('noActiveOrder')
-                      : '${orders.activeOrder!.restaurant.name} -> ${orders.activeOrder!.customer.address}',
+                      : '${orders.activeOrder!.restaurant.name} to ${orders.activeOrder!.customer.address}',
                 ),
                 trailing: orders.activeOrder == null
                     ? null
                     : FilledButton(
                         onPressed: () => context.push('/navigation'),
-                        child: const Text('Track'),
+                        child: const Text('Open trip'),
                       ),
               ),
             ),

@@ -59,13 +59,18 @@ export async function registerRestaurantRoutes(
   restaurantRealtime: RestaurantRealtimeService,
 ): Promise<void> {
   app.addHook('preHandler', async (request, reply) => {
+    const isRestaurantSessionRoute = request.url.startsWith('/api/auth/restaurant/session');
     if (
       (!request.url.startsWith('/api/restaurants') || request.url.startsWith('/api/restaurants/me/stream')) &&
-      !request.url.startsWith('/api/auth/restaurant/session') &&
+      !isRestaurantSessionRoute &&
       !request.url.startsWith('/api/auth/restaurant/logout') &&
       !request.url.startsWith('/api/auth/restaurant/refresh') &&
       !request.url.startsWith('/api/auth/restaurant/stream-ticket')
     ) {
+      return;
+    }
+
+    if (isRestaurantSessionRoute) {
       return;
     }
 
@@ -99,8 +104,13 @@ export async function registerRestaurantRoutes(
   });
 
   app.get('/api/auth/restaurant/session', async (request) => {
-    const authedRequest = request as RestaurantAuthedRequest;
-    return backendService.getRestaurantProfile(authedRequest.restaurantId);
+    try {
+      const session = resolveAuthSession(request, 'restaurant');
+      const restaurant = await backendService.requireRestaurantFromToken(session.token);
+      return { authenticated: true, ...(await backendService.getRestaurantProfile(restaurant.id)) };
+    } catch {
+      return { authenticated: false };
+    }
   });
 
   app.post('/api/auth/restaurant/refresh', async (request, reply) => {

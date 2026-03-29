@@ -30,6 +30,7 @@ let reportFilterState = {
   startDate: '',
   endDate: '',
 };
+let sessionEpoch = 0;
 
 
 const nodes = {
@@ -186,6 +187,7 @@ function updateFilterInputs() {
 }
 
 function clearSessionState(message = 'Merchant session expired. Please log in again.') {
+  sessionEpoch += 1;
   hasSession = false;
   currentProfile = null;
   stopStream();
@@ -383,12 +385,14 @@ function renderReports(groups, report) {
 }
 
 async function refreshStaffList() {
+  const epoch = sessionEpoch;
   const restaurantId = nodes.restaurantSelect.value;
   if (!restaurantId || !hasSession) {
     renderEmpty(nodes.staffList, 'Select a store after login to review staff.');
     return;
   }
   const staffUsers = await request(`/api/merchant/me/restaurants/${restaurantId}/staff-users`);
+  if (epoch != sessionEpoch || !hasSession) return;
   if (!staffUsers.length) {
     renderEmpty(nodes.staffList, 'No staff users yet for this store.');
     return;
@@ -403,6 +407,7 @@ async function refreshStaffList() {
 }
 
 async function refreshDashboard() {
+  const epoch = sessionEpoch;
   try {
     const query = rangeQueryString();
     const [profile, report, restaurantList, orderGroups] = await Promise.all([
@@ -415,6 +420,7 @@ async function refreshDashboard() {
     currentProfile = profile;
     restaurants = restaurantList;
     latestReport = report;
+    if (epoch !== sessionEpoch || !hasSession) return;
     latestOrderGroups = orderGroups;
     nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
     nodes.gateStatus.textContent = `Logged in as ${profile.name}`;
@@ -437,9 +443,24 @@ function stopStream() {
   }
 }
 
+async function bootstrapSession() {
+  const session = await request('/api/auth/merchant/session', {}, false);
+  if (!session.authenticated) {
+    clearSessionState('Not logged in');
+    return false;
+  }
+  hasSession = true;
+  currentProfile = session;
+  nodes.sessionStatus.textContent = `Logged in as ${session.name}`;
+  nodes.gateStatus.textContent = `Logged in as ${session.name}`;
+  setSessionUi();
+  return true;
+}
+
 async function connectStream() {
   stopStream();
   if (!hasSession) return;
+  const epoch = sessionEpoch;
   try {
     const { ticket } = await request('/api/auth/merchant/stream-ticket', { method: 'POST' });
     stream = new EventSource(`/api/merchant/me/stream?ticket=${encodeURIComponent(ticket)}`);
@@ -448,13 +469,14 @@ async function connectStream() {
     throw error;
   }
   setConnectionState('Connecting to live merchant updates...', false);
-  stream.addEventListener('ready', () => setConnectionState('Live merchant updates connected.', true));
-  stream.addEventListener('restaurant-updated', () => { refreshDashboard().catch((error) => console.error(error)); });
-  stream.addEventListener('ping', () => setConnectionState('Live merchant updates connected.', true));
+  stream.addEventListener('ready', () => { if (epoch === sessionEpoch && hasSession) setConnectionState('Live merchant updates connected.', true); });
+  stream.addEventListener('restaurant-updated', () => { if (epoch === sessionEpoch && hasSession) refreshDashboard().catch((error) => console.error(error)); });
+  stream.addEventListener('ping', () => { if (epoch === sessionEpoch && hasSession) setConnectionState('Live merchant updates connected.', true); });
   stream.onerror = () => {
+    if (epoch !== sessionEpoch || !hasSession) return;
     setConnectionState('Realtime link interrupted. Reconnecting...', false);
     stopStream();
-    setTimeout(() => connectStream().catch((error) => console.error(error)), 2000);
+    setTimeout(() => { if (epoch === sessionEpoch && hasSession) connectStream().catch((error) => console.error(error)); }, 2000);
   };
 }
 
@@ -473,14 +495,19 @@ async function login() {
     method: 'POST',
     body: JSON.stringify(credentials),
   }, false);
-  hasSession = true;
+  const authenticated = await bootstrapSession();
+  if (!authenticated) throw new Error('Unable to establish merchant session.');
   await refreshDashboard();
   await connectStream();
 }
 
 async function logout() {
+  const shouldLogout = hasSession;
+  hasSession = false;
+  stopStream();
+  sessionEpoch += 1;
   try {
-    if (hasSession) {
+    if (shouldLogout) {
       await request('/api/auth/merchant/logout', { method: 'POST' }, false);
     }
   } finally {
@@ -568,7 +595,7 @@ document.querySelectorAll('[data-view]').forEach((button) => { button.addEventLi
 clearSessionState('Not logged in');
 updateFilterInputs();
 setView(currentView);
-refreshDashboard().then(() => connectStream()).catch(() => {});
+bootstrapSession().then((authenticated) => { if (authenticated) return refreshDashboard().then(() => connectStream()); return null; }).catch(() => {});
 setInterval(() => {
   if (hasSession) {
     refreshSession().catch(() => {});

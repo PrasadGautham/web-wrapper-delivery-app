@@ -134,12 +134,16 @@ export async function registerAdminRoutes(
   restaurantRealtime: RestaurantRealtimeService,
 ): Promise<void> {
   app.addHook('preHandler', async (request, reply) => {
-    const isAdminSessionRoute =
-      request.url.startsWith('/api/auth/admin/session') ||
+    const isAdminSessionRoute = request.url.startsWith('/api/auth/admin/session');
+    const isProtectedAdminAuthRoute =
       request.url.startsWith('/api/auth/admin/logout') ||
       request.url.startsWith('/api/auth/admin/refresh');
 
-    if (!request.url.startsWith('/api/admin') && !isAdminSessionRoute) {
+    if (!request.url.startsWith('/api/admin') && !isAdminSessionRoute && !isProtectedAdminAuthRoute) {
+      return;
+    }
+
+    if (isAdminSessionRoute) {
       return;
     }
 
@@ -189,17 +193,22 @@ export async function registerAdminRoutes(
   });
 
   app.get('/api/auth/admin/session', async (request) => {
-    const authedRequest = request as AdminAuthedRequest;
-    const adminUser = await backendService.requireAdminFromToken(authedRequest.authToken as string);
-    return {
-      id: adminUser.id,
-      name: adminUser.name,
-      email: adminUser.email,
-      role: adminUser.role,
-      tenantId: adminUser.tenantId ?? null,
-      isActive: adminUser.isActive,
-      lastLoginAt: adminUser.lastLoginAt,
-    };
+    try {
+      const session = resolveAuthSession(request, 'admin');
+      const adminUser = await backendService.requireAdminFromToken(session.token);
+      return {
+        authenticated: true,
+        id: adminUser.id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role,
+        tenantId: adminUser.tenantId ?? null,
+        isActive: adminUser.isActive,
+        lastLoginAt: adminUser.lastLoginAt,
+      };
+    } catch {
+      return { authenticated: false };
+    }
   });
 
   app.post('/api/auth/admin/refresh', async (request, reply) => {

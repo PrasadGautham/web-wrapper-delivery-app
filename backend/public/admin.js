@@ -24,6 +24,7 @@ let adminUsers = [];
 let selectedTenantId = '';
 let latestAdminReport = null;
 let reportFilterState = { preset: 'last30', startDate: '', endDate: '' };
+let sessionEpoch = 0;
 
 const PLATFORM_ROLES = new Set(['platformAdmin', 'opsAdmin', 'supportAdmin', 'billingAdmin']);
 const portalSurface = window.location.pathname.includes('/tenant-admin') ? 'tenant' : 'platform';
@@ -332,6 +333,7 @@ function setSessionUi() {
 }
 
 function clearWorkspace() {
+  sessionEpoch += 1;
   tenants = [];
   merchants = [];
   restaurants = [];
@@ -575,21 +577,21 @@ function syncSessionSummary() {
 }
 
 async function refreshDashboard() {
+  if (!hasSession || !sessionInfo) throw new Error('No active session');
+  const epoch = sessionEpoch;
   try {
-    const [session, tenantRows, merchantRows, restaurantRows, driverRows, adminRows] = await Promise.all([
-      request('/api/auth/admin/session', {}, false),
+    const [tenantRows, merchantRows, restaurantRows, driverRows, adminRows] = await Promise.all([
       request('/api/admin/tenants', {}, false),
       request('/api/admin/merchants', {}, false),
       request('/api/admin/restaurants', {}, false),
       request('/api/admin/drivers', {}, false),
       request('/api/admin/admin-users', {}, false),
     ]);
-    hasSession = true;
-    sessionInfo = session;
     tenants = tenantRows;
     merchants = merchantRows;
     restaurants = restaurantRows;
     drivers = driverRows;
+    if (epoch !== sessionEpoch || !hasSession || !sessionInfo) return;
     adminUsers = adminRows;
     if (!selectedTenantId || (isPlatformAdmin() && !tenants.some((tenant) => tenant.id === selectedTenantId))) {
       selectedTenantId = isPlatformAdmin() ? (tenants[0]?.id || '') : (sessionInfo.tenantId || '');
@@ -630,22 +632,41 @@ async function login() {
     method: 'POST',
     body: JSON.stringify(getLoginCredentials()),
   }, false);
-  hasSession = true;
+  const authenticated = await bootstrapSession();
+  if (!authenticated) throw new Error('Unable to establish admin session.');
   await refreshDashboard();
 }
 
 async function logout() {
+  const shouldLogout = hasSession;
+  hasSession = false;
+  sessionEpoch += 1;
   try {
-    if (hasSession) {
+    if (shouldLogout) {
       await request('/api/auth/admin/logout', { method: 'POST' }, false);
     }
   } finally {
-    hasSession = false;
     sessionInfo = null;
     selectedTenantId = '';
     clearWorkspace();
     syncSessionSummary();
   }
+}
+
+async function bootstrapSession() {
+  const session = await request('/api/auth/admin/session', {}, false);
+  if (!session.authenticated) {
+    hasSession = false;
+    sessionInfo = null;
+    selectedTenantId = '';
+    clearWorkspace();
+    syncSessionSummary();
+    return false;
+  }
+  hasSession = true;
+  sessionInfo = session;
+  syncSessionSummary();
+  return true;
 }
 
 function createTenantScope(selectNode) {
@@ -889,5 +910,5 @@ applySurfaceBranding();
 clearWorkspace();
 updateReportFiltersUi();
 setSessionUi();
-refreshDashboard().catch(() => {});
+bootstrapSession().then((authenticated) => { if (authenticated) return refreshDashboard(); return null; }).catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);

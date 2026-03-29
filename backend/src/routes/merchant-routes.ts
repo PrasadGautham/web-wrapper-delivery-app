@@ -69,13 +69,18 @@ export async function registerMerchantRoutes(
   restaurantRealtime: RestaurantRealtimeService,
 ): Promise<void> {
   app.addHook('preHandler', async (request, reply) => {
+    const isMerchantSessionRoute = request.url.startsWith('/api/auth/merchant/session');
     if (
       (!request.url.startsWith('/api/merchant') || request.url.startsWith('/api/merchant/me/stream')) &&
-      !request.url.startsWith('/api/auth/merchant/session') &&
+      !isMerchantSessionRoute &&
       !request.url.startsWith('/api/auth/merchant/logout') &&
       !request.url.startsWith('/api/auth/merchant/refresh') &&
       !request.url.startsWith('/api/auth/merchant/stream-ticket')
     ) {
+      return;
+    }
+
+    if (isMerchantSessionRoute) {
       return;
     }
 
@@ -109,8 +114,13 @@ export async function registerMerchantRoutes(
   });
 
   app.get('/api/auth/merchant/session', async (request) => {
-    const authedRequest = request as MerchantAuthedRequest;
-    return backendService.getMerchantProfile(authedRequest.merchantId);
+    try {
+      const session = resolveAuthSession(request, 'merchant');
+      const merchant = await backendService.requireMerchantFromToken(session.token);
+      return { authenticated: true, ...(await backendService.getMerchantProfile(merchant.id)) };
+    } catch {
+      return { authenticated: false };
+    }
   });
 
   app.post('/api/auth/merchant/refresh', async (request, reply) => {
