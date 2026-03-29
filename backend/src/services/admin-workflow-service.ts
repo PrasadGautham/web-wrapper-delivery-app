@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  AdminOperationsReport,
+  AdminOrderReportView,
   AdminRole,
   AdminUserProfile,
   DistancePricingRule,
@@ -13,6 +15,7 @@ import {
   MerchantUserProfile,
   MerchantUserRole,
   MerchantView,
+  OrderStatus,
   TenantProfile,
   TenantRecord,
   RestaurantProfile,
@@ -35,6 +38,7 @@ import {
 } from './profile-projections.js';
 import { WorkflowStoreContract } from './store-contract.js';
 import { assertValidPricingRule, normalizePricingRule } from './pricing-rules.js';
+import { orderFallsWithinRange, ReportDateRange } from '../utils/reporting.js';
 
 function createAuditLog(input: Omit<AuditLogRecord, 'id' | 'at'>): AuditLogRecord {
   return {
@@ -118,6 +122,135 @@ export class AdminWorkflowService {
         .filter((item) => isPlatformAdmin(adminUser.role) || item.tenantId === adminUser.tenantId)
         .map((item) => toAdminUserProfile(item)),
     );
+  }
+
+
+  async getOrdersReport(
+    adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' },
+    range: ReportDateRange = {},
+    requestedTenantId?: string,
+  ): Promise<AdminOrderReportView[]> {
+    const scopedTenantId = this.resolveReportTenantId(adminUser, requestedTenantId);
+    return this.runtime.withDb(async (db) => {
+      this.dispatchService.tick(db as never);
+      const tenantById = new Map(db.tenants.map((tenant) => [tenant.id, tenant]));
+      const merchantById = new Map(db.merchants.map((merchant) => [merchant.id, merchant]));
+      const restaurantById = new Map(db.restaurants.map((restaurant) => [restaurant.id, restaurant]));
+      const driverById = new Map(db.drivers.map((driver) => [driver.id, driver]));
+
+      return db.orders
+        .filter((order) => (!scopedTenantId || order.tenantId == scopedTenantId) && orderFallsWithinRange(order.createdAt, range))
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .map((order) => {
+          const tenant = tenantById.get(order.tenantId);
+          const restaurant = restaurantById.get(order.restaurantId);
+          const merchant = restaurant ? merchantById.get(restaurant.merchantId) : null;
+          const driver = order.assignedDriverId ? driverById.get(order.assignedDriverId) : null;
+          return {
+            id: order.id,
+            tenantId: order.tenantId,
+            tenantName: tenant?.name || order.tenantId,
+            merchantId: merchant?.id || restaurant?.merchantId || '',
+            merchantName: merchant?.name || 'Unknown merchant group',
+            restaurantId: order.restaurantId,
+            restaurantName: restaurant?.name || order.restaurant.name,
+            assignedDriverId: order.assignedDriverId,
+            assignedDriverName: driver?.name || null,
+            customerName: order.customer.name,
+            destinationAddress: order.customer.address,
+            deliveryArea: order.deliveryArea,
+            status: order.status,
+            createdAt: order.createdAt,
+            deliveredAt: order.deliveredAt,
+            storeCharge: Number(order.companyCharge.toFixed(2)),
+            driverPay: Number(order.tripEarnings.toFixed(2)),
+            currency: order.displayCurrency || restaurant?.currency || 'AED',
+          };
+        });
+    });
+  }
+
+  async getOperationsReport(
+    adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' },
+    range: ReportDateRange = {},
+    requestedTenantId?: string,
+  ): Promise<AdminOperationsReport> {
+    const rows = await this.getOrdersReport(adminUser, range, requestedTenantId);
+    const activeStatuses = new Set<OrderStatus>(['queued', 'pending', 'accepted', 'atRestaurant', 'pickedUp']);
+    const totalOrders = rows.length;
+    const activeOrders = rows.filter((row) => activeStatuses.has(row.status)).length;
+    const deliveredOrders = rows.filter((row) => row.status === 'delivered').length;
+    const totalStoreCharges = Number(rows.reduce((sum, row) => sum + row.storeCharge, 0).toFixed(2));
+    const totalDriverPay = Number(rows.reduce((sum, row) => sum + row.driverPay, 0).toFixed(2));
+
+    const statusMap = new Map<string, number>();
+    const tenantMap = new Map<string, { tenantId: string; tenantName: string; totalOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
+    const merchantMap = new Map<string, { merchantId: string; merchantName: string; totalOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
+    const storeMap = new Map<string, { restaurantId: string; restaurantName: string; totalOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
+    const driverMap = new Map<string, { driverId: string; driverName: string; totalOrders: number; activeOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
+    const dayMap = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
+
+    for (const row of rows) {
+      statusMap.set(row.status, (statusMap.get(row.status) || 0) + 1);
+
+      const tenant = tenantMap.get(row.tenantId) || { tenantId: row.tenantId, tenantName: row.tenantName, totalOrders: 0, deliveredOrders: 0, totalStoreCharges: 0, totalDriverPay: 0 };
+      tenant.totalOrders += 1;
+      tenant.deliveredOrders += row.status === 'delivered' ? 1 : 0;
+      tenant.totalStoreCharges += row.storeCharge;
+      tenant.totalDriverPay += row.driverPay;
+      tenantMap.set(row.tenantId, tenant);
+
+      const merchant = merchantMap.get(row.merchantId) || { merchantId: row.merchantId, merchantName: row.merchantName, totalOrders: 0, deliveredOrders: 0, totalStoreCharges: 0, totalDriverPay: 0 };
+      merchant.totalOrders += 1;
+      merchant.deliveredOrders += row.status === 'delivered' ? 1 : 0;
+      merchant.totalStoreCharges += row.storeCharge;
+      merchant.totalDriverPay += row.driverPay;
+      merchantMap.set(row.merchantId, merchant);
+
+      const store = storeMap.get(row.restaurantId) || { restaurantId: row.restaurantId, restaurantName: row.restaurantName, totalOrders: 0, deliveredOrders: 0, totalStoreCharges: 0, totalDriverPay: 0 };
+      store.totalOrders += 1;
+      store.deliveredOrders += row.status === 'delivered' ? 1 : 0;
+      store.totalStoreCharges += row.storeCharge;
+      store.totalDriverPay += row.driverPay;
+      storeMap.set(row.restaurantId, store);
+
+      if (row.assignedDriverId && row.assignedDriverName) {
+        const driver = driverMap.get(row.assignedDriverId) || { driverId: row.assignedDriverId, driverName: row.assignedDriverName, totalOrders: 0, activeOrders: 0, deliveredOrders: 0, totalStoreCharges: 0, totalDriverPay: 0 };
+        driver.totalOrders += 1;
+        driver.activeOrders += activeStatuses.has(row.status) ? 1 : 0;
+        driver.deliveredOrders += row.status === 'delivered' ? 1 : 0;
+        driver.totalStoreCharges += row.storeCharge;
+        driver.totalDriverPay += row.driverPay;
+        driverMap.set(row.assignedDriverId, driver);
+      }
+
+      const dateKey = row.createdAt.slice(0, 10);
+      const day = dayMap.get(dateKey) || { date: dateKey, totalOrders: 0, deliveredOrders: 0, totalStoreCharges: 0, totalDriverPay: 0 };
+      day.totalOrders += 1;
+      day.deliveredOrders += row.status === 'delivered' ? 1 : 0;
+      day.totalStoreCharges += row.storeCharge;
+      day.totalDriverPay += row.driverPay;
+      dayMap.set(dateKey, day);
+    }
+
+    const roundMoneyRows = <T extends { totalStoreCharges: number; totalDriverPay: number }>(items: T[]) => items.map((item) => ({ ...item, totalStoreCharges: Number(item.totalStoreCharges.toFixed(2)), totalDriverPay: Number(item.totalDriverPay.toFixed(2)) }));
+
+    return {
+      totalOrders,
+      activeOrders,
+      deliveredOrders,
+      totalStoreCharges,
+      totalDriverPay,
+      averageStoreCharge: totalOrders ? Number((totalStoreCharges / totalOrders).toFixed(2)) : 0,
+      averageDriverPay: totalOrders ? Number((totalDriverPay / totalOrders).toFixed(2)) : 0,
+      completionRate: totalOrders ? Number(((deliveredOrders / totalOrders) * 100).toFixed(1)) : 0,
+      statusMix: Array.from(statusMap.entries()).map(([status, count]) => ({ status, count })).sort((left, right) => right.count - left.count),
+      byTenant: roundMoneyRows(Array.from(tenantMap.values()).sort((left, right) => right.totalOrders - left.totalOrders)),
+      byMerchantGroup: roundMoneyRows(Array.from(merchantMap.values()).sort((left, right) => right.totalOrders - left.totalOrders)),
+      byStore: roundMoneyRows(Array.from(storeMap.values()).sort((left, right) => right.totalOrders - left.totalOrders)),
+      byDriver: roundMoneyRows(Array.from(driverMap.values()).sort((left, right) => right.totalOrders - left.totalOrders)),
+      byDay: roundMoneyRows(Array.from(dayMap.values()).sort((left, right) => left.date.localeCompare(right.date))),
+    };
   }
 
   async createTenant(input: { name: string; slug: string }): Promise<TenantProfile> {
@@ -643,6 +776,23 @@ export class AdminWorkflowService {
       return toRestaurantProfile(restaurant);
     });
   }
+
+  private resolveReportTenantId(
+    adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' },
+    requestedTenantId?: string,
+  ): string | null {
+    if (isPlatformAdmin(adminUser.role)) {
+      return requestedTenantId || null;
+    }
+    if (!adminUser.tenantId) {
+      throw new Error('Tenant admin is not attached to a tenant.');
+    }
+    if (requestedTenantId && requestedTenantId !== adminUser.tenantId) {
+      throw new Error('Unauthorized tenant scope.');
+    }
+    return adminUser.tenantId;
+  }
+
   private resolveManagedTenantId(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, requestedTenantId?: string): string {
     if (isPlatformAdmin(adminUser.role)) {
       if (!requestedTenantId) {

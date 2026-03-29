@@ -1,3 +1,21 @@
+import { resolveLoginCredentials } from './shared/auth.js';
+import { describeDateRange, resolveDateRange } from './shared/date-range.js';
+import { renderEmpty } from './shared/dom.js';
+import {
+  distanceUnitShort,
+  distanceUnitWord,
+  escapeHtml,
+  formatDistance,
+  formatEtaSource,
+  formatMinutes,
+  formatMoney,
+  formatStatus,
+  normalizeCurrencyCode,
+  summarizePricingRule,
+  toDisplayDistance,
+  toDisplayRate,
+} from './shared/formatting.js';
+
 const apiBase = '';
 let hasSession = false;
 let stream = null;
@@ -13,8 +31,6 @@ let reportFilterState = {
   endDate: '',
 };
 
-const MILES_PER_KILOMETER = 0.621371;
-const KILOMETERS_PER_MILE = 1.609344;
 
 const nodes = {
   connectionDot: document.getElementById('connectionDot'),
@@ -41,6 +57,8 @@ const nodes = {
   reportOrdersPerStore: document.getElementById('reportOrdersPerStore'),
   reportStoreVolume: document.getElementById('reportStoreVolume'),
   reportStoreCharges: document.getElementById('reportStoreCharges'),
+  reportCourierPerformance: document.getElementById('reportCourierPerformance'),
+  reportDailyVolume: document.getElementById('reportDailyVolume'),
   reportStatusMix: document.getElementById('reportStatusMix'),
   dashboardView: document.getElementById('dashboardView'),
   reportsView: document.getElementById('reportsView'),
@@ -58,69 +76,6 @@ const nodes = {
 
 function currentRestaurant() {
   return restaurants.find((item) => item.id === nodes.restaurantSelect.value) || restaurants[0] || null;
-}
-
-function normalizeCurrencyCode(value) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function formatMoney(value, code = 'AED') {
-  const normalized = normalizeCurrencyCode(code) || 'AED';
-  try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency: normalized, minimumFractionDigits: 2 }).format(Number(value || 0));
-  } catch {
-    return `${normalized} ${Number(value || 0).toFixed(2)}`;
-  }
-}
-
-function toDisplayDistance(kmValue, unit = 'kilometer') {
-  const numeric = Number(kmValue || 0);
-  return unit === 'mile' ? numeric * MILES_PER_KILOMETER : numeric;
-}
-
-function toDisplayRate(perKmValue, unit = 'kilometer') {
-  const numeric = Number(perKmValue || 0);
-  return unit === 'mile' ? numeric * KILOMETERS_PER_MILE : numeric;
-}
-
-function distanceUnitShort(unit = 'kilometer') {
-  return unit === 'mile' ? 'mi' : 'km';
-}
-
-function distanceUnitWord(unit = 'kilometer') {
-  return unit === 'mile' ? 'mile' : 'km';
-}
-
-function formatDistance(kmValue, unit = 'kilometer') {
-  return `${toDisplayDistance(kmValue, unit).toFixed(1)} ${distanceUnitShort(unit)}`;
-}
-
-function summarizePricingRule(rule, code, unit = 'kilometer') {
-  const included = toDisplayDistance(rule.includedDistanceKm || 0, unit);
-  const extraRate = toDisplayRate(rule.additionalPerKm || 0, unit);
-  if (Number(extraRate) <= 0) {
-    return `${formatMoney(rule.baseAmount, code)} flat per delivery`;
-  }
-  return `${formatMoney(rule.baseAmount, code)} includes ${included.toFixed(1)} ${distanceUnitShort(unit)}, then ${formatMoney(extraRate, code)} per extra ${distanceUnitWord(unit)}`;
-}
-
-function formatStatus(value) {
-  if (!value) return 'Unknown';
-  if (value === 'inTransit') return 'In transit';
-  return value.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase());
-}
-
-function formatMinutes(value) {
-  if (value == null) return 'Not available';
-  return `${value} min`;
-}
-
-function formatEtaSource(value) {
-  if (!value || value === 'not-available') return 'Not available';
-  if (value === 'static-estimate') return 'Static estimate';
-  if (value === 'live-driver-location') return 'Live driver location';
-  if (value === 'google-routes') return 'Google traffic routing';
-  return value;
 }
 
 function computeStatusCounts(groups) {
@@ -164,15 +119,6 @@ function averageCharge(groups) {
   return formatMoney(total / allOrders.length, allOrders[0].currency);
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function setConnectionState(text, live) {
   nodes.connectionText.textContent = text;
   nodes.connectionDot.classList.toggle('live', Boolean(live));
@@ -186,10 +132,6 @@ function setView(view) {
   document.querySelectorAll('[data-view]').forEach((button) => {
     button.classList.toggle('active', button.dataset.view === view);
   });
-}
-
-function renderEmpty(target, message) {
-  target.innerHTML = `<div class="empty">${escapeHtml(message)}</div>`;
 }
 
 function setSessionUi() {
@@ -207,36 +149,8 @@ function setSessionUi() {
   `;
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function dateOffsetIso(days) {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function monthStartIso() {
-  const date = new Date();
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-  return start.toISOString().slice(0, 10);
-}
-
 function getActiveRange() {
-  const preset = reportFilterState.preset;
-  if (preset === 'all') return {};
-  if (preset === 'today') {
-    const today = todayIso();
-    return { startDate: today, endDate: today };
-  }
-  if (preset === 'last7') return { startDate: dateOffsetIso(-6), endDate: todayIso() };
-  if (preset === 'last30') return { startDate: dateOffsetIso(-29), endDate: todayIso() };
-  if (preset === 'thisMonth') return { startDate: monthStartIso(), endDate: todayIso() };
-  return {
-    startDate: reportFilterState.startDate || undefined,
-    endDate: reportFilterState.endDate || undefined,
-  };
+  return resolveDateRange(reportFilterState);
 }
 
 function rangeQueryString() {
@@ -444,7 +358,6 @@ function renderOrders(groups) {
 }
 
 function renderReports(groups, report) {
-  const statusCounts = computeStatusCounts(groups);
   nodes.reportDelivered.textContent = String(report.deliveredOrders || 0);
   nodes.reportActiveShare.textContent = report.totalOrders ? `${Math.round((report.activeOrders / report.totalOrders) * 100)}%` : '0%';
   nodes.reportAverageCharge.textContent = averageCharge(groups);
@@ -453,22 +366,20 @@ function renderReports(groups, report) {
   if (!groups.length) {
     renderEmpty(nodes.reportStoreVolume, 'No store data yet for the selected range.');
     renderEmpty(nodes.reportStoreCharges, 'No billing data yet for the selected range.');
+    renderEmpty(nodes.reportCourierPerformance, 'No courier performance yet for the selected range.');
+    renderEmpty(nodes.reportDailyVolume, 'No day-by-day activity yet for the selected range.');
     renderEmpty(nodes.reportStatusMix, 'No operational mix yet for the selected range.');
     return;
   }
 
-  const volumeRows = groups.map((group) => ({ name: group.restaurant.name, value: group.orders.length })).sort((a, b) => b.value - a.value);
-  const chargeRows = groups.map((group) => ({ name: group.restaurant.name, value: group.orders.reduce((sum, order) => sum + Number(order.companyCharge || 0), 0), currency: group.restaurant.currency })).sort((a, b) => b.value - a.value);
-
-  nodes.reportStoreVolume.innerHTML = volumeRows.map((row) => `<div class="list-row"><span>${escapeHtml(row.name)}</span><strong>${row.value}</strong></div>`).join('');
-  nodes.reportStoreCharges.innerHTML = chargeRows.map((row) => `<div class="list-row"><span>${escapeHtml(row.name)}</span><strong>${formatMoney(row.value, row.currency)}</strong></div>`).join('');
-  nodes.reportStatusMix.innerHTML = [
-    ['Queued', statusCounts.queued],
-    ['Assigned / pending', statusCounts.assigned],
-    ['At store', statusCounts.atStore],
-    ['In transit', statusCounts.inTransit],
-    ['Delivered', statusCounts.delivered],
-  ].map(([label, value]) => `<div class="list-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
+  nodes.reportStoreVolume.innerHTML = (report.byStore || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.restaurantName)}</span><strong>${row.totalOrders}</strong></div>`).join('') || '<div class="muted">No store data yet.</div>';
+  nodes.reportStoreCharges.innerHTML = (report.byStore || []).map((row) => {
+    const currency = latestOrderGroups.find((group) => group.restaurant.id === row.restaurantId)?.restaurant.currency || 'AED';
+    return `<div class="list-row"><span>${escapeHtml(row.restaurantName)}</span><strong>${formatMoney(row.totalRestaurantCharges, currency)}</strong></div>`;
+  }).join('') || '<div class="muted">No billing data yet.</div>';
+  nodes.reportCourierPerformance.innerHTML = (report.byCourier || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.driverName)}</span><strong>${row.totalOrders} orders</strong></div>`).join('') || '<div class="muted">No courier activity yet.</div>';
+  nodes.reportDailyVolume.innerHTML = (report.byDay || []).map((row) => `<div class="list-row"><span>${row.date}</span><strong>${row.totalOrders}</strong></div>`).join('') || '<div class="muted">No day-by-day activity yet.</div>';
+  nodes.reportStatusMix.innerHTML = (report.statusMix || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.status)}</span><strong>${row.count}</strong></div>`).join('') || '<div class="muted">No operational mix yet.</div>';
 }
 
 async function refreshStaffList() {
@@ -548,11 +459,12 @@ async function connectStream() {
 }
 
 function getLoginCredentials() {
-  const useGate = !hasSession && !nodes.authGate.classList.contains('hidden');
-  return {
-    email: (useGate ? nodes.gateEmail.value : document.getElementById('email').value).trim(),
-    password: useGate ? nodes.gatePassword.value.trim() : document.getElementById('password').value.trim(),
-  };
+  return resolveLoginCredentials({
+    gateEmail: nodes.gateEmail,
+    gatePassword: nodes.gatePassword,
+    email: document.getElementById('email'),
+    password: document.getElementById('password'),
+  });
 }
 
 async function login() {

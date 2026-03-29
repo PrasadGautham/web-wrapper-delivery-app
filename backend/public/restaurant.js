@@ -1,3 +1,8 @@
+import { resolveLoginCredentials } from './shared/auth.js';
+import { describeDateRange, resolveDateRange } from './shared/date-range.js';
+import { renderEmpty } from './shared/dom.js';
+import { escapeHtml, formatEtaSource, formatMinutes, formatMoney, formatStatus } from './shared/formatting.js';
+
 const apiBase = '';
 let hasSession = false;
 let stream = null;
@@ -25,6 +30,8 @@ const nodes = {
   reportTrackingMode: document.getElementById('reportTrackingMode'),
   reportStatusMix: document.getElementById('reportStatusMix'),
   reportBillingSummary: document.getElementById('reportBillingSummary'),
+  reportCourierSummary: document.getElementById('reportCourierSummary'),
+  reportDailyVolume: document.getElementById('reportDailyVolume'),
   reportTrackingSummary: document.getElementById('reportTrackingSummary'),
   orders: document.getElementById('orders'),
   resetPanel: document.getElementById('resetPanel'),
@@ -45,14 +52,7 @@ const nodes = {
   gateStatus: document.getElementById('gateStatus'),
 };
 
-function currency(value, code = 'AED') {
-  const normalized = String(code || 'AED').trim().toUpperCase();
-  try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency: normalized, minimumFractionDigits: 2 }).format(Number(value || 0));
-  } catch {
-    return `${normalized} ${Number(value || 0).toFixed(2)}`;
-  }
-}
+const currency = formatMoney;
 
 function setConnectionState(text, live) {
   nodes.connectionText.textContent = text;
@@ -81,33 +81,6 @@ function setSessionUi() {
   nodes.activeSessionMeta.innerHTML = `<strong>${escapeHtml(currentProfile.name)}</strong><div class="muted">Store session is live and refreshing automatically.</div>`;
 }
 
-function formatStatus(value) {
-  if (!value) return 'Unknown';
-  if (value === 'inTransit') return 'In transit';
-  return value.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase());
-}
-
-function formatMinutes(value) {
-  if (value == null) return 'Not available';
-  return `${value} min`;
-}
-
-function formatEtaSource(value) {
-  if (!value || value === 'not-available') return 'Not available';
-  if (value === 'static-estimate') return 'Static estimate';
-  if (value === 'live-driver-location') return 'Live driver location';
-  if (value === 'google-routes') return 'Google traffic routing';
-  return value;
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function renderEmpty(target, message) {
-  target.innerHTML = `<div class="empty">${escapeHtml(message)}</div>`;
-}
-
 function statusCounts(orders) {
   const counts = { queued: 0, assigned: 0, atStore: 0, inTransit: 0, delivered: 0 };
   for (const order of orders) {
@@ -126,18 +99,8 @@ function averageCharge(orders) {
   return currency(total / orders.length, currentProfile?.currency);
 }
 
-function todayIso() { return new Date().toISOString().slice(0, 10); }
-function dateOffsetIso(days) { const date = new Date(); date.setUTCDate(date.getUTCDate() + days); return date.toISOString().slice(0, 10); }
-function monthStartIso() { const date = new Date(); const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)); return start.toISOString().slice(0, 10); }
-
 function getActiveRange() {
-  const preset = reportFilterState.preset;
-  if (preset === 'all') return {};
-  if (preset === 'today') { const today = todayIso(); return { startDate: today, endDate: today }; }
-  if (preset === 'last7') return { startDate: dateOffsetIso(-6), endDate: todayIso() };
-  if (preset === 'last30') return { startDate: dateOffsetIso(-29), endDate: todayIso() };
-  if (preset === 'thisMonth') return { startDate: monthStartIso(), endDate: todayIso() };
-  return { startDate: reportFilterState.startDate || undefined, endDate: reportFilterState.endDate || undefined };
+  return resolveDateRange(reportFilterState);
 }
 
 function rangeQueryString() {
@@ -163,9 +126,7 @@ function updateFilterInputs() {
     nodes.reportEndDate.value = reportFilterState.endDate || '';
   }
   const range = getActiveRange();
-  if (!range.startDate && !range.endDate) nodes.reportRangeNote.textContent = 'Showing all available dates.';
-  else if (range.startDate && range.endDate) nodes.reportRangeNote.textContent = `Showing data from ${range.startDate} to ${range.endDate}.`;
-  else nodes.reportRangeNote.textContent = `Showing data ${range.startDate ? `from ${range.startDate}` : `until ${range.endDate}`}.`;
+  nodes.reportRangeNote.textContent = describeDateRange(range);
 }
 
 async function request(path, options = {}, attemptRefresh = true) {
@@ -221,15 +182,16 @@ function renderOrders(orders) {
 }
 
 function renderReports(profile, report, orders) {
-  const counts = statusCounts(orders);
   const completionRate = report.totalOrders ? Math.round((report.deliveredOrders / report.totalOrders) * 100) : 0;
   const activeShare = report.totalOrders ? Math.round((report.activeOrders / report.totalOrders) * 100) : 0;
   nodes.reportCompletionRate.textContent = `${completionRate}%`;
   nodes.reportAverageCharge.textContent = averageCharge(orders);
   nodes.reportActiveShare.textContent = `${activeShare}%`;
   nodes.reportTrackingMode.textContent = profile?.trackingSettings?.showPickedUpAsInTransit ? 'In transit after pickup' : 'Picked up after pickup';
-  nodes.reportStatusMix.innerHTML = [['Queued', counts.queued], ['Assigned / pending', counts.assigned], ['At store', counts.atStore], ['In transit', counts.inTransit], ['Delivered', counts.delivered]].map(([label, value]) => `<div class="list-row"><span>${label}</span><strong>${value}</strong></div>`).join('') || '<div class="muted">No orders yet.</div>';
+  nodes.reportStatusMix.innerHTML = (report.statusMix || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.status)}</span><strong>${row.count}</strong></div>`).join('') || '<div class="muted">No orders yet.</div>';
   nodes.reportBillingSummary.innerHTML = [['Store charge total', currency(report.totalRestaurantCharges, profile?.currency)], ['Average charge per order', averageCharge(orders)], ['Commercial currency', String(profile?.currency || 'AED').toUpperCase()], ['Distance unit', profile?.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)']].map(([label, value]) => `<div class="list-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
+  nodes.reportCourierSummary.innerHTML = (report.byCourier || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.driverName)}</span><strong>${row.totalOrders} orders</strong></div>`).join('') || '<div class="muted">No courier data yet.</div>';
+  nodes.reportDailyVolume.innerHTML = (report.byDay || []).map((row) => `<div class="list-row"><span>${row.date}</span><strong>${row.totalOrders}</strong></div>`).join('') || '<div class="muted">No day-by-day activity yet.</div>';
   nodes.reportTrackingSummary.innerHTML = [['Post-pickup status label', profile?.trackingSettings?.showPickedUpAsInTransit ? 'In transit' : 'Picked up'], ['Pickup ETA visible', profile?.trackingSettings?.showDriverEtaToPickup ? 'Yes' : 'No'], ['Destination ETA visible', profile?.trackingSettings?.showDestinationEta ? 'Yes' : 'No']].map(([label, value]) => `<div class="list-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
 }
 
@@ -252,6 +214,8 @@ function clearDashboard() {
   renderEmpty(nodes.orders, 'Login to load store orders.');
   renderEmpty(nodes.reportStatusMix, 'Login to see status reporting.');
   renderEmpty(nodes.reportBillingSummary, 'Login to see store billing reporting.');
+  renderEmpty(nodes.reportCourierSummary, 'Login to see courier reporting.');
+  renderEmpty(nodes.reportDailyVolume, 'Login to see daily order reporting.');
   renderEmpty(nodes.reportTrackingSummary, 'Login to see tracking settings reporting.');
   setConnectionState('Waiting for restaurant session.', false);
   setSessionUi();
@@ -306,11 +270,12 @@ async function connectStream() {
 }
 
 function getLoginCredentials() {
-  const useGate = !hasSession && !nodes.authGate.classList.contains('hidden');
-  return {
-    email: (useGate ? nodes.gateEmail.value : document.getElementById('email').value).trim(),
-    password: useGate ? nodes.gatePassword.value.trim() : document.getElementById('password').value.trim(),
-  };
+  return resolveLoginCredentials({
+    gateEmail: nodes.gateEmail,
+    gatePassword: nodes.gatePassword,
+    email: document.getElementById('email'),
+    password: document.getElementById('password'),
+  });
 }
 
 async function login() {

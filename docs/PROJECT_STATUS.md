@@ -52,6 +52,13 @@ Current business separation:
 - merchant and restaurant portals use SSE live updates
 - tenant admin pricing controls are available in the UI, while merchant is limited to tracking and driver-offer display controls
 
+### Portal Maintainability
+
+- platform and tenant admin now share one admin shell source instead of duplicated HTML files
+- portal styles moved into dedicated stylesheets under [backend/public/styles](/c:/dev/DriverApp/backend/public/styles)
+- shared portal helpers now live under [backend/public/shared](/c:/dev/DriverApp/backend/public/shared)
+- admin, merchant, and restaurant scripts now import common auth, formatting, DOM, and date-range helpers instead of repeating them
+
 ### Flutter Driver App
 
 - Android app works locally from Windows

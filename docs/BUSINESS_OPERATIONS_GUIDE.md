@@ -54,6 +54,9 @@ Platform admin can:
 - set store-level currency and distance unit
 - set driver max live deliveries
 - set driver assignment scope by named stores and merchant groups
+- run filtered operational reports
+- review reporting by tenant, merchant group, store, driver, day, and status mix
+- export platform-level or tenant-scoped reports for Excel
 
 ### Tenant Admin
 
@@ -69,6 +72,9 @@ Tenant admin can:
 - set store-level tracking display rules
 - set driver max live deliveries
 - set driver assignment scope by named stores and merchant groups inside the same tenant
+- run filtered tenant reports
+- review reporting by merchant group, store, driver, day, and status mix
+- export tenant-scoped reports for Excel
 
 ### Merchant
 
@@ -77,6 +83,9 @@ Merchant-group operator.
 Merchant can:
 - see all restaurants under that merchant only
 - see merchant-wide reporting across owned stores
+- filter reports by date
+- review reporting by store, courier, day, and status mix
+- export merchant-wide report data for Excel
 - view store billing terms for owned stores
 - update store tracking-display settings
 - update owned-store driver-offer display rules
@@ -93,6 +102,9 @@ Restaurant staff can:
 - watch assignment and delivery progress live
 - see ETA and status information according to store settings
 - view store-facing reporting
+- filter reports by date
+- review reporting by courier, day, status mix, and store billing totals
+- export store-only report data for Excel
 
 ### Driver
 
@@ -270,6 +282,8 @@ Commonly used demo accounts:
 Expected:
 - settings save successfully
 - store and driver summaries update clearly
+- admin reporting loads for the selected date range
+- Excel export filenames include report type and report dates
 
 ### Merchant Test
 
@@ -288,6 +302,8 @@ Expected:
 - updates apply only to owned stores
 - store billing terms are visible but fleet-company payout rules remain private
 - store currency and distance unit remain admin-controlled
+- merchant reports aggregate all owned stores only
+- merchant export filenames include the report date range
 
 ### Restaurant Test
 
@@ -299,6 +315,8 @@ Expected:
 Expected:
 - live updates appear automatically
 - tracking display follows store-specific settings
+- restaurant reports show only that store's orders
+- restaurant export filenames include the report date range
 
 ### Driver Test
 

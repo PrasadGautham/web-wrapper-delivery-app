@@ -266,7 +266,7 @@ export async function registerRestaurantRoutes(
         ]);
       }
       reply.header('Content-Type', 'text/csv; charset=utf-8');
-      const fileName = buildReportFileName('restaurant-report', range);
+      const fileName = buildReportFileName('restaurant-orders-report', range);
       reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
       return toCsv(rows);
     } catch (error) {

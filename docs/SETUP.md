@@ -128,6 +128,11 @@ C:\flutter\bin\flutter.bat analyze
 C:\flutter\bin\flutter.bat test
 ```
 
+Quick web report checks after startup:
+- `/platform-admin` or `/tenant-admin`: apply a date filter and export `orders`, `drivers`, or `stores`
+- `/merchant`: apply a date filter and export the merchant-wide report
+- `/restaurant`: apply a date filter and export the store-only report
+
 ## Notes
 
 - Use Postgres for normal local development and production-like testing.

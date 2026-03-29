@@ -1,3 +1,17 @@
+import {
+  distanceUnitShort,
+  distanceUnitWord,
+  formatMoney,
+  fromDisplayDistance,
+  fromDisplayRate,
+  normalizeCurrencyCode,
+  summarizePricingRule,
+  toDisplayDistance,
+  toDisplayRate,
+} from './shared/formatting.js';
+import { dateOffsetIso, monthStartIso, todayIso, describeDateRange } from './shared/date-range.js';
+import { resolveLoginCredentials } from './shared/auth.js';
+
 const apiBase = '';
 let hasSession = false;
 let refreshingSession = null;
@@ -8,11 +22,11 @@ let restaurants = [];
 let drivers = [];
 let adminUsers = [];
 let selectedTenantId = '';
+let latestAdminReport = null;
+let reportFilterState = { preset: 'last30', startDate: '', endDate: '' };
 
 const PLATFORM_ROLES = new Set(['platformAdmin', 'opsAdmin', 'supportAdmin', 'billingAdmin']);
 const portalSurface = window.location.pathname.includes('/tenant-admin') ? 'tenant' : 'platform';
-const MILES_PER_KILOMETER = 0.621371;
-const KILOMETERS_PER_MILE = 1.609344;
 
 const nodes = {
   email: document.getElementById('email'),
@@ -61,6 +75,22 @@ const nodes = {
   createMerchantStatus: document.getElementById('createMerchantStatus'),
   createDriverStatus: document.getElementById('createDriverStatus'),
   createRestaurantStatus: document.getElementById('createRestaurantStatus'),
+  reportPreset: document.getElementById('reportPreset'),
+  reportTypeSelect: document.getElementById('reportTypeSelect'),
+  reportScopeSelect: document.getElementById('reportScopeSelect'),
+  reportStartDate: document.getElementById('reportStartDate'),
+  reportEndDate: document.getElementById('reportEndDate'),
+  reportRangeNote: document.getElementById('reportRangeNote'),
+  reportTotalOrders: document.getElementById('reportTotalOrders'),
+  reportDeliveredOrders: document.getElementById('reportDeliveredOrders'),
+  reportTotalStoreCharges: document.getElementById('reportTotalStoreCharges'),
+  reportTotalDriverPay: document.getElementById('reportTotalDriverPay'),
+  reportByDriver: document.getElementById('reportByDriver'),
+  reportByStore: document.getElementById('reportByStore'),
+  reportByMerchantGroup: document.getElementById('reportByMerchantGroup'),
+  reportByDay: document.getElementById('reportByDay'),
+  reportByTenant: document.getElementById('reportByTenant'),
+  reportStatusMix: document.getElementById('reportStatusMix'),
 };
 
 const statusNodes = [
@@ -135,55 +165,85 @@ function clearStatuses() {
   }
 }
 
+function getActiveReportRange() {
+  const preset = reportFilterState.preset;
+  if (preset === 'all') return {};
+  if (preset === 'today') { const today = todayIso(); return { startDate: today, endDate: today }; }
+  if (preset === 'last7') return { startDate: dateOffsetIso(-6), endDate: todayIso() };
+  if (preset === 'last30') return { startDate: dateOffsetIso(-29), endDate: todayIso() };
+  if (preset === 'thisMonth') return { startDate: monthStartIso(), endDate: todayIso() };
+  return { startDate: reportFilterState.startDate || undefined, endDate: reportFilterState.endDate || undefined };
+}
+
+function adminReportQueryString() {
+  const params = new URLSearchParams();
+  const range = getActiveReportRange();
+  if (range.startDate) params.set('startDate', range.startDate);
+  if (range.endDate) params.set('endDate', range.endDate);
+  const scope = nodes.reportScopeSelect?.value || 'workspace';
+  if (!isPlatformAdmin() || scope !== 'all') {
+    const tenantId = activeTenantId();
+    if (tenantId) params.set('tenantId', tenantId);
+  }
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+function updateReportFiltersUi() {
+  if (!nodes.reportPreset) return;
+  nodes.reportPreset.value = reportFilterState.preset;
+  const custom = reportFilterState.preset === 'custom';
+  nodes.reportStartDate.disabled = !custom;
+  nodes.reportEndDate.disabled = !custom;
+  const range = getActiveReportRange();
+  if (!custom) {
+    nodes.reportStartDate.value = range.startDate || '';
+    nodes.reportEndDate.value = range.endDate || '';
+  } else {
+    nodes.reportStartDate.value = reportFilterState.startDate || '';
+    nodes.reportEndDate.value = reportFilterState.endDate || '';
+  }
+  nodes.reportRangeNote.textContent = describeDateRange(range);
+}
+
+function renderReportCards(target, items, render) {
+  if (!target) return;
+  target.innerHTML = items.length ? items.map(render).join('') : '<div class="muted">No data for the selected period.</div>';
+}
+
+function clearReportUi() {
+  latestAdminReport = null;
+  if (!nodes.reportTotalOrders) return;
+  nodes.reportTotalOrders.textContent = '0';
+  nodes.reportDeliveredOrders.textContent = '0';
+  nodes.reportTotalStoreCharges.textContent = '--';
+  nodes.reportTotalDriverPay.textContent = '--';
+  renderReportCards(nodes.reportByDriver, [], () => '');
+  renderReportCards(nodes.reportByStore, [], () => '');
+  renderReportCards(nodes.reportByMerchantGroup, [], () => '');
+  renderReportCards(nodes.reportByDay, [], () => '');
+  renderReportCards(nodes.reportByTenant, [], () => '');
+  renderReportCards(nodes.reportStatusMix, [], () => '');
+}
+
+function renderAdminReports(report) {
+  latestAdminReport = report;
+  nodes.reportTotalOrders.textContent = String(report.totalOrders || 0);
+  nodes.reportDeliveredOrders.textContent = String(report.deliveredOrders || 0);
+  nodes.reportTotalStoreCharges.textContent = formatMoney(report.totalStoreCharges || 0, 'AED');
+  nodes.reportTotalDriverPay.textContent = formatMoney(report.totalDriverPay || 0, 'AED');
+  renderReportCards(nodes.reportByDriver, report.byDriver || [], (item) => `<article class="card"><strong>${item.driverName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered | ${item.activeOrders} active</div><div class="muted">Driver pay: ${formatMoney(item.totalDriverPay, 'AED')}</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div></article>`);
+  renderReportCards(nodes.reportByStore, report.byStore || [], (item) => `<article class="card"><strong>${item.restaurantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div><div class="muted">Driver pay: ${formatMoney(item.totalDriverPay, 'AED')}</div></article>`);
+  renderReportCards(nodes.reportByMerchantGroup, report.byMerchantGroup || [], (item) => `<article class="card"><strong>${item.merchantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div><div class="muted">Driver pay: ${formatMoney(item.totalDriverPay, 'AED')}</div></article>`);
+  renderReportCards(nodes.reportByDay, report.byDay || [], (item) => `<article class="card"><strong>${item.date}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div></article>`);
+  renderReportCards(nodes.reportByTenant, report.byTenant || [], (item) => `<article class="card"><strong>${item.tenantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div><div class="muted">Driver pay: ${formatMoney(item.totalDriverPay, 'AED')}</div></article>`);
+  renderReportCards(nodes.reportStatusMix, report.statusMix || [], (item) => `<article class="card"><strong>${item.status}</strong><div class="muted">${item.count} orders</div></article>`);
+}
+
+
 function setStatus(node, message, isError = false) {
   node.textContent = message;
   node.style.color = isError ? '#9b1c1c' : '';
-}
-
-function normalizeCurrencyCode(value) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function formatMoney(value, currency = 'AED') {
-  const code = normalizeCurrencyCode(currency) || 'AED';
-  try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency: code, minimumFractionDigits: 2 }).format(Number(value || 0));
-  } catch {
-    return `${code} ${Number(value || 0).toFixed(2)}`;
-  }
-}
-
-function toDisplayDistance(kmValue, unit = 'kilometer') {
-  return unit === 'mile' ? Number(kmValue || 0) * MILES_PER_KILOMETER : Number(kmValue || 0);
-}
-
-function fromDisplayDistance(displayValue, unit = 'kilometer') {
-  return unit === 'mile' ? Number(displayValue || 0) * KILOMETERS_PER_MILE : Number(displayValue || 0);
-}
-
-function toDisplayRate(perKmValue, unit = 'kilometer') {
-  return unit === 'mile' ? Number(perKmValue || 0) * KILOMETERS_PER_MILE : Number(perKmValue || 0);
-}
-
-function fromDisplayRate(displayRate, unit = 'kilometer') {
-  return unit === 'mile' ? Number(displayRate || 0) / KILOMETERS_PER_MILE : Number(displayRate || 0);
-}
-
-function distanceUnitShort(unit = 'kilometer') {
-  return unit === 'mile' ? 'mi' : 'km';
-}
-
-function distanceUnitWord(unit = 'kilometer') {
-  return unit === 'mile' ? 'mile' : 'km';
-}
-
-function summarizePricingRule(rule, currency, unit = 'kilometer') {
-  const included = toDisplayDistance(rule.includedDistanceKm || 0, unit);
-  const extraRate = toDisplayRate(rule.additionalPerKm || 0, unit);
-  if (Number(extraRate) <= 0) {
-    return `${formatMoney(rule.baseAmount, currency)} flat per delivery`;
-  }
-  return `${formatMoney(rule.baseAmount, currency)} includes ${included.toFixed(1)} ${distanceUnitShort(unit)}, then ${formatMoney(extraRate, currency)} per extra ${distanceUnitWord(unit)}`;
 }
 
 function updatePricingFieldLabels(unit = 'kilometer') {
@@ -298,6 +358,7 @@ function clearWorkspace() {
   nodes.selectedDriverSummary.textContent = 'Choose a driver in the current workspace.';
   nodes.tenantContextSummary.textContent = 'Sign in to load tenant context.';
   nodes.architectureSummary.textContent = '';
+  clearReportUi();
   document.getElementById('tenants').innerHTML = '<div class="muted">Sign in to load tenant data.</div>';
   document.getElementById('admins').innerHTML = '<div class="muted">Sign in to load admin data.</div>';
   document.getElementById('merchants').innerHTML = '<div class="muted">Sign in to load merchant groups.</div>';
@@ -306,11 +367,7 @@ function clearWorkspace() {
 }
 
 function getLoginCredentials() {
-  const useGate = !hasSession && !nodes.authGate.classList.contains('hidden');
-  return {
-    email: (useGate ? nodes.gateEmail.value : nodes.email.value).trim(),
-    password: useGate ? nodes.gatePassword.value.trim() : nodes.password.value.trim(),
-  };
+  return resolveLoginCredentials(nodes);
 }
 
 function renderCollection(nodeId, items, renderItem) {
@@ -325,16 +382,22 @@ function updateTenantControlsVisibility() {
 }
 
 function applySurfaceBranding() {
+  const heroEyebrow = document.querySelector('.hero .eyebrow');
   const heroTitle = document.querySelector('.hero h1');
   const heroCopy = document.querySelector('.hero p');
   const heroBadge = document.querySelector('.hero-badge');
   if (portalSurface === 'tenant') {
     document.title = 'Tenant Admin Portal';
+    if (heroEyebrow) heroEyebrow.textContent = 'Tenant operations';
     if (heroTitle) heroTitle.textContent = 'Tenant Admin Workspace';
     if (heroCopy) heroCopy.textContent = 'Use this workspace to operate one client tenant only. Tenant admins manage drivers, merchant groups, stores, staffing, pricing, and dispatch rules inside their assigned business.';
     if (heroBadge) heroBadge.innerHTML = 'Current surface<strong>Tenant-scoped admin</strong>';
   } else {
     document.title = 'Platform Admin Portal';
+    if (heroEyebrow) heroEyebrow.textContent = 'Platform operations';
+    if (heroTitle) heroTitle.textContent = 'Tenant Control Center';
+    if (heroCopy) heroCopy.textContent = 'Use this workspace to operate your fleet platform cleanly across multiple client tenants. Platform admins provision tenants and support them. Tenant admins manage only their own drivers, merchant groups, stores, staffing, pricing, and dispatch rules.';
+    if (heroBadge) heroBadge.innerHTML = 'Current surface<strong>Platform-wide admin</strong>';
   }
 }
 
@@ -507,7 +570,8 @@ function syncSessionSummary() {
   const scopeLabel = isPlatformAdmin() ? 'Platform admin' : `${sessionInfo.role} for ${tenantName(sessionInfo.tenantId)}`;
   nodes.sessionStatus.textContent = `Logged in as ${sessionInfo.name} (${scopeLabel})`;
   nodes.heroModeLabel.textContent = scopeLabel;
-  nodes.workspaceModePill.textContent = isPlatformAdmin() ? `Platform view · ${tenantName(activeTenantId())}` : `Tenant view · ${tenantName(activeTenantId())}`;
+  nodes.workspaceModePill.textContent = isPlatformAdmin() ? `Platform view | ${tenantName(activeTenantId())}` : `Tenant view | ${tenantName(activeTenantId())}`;
+  setSessionUi();
 }
 
 async function refreshDashboard() {
@@ -541,20 +605,26 @@ async function refreshDashboard() {
     populateEntitySelects();
     syncSessionSummary();
     renderDashboard();
+    updateReportFiltersUi();
+    try {
+      const report = await request(`/api/admin/report${adminReportQueryString()}`, {}, false);
+      renderAdminReports(report);
+    } catch (error) {
+      clearReportUi();
+      if (nodes.reportRangeNote) {
+        nodes.reportRangeNote.textContent = error.message;
+      }
+    }
   } catch (error) {
     hasSession = false;
     sessionInfo = null;
-    tenants = [];
-    merchants = [];
-    restaurants = [];
-    drivers = [];
-    adminUsers = [];
-    syncSessionSummary();
+    selectedTenantId = '';
     clearWorkspace();
-    setSessionUi();
+    syncSessionSummary();
     throw error;
   }
 }
+
 async function login() {
   await request('/api/auth/admin/login', {
     method: 'POST',
@@ -745,6 +815,26 @@ function runAction(fn, statusNode) {
   return () => fn().catch((error) => setStatus(statusNode, error.message, true));
 }
 
+async function applyReportFilters() {
+  reportFilterState = { preset: nodes.reportPreset.value, startDate: nodes.reportStartDate.value, endDate: nodes.reportEndDate.value };
+  updateReportFiltersUi();
+  const report = await request(`/api/admin/report${adminReportQueryString()}`);
+  renderAdminReports(report);
+}
+
+async function resetReportFilters() {
+  reportFilterState = { preset: 'last30', startDate: '', endDate: '' };
+  updateReportFiltersUi();
+  const report = await request(`/api/admin/report${adminReportQueryString()}`);
+  renderAdminReports(report);
+}
+
+function exportReport() {
+  const type = nodes.reportTypeSelect?.value || 'orders';
+  window.location.href = `/api/admin/report-export.csv${adminReportQueryString()}${adminReportQueryString() ? '&' : '?'}reportType=${encodeURIComponent(type)}`;
+}
+
+
 document.getElementById('loginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
 document.getElementById('gateLoginBtn').addEventListener('click', () => login().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
 document.getElementById('logoutBtn').addEventListener('click', () => logout().catch((error) => { nodes.sessionStatus.textContent = error.message; nodes.gateStatus.textContent = error.message; }));
@@ -768,11 +858,28 @@ nodes.tenantContextSelect.addEventListener('change', () => {
   populateEntitySelects();
   syncSessionSummary();
   renderDashboard();
+  request(`/api/admin/report${adminReportQueryString()}`).then(renderAdminReports).catch(() => clearReportUi());
 });
 nodes.createRestaurantTenantSelect.addEventListener('change', syncRestaurantMerchantSelect);
 nodes.settingsRestaurantSelect.addEventListener('change', syncRestaurantSettingsForm);
 nodes.driverSelect.addEventListener('change', syncDriverControlsForm);
 document.getElementById('currencyCode').addEventListener('input', updatePricingSummaries);
+document.getElementById('applyReportFiltersBtn').addEventListener('click', () => applyReportFilters().catch((error) => { nodes.reportRangeNote.textContent = error.message; }));
+document.getElementById('resetReportFiltersBtn').addEventListener('click', () => resetReportFilters().catch((error) => { nodes.reportRangeNote.textContent = error.message; }));
+document.getElementById('exportReportBtn').addEventListener('click', exportReport);
+if (nodes.reportScopeSelect) {
+  nodes.reportScopeSelect.addEventListener('change', () => {
+    request(`/api/admin/report${adminReportQueryString()}`).then(renderAdminReports).catch(() => clearReportUi());
+  });
+}
+nodes.reportPreset.addEventListener('change', () => {
+  reportFilterState.preset = nodes.reportPreset.value;
+  if (reportFilterState.preset !== 'custom') {
+    reportFilterState.startDate = '';
+    reportFilterState.endDate = '';
+  }
+  updateReportFiltersUi();
+});
 document.getElementById('distanceUnit').addEventListener('change', () => {
   nodes.displaySettingsStatus.textContent = 'Save store market settings to apply the new distance unit to pricing fields and driver-facing displays.';
 });
@@ -780,6 +887,7 @@ document.getElementById('distanceUnit').addEventListener('change', () => {
 
 applySurfaceBranding();
 clearWorkspace();
+updateReportFiltersUi();
 setSessionUi();
 refreshDashboard().catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);

@@ -255,7 +255,7 @@ export async function registerMerchantRoutes(
         }
       }
       reply.header('Content-Type', 'text/csv; charset=utf-8');
-      const fileName = buildReportFileName('merchant-report', range);
+      const fileName = buildReportFileName('merchant-orders-report', range);
       reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
       return toCsv(rows);
     } catch (error) {

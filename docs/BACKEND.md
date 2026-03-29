@@ -182,6 +182,17 @@ npm run test:e2e:web
 npm run smoke:deploy
 ```
 
+## Portal Frontend Structure
+
+Browser portal assets live under [backend/public](/c:/dev/DriverApp/backend/public). The current maintainable split is:
+- shared admin shell: [admin.html](/c:/dev/DriverApp/backend/public/admin.html) served for both `/platform-admin` and `/tenant-admin`
+- merchant shell: [merchant.html](/c:/dev/DriverApp/backend/public/merchant.html)
+- restaurant shell: [restaurant.html](/c:/dev/DriverApp/backend/public/restaurant.html)
+- shared browser helpers: [backend/public/shared](/c:/dev/DriverApp/backend/public/shared)
+- portal stylesheets: [backend/public/styles](/c:/dev/DriverApp/backend/public/styles)
+
+Keep new cross-portal browser helpers in `backend/public/shared` instead of duplicating utility code in each page script.
+
 ## Current Portal Notes
 
 ### Admin
@@ -214,3 +225,26 @@ Restaurant can:
 - see store-facing billing and ETA status
 - use password reset flow
 - does not receive driver-pay data from the backend
+
+## Reporting Endpoints
+
+Current report and export routes:
+- Platform or tenant admin:
+  - `/api/admin/report`
+  - `/api/admin/report-export.csv`
+- Merchant:
+  - `/api/merchant/me/report`
+  - `/api/merchant/me/report-export.csv`
+- Restaurant:
+  - `/api/restaurants/me/report`
+  - `/api/restaurants/me/report-export.csv`
+
+Admin exports support typed report slices through the `reportType` query value:
+- `orders`
+- `drivers`
+- `stores`
+- `merchant-groups`
+- `tenants`
+- `days`
+
+Merchant and restaurant exports are detailed order exports with clear date-based filenames.

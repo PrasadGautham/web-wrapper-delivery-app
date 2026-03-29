@@ -4,66 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Restaurant Delivery Desk</title>
-    <style>
-      :root { --surface: rgba(255, 251, 244, 0.94); --surface-strong: #fffdf8; --ink: #172126; --muted: #6c7a7f; --accent: #0b7a78; --accent-strong: #0f4d57; --accent-soft: #dff2f0; --line: rgba(23,33,38,0.12); --shadow: 0 20px 60px rgba(21,43,46,0.14); --success: #2e8b69; }
-      * { box-sizing: border-box; }
-      body { margin: 0; color: var(--ink); font-family: "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif; background: radial-gradient(circle at top left, rgba(255,255,255,0.74), transparent 28%), radial-gradient(circle at bottom right, rgba(195,230,225,0.48), transparent 24%), linear-gradient(145deg, #f8efe0 0%, #ebd8bf 50%, #d7c2a2 100%); }
-      .shell { max-width: 1460px; margin: 0 auto; padding: 28px; }
-      .hero { position: relative; overflow: hidden; padding: 34px; border-radius: 34px; color: #fff; background: linear-gradient(135deg, rgba(11,122,120,0.98), rgba(15,77,87,0.98)); box-shadow: var(--shadow); }
-      .hero::before, .hero::after { content: ""; position: absolute; border-radius: 999px; background: radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%); }
-      .hero::before { width: 250px; height: 250px; top: -80px; right: -50px; }
-      .hero::after { width: 180px; height: 180px; bottom: -50px; left: 26%; }
-      .hero-top { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
-      .hero h1 { margin: 8px 0 10px; font-size: 40px; line-height: 1.02; }
-      .hero p { margin: 0; max-width: 820px; color: rgba(255,255,255,0.84); line-height: 1.58; }
-      .hero-note { min-width: 280px; max-width: 320px; padding: 16px 18px; border-radius: 22px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.88); font-size: 13px; }
-      .hero-note strong { display: block; margin-top: 8px; font-size: 18px; color: #fff; }
-      .hero-bar { display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-top: 22px; padding: 13px 16px; border-radius: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.14); }
-      .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-      .tab-button { border: 0; padding: 11px 16px; border-radius: 999px; cursor: pointer; font: inherit; font-weight: 700; color: rgba(255,255,255,0.84); background: rgba(255,255,255,0.1); }
-      .tab-button.active { color: var(--accent-strong); background: #e8fbf8; }
-      .status-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 8px; background: #ebba79; }
-      .status-dot.live { background: #9bf2cf; }
-      .layout { display: grid; grid-template-columns: 360px 1fr; gap: 22px; margin-top: 22px; }
-      .panel { border: 1px solid var(--line); border-radius: 28px; padding: 22px; background: var(--surface); box-shadow: var(--shadow); backdrop-filter: blur(14px); }
-      .stack { display: grid; gap: 16px; }
-      .section, .card, .stat, .report-card, .order-card, .form-card, .filter-card, .session-card { border: 1px solid var(--line); border-radius: 22px; background: var(--surface-strong); padding: 18px; }
-      .section { background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(253,249,242,0.98)); }
-      .section.highlight, .report-card.highlight, .form-card.highlight, .filter-card, .session-card { background: linear-gradient(180deg, rgba(223,242,240,0.56), rgba(255,255,255,0.98)); border-color: rgba(11,122,120,0.18); }
-      .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 800; }
-      .section-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
-      .section-copy { margin: 6px 0 0; color: var(--muted); line-height: 1.5; }
-      .pill { display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 800; text-transform: uppercase; }
-      .muted { color: var(--muted); }
-      .inline, .filter-actions { display: flex; gap: 10px; }
-      .grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-      .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-      .report-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-      .view { display: none; }
-      .view.active { display: grid; gap: 18px; }
-      .stat strong { display: block; margin-top: 8px; font-size: 30px; }
-      .stat small { color: var(--muted); display: block; margin-top: 8px; line-height: 1.45; }
-      label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
-      input, button, textarea, select { width: 100%; border-radius: 14px; border: 1px solid var(--line); padding: 12px 14px; background: #fff; font: inherit; }
-      textarea { min-height: 96px; resize: vertical; }
-      input:focus, textarea:focus, select:focus { outline: 0; border-color: rgba(11,122,120,0.34); box-shadow: 0 0 0 4px rgba(11,122,120,0.1); }
-      button { border: 0; background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: #fff; cursor: pointer; font-weight: 700; }
-      button.secondary { background: transparent; color: var(--accent-strong); border: 1px solid rgba(15,77,87,0.28); }
-      .list { display: grid; gap: 8px; }
-      .list-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(23,33,38,0.08); }
-      .list-row:last-child { border-bottom: 0; padding-bottom: 0; }
-      .empty { padding: 18px; border-radius: 18px; border: 1px dashed rgba(23,33,38,0.18); color: var(--muted); background: rgba(255,255,255,0.72); }
-      .orders { display: grid; gap: 12px; }
-      .order-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
-      .success { color: var(--success); }
-      .hidden { display: none; }
-      .auth-gate { margin-top: 22px; }
-      .auth-gate-card { max-width: 540px; margin: 0 auto; text-align: left; }
-      .session-meta { display: grid; gap: 6px; }
-      .session-meta strong { font-size: 18px; }
-      @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } .stats-grid, .report-grid, .grid-two, .order-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hero-top, .hero-bar { flex-direction: column; align-items: stretch; } }
-      @media (max-width: 720px) { .shell { padding: 18px; } .stats-grid, .report-grid, .grid-two, .order-grid { grid-template-columns: 1fr; } .inline, .filter-actions { flex-direction: column; } }
-    </style>
+    <link rel="stylesheet" href="/styles/restaurant.css" />
   </head>
   <body>
     <div class="shell">
@@ -89,7 +30,7 @@
         </aside>
         <main class="stack">
           <section id="dashboardView" class="view active"><div class="stats-grid"><article class="stat"><div class="muted">Total orders</div><strong id="statTotal">0</strong><small>Total order count for this store.</small></article><article class="stat"><div class="muted">Live orders</div><strong id="statActive">0</strong><small>Orders still waiting, assigned, or moving.</small></article><article class="stat"><div class="muted">Delivered</div><strong id="statDelivered">0</strong><small>Completed deliveries already closed out.</small></article><article class="stat"><div class="muted">Store delivery charges</div><strong id="statCharges">--</strong><small>Total charges billed to this store in the current report.</small></article></div><section class="panel stack"><div class="section-head"><div><div class="eyebrow">Current activity</div><h2 style="margin: 6px 0 0;">Live Orders</h2><p class="section-copy">Follow assignment, arrival, pickup, and delivery progress in real time.</p></div><button id="manualRefreshBtn" class="secondary" type="button">Refresh now</button></div><div id="orders" class="orders"></div></section></section>
-          <section id="reportsView" class="view"><section class="panel stack"><div class="section-head"><div><div class="eyebrow">Reporting controls</div><h2 style="margin: 6px 0 0;">Filtered Reports And Excel Export</h2><p class="section-copy">Filter reporting for this store only by preset ranges or custom dates, then export the same filtered data for Excel.</p></div><span class="pill">Reports</span></div><div class="filter-card stack"><div class="grid-two"><label>Date range preset<select id="reportPreset"><option value="last30">Last 30 days</option><option value="today">Today</option><option value="last7">Last 7 days</option><option value="thisMonth">This month</option><option value="custom">Custom range</option><option value="all">All available dates</option></select></label><div class="filter-actions"><button id="applyReportFiltersBtn" type="button">Apply filters</button><button id="resetReportFiltersBtn" class="secondary" type="button">Reset</button><button id="exportReportBtn" class="secondary" type="button">Export For Excel</button></div></div><div class="grid-two"><label>Start date<input id="reportStartDate" type="date" /></label><label>End date<input id="reportEndDate" type="date" /></label></div><div id="reportRangeNote" class="muted">Showing the last 30 days by default.</div></div></section><div class="stats-grid"><article class="stat"><div class="muted">Completion rate</div><strong id="reportCompletionRate">0%</strong><small>Delivered orders divided by total orders.</small></article><article class="stat"><div class="muted">Average charge</div><strong id="reportAverageCharge">--</strong><small>Average billed amount per order.</small></article><article class="stat"><div class="muted">Orders still live</div><strong id="reportActiveShare">0%</strong><small>How much of your filtered order volume is still operationally active.</small></article><article class="stat"><div class="muted">Tracking mode</div><strong id="reportTrackingMode">--</strong><small>How post-pickup status is shown to your store team.</small></article></div><div class="report-grid"><section class="report-card highlight stack"><div><div class="eyebrow">Status mix</div><h3 style="margin: 6px 0 0;">Operational Breakdown</h3></div><div id="reportStatusMix" class="list"></div></section><section class="report-card stack"><div><div class="eyebrow">Commercial view</div><h3 style="margin: 6px 0 0;">Store Billing Snapshot</h3></div><div id="reportBillingSummary" class="list"></div></section><section class="report-card stack"><div><div class="eyebrow">Tracking clarity</div><h3 style="margin: 6px 0 0;">Store Display Rules</h3></div><div id="reportTrackingSummary" class="list"></div></section></div></section>
+          <section id="reportsView" class="view"><section class="panel stack"><div class="section-head"><div><div class="eyebrow">Reporting controls</div><h2 style="margin: 6px 0 0;">Filtered Reports And Excel Export</h2><p class="section-copy">Filter reporting for this store only by preset ranges or custom dates, then export the same filtered data for Excel.</p></div><span class="pill">Reports</span></div><div class="filter-card stack"><div class="grid-two"><label>Date range preset<select id="reportPreset"><option value="last30">Last 30 days</option><option value="today">Today</option><option value="last7">Last 7 days</option><option value="thisMonth">This month</option><option value="custom">Custom range</option><option value="all">All available dates</option></select></label><div class="filter-actions"><button id="applyReportFiltersBtn" type="button">Apply filters</button><button id="resetReportFiltersBtn" class="secondary" type="button">Reset</button><button id="exportReportBtn" class="secondary" type="button">Export For Excel</button></div></div><div class="grid-two"><label>Start date<input id="reportStartDate" type="date" /></label><label>End date<input id="reportEndDate" type="date" /></label></div><div id="reportRangeNote" class="muted">Showing the last 30 days by default.</div></div></section><div class="stats-grid"><article class="stat"><div class="muted">Completion rate</div><strong id="reportCompletionRate">0%</strong><small>Delivered orders divided by total orders.</small></article><article class="stat"><div class="muted">Average charge</div><strong id="reportAverageCharge">--</strong><small>Average billed amount per order.</small></article><article class="stat"><div class="muted">Orders still live</div><strong id="reportActiveShare">0%</strong><small>How much of your filtered order volume is still operationally active.</small></article><article class="stat"><div class="muted">Tracking mode</div><strong id="reportTrackingMode">--</strong><small>How post-pickup status is shown to your store team.</small></article></div><div class="report-grid"><section class="report-card highlight stack"><div><div class="eyebrow">Status mix</div><h3 style="margin: 6px 0 0;">Operational Breakdown</h3></div><div id="reportStatusMix" class="list"></div></section><section class="report-card stack"><div><div class="eyebrow">Commercial view</div><h3 style="margin: 6px 0 0;">Store Billing Snapshot</h3></div><div id="reportBillingSummary" class="list"></div></section><section class="report-card stack"><div><div class="eyebrow">Courier performance</div><h3 style="margin: 6px 0 0;">Orders By Courier</h3></div><div id="reportCourierSummary" class="list"></div></section><section class="report-card stack"><div><div class="eyebrow">Daily flow</div><h3 style="margin: 6px 0 0;">Orders By Day</h3></div><div id="reportDailyVolume" class="list"></div></section><section class="report-card stack"><div><div class="eyebrow">Tracking clarity</div><h3 style="margin: 6px 0 0;">Store Display Rules</h3></div><div id="reportTrackingSummary" class="list"></div></section></div></section>
           <section id="createOrderView" class="view"><section class="panel stack"><div class="section-head"><div><div class="eyebrow">New delivery request</div><h2 style="margin: 6px 0 0;">Create Order</h2><p class="section-copy">Send a delivery request into dispatch with cleaner inputs and an easier operator flow.</p></div><span class="pill">Orders</span></div><div class="grid-two"><div class="form-card highlight stack"><label>Customer name<input id="customerName" value="Customer One" /></label><label>Delivery area<input id="deliveryArea" value="Dubai Marina" /></label><label>Customer address<textarea id="customerAddress">Dubai Marina, Dubai</textarea></label></div><div class="form-card stack"><label>Customer latitude<input id="customerLatitude" value="25.0845" /></label><label>Customer longitude<input id="customerLongitude" value="55.1417" /></label><div class="muted">Tip: use the customer’s actual delivery coordinates when you want dispatch distance and ETA to be more realistic.</div></div></div><div class="inline"><button id="createOrderBtn" type="button">Create Delivery Order</button><button id="resetOrderFormBtn" class="secondary" type="button">Reset Form</button></div></section></section>
         </main>
       </div>

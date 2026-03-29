@@ -108,34 +108,61 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
 
   async getRestaurantReport(restaurantId: string, range: ReportDateRange = {}): Promise<RestaurantReport> {
     const dateWhere = this.toOrderDateWhere(range);
-    const [totalOrders, activeOrders, deliveredOrders, charges] = await this.prisma.$transaction([
-      this.prisma.order.count({ where: { restaurantId, ...dateWhere } }),
-      this.prisma.order.count({
-        where: {
-          restaurantId,
-          ...dateWhere,
-          status: { in: [...activeRestaurantStatuses] },
+    const [orders, drivers] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: { restaurantId, ...dateWhere },
+        select: {
+          status: true,
+          companyCharge: true,
+          tripEarnings: true,
+          assignedDriverId: true,
+          createdAt: true,
         },
       }),
-      this.prisma.order.count({ where: { restaurantId, ...dateWhere, status: 'delivered' } }),
-      this.prisma.order.aggregate({ where: { restaurantId, ...dateWhere }, _sum: { companyCharge: true } }),
+      this.prisma.driver.findMany({ select: { id: true, name: true } }),
     ]);
-
+    const driverNameById = new Map(drivers.map((driver) => [driver.id, driver.name]));
+    const totalOrders = orders.length;
+    const activeOrders = orders.filter((order) => activeRestaurantStatuses.includes(order.status as (typeof activeRestaurantStatuses)[number])).length;
+    const deliveredOrders = orders.filter((order) => order.status === 'delivered').length;
+    const totalRestaurantCharges = Number(orders.reduce((sum, order) => sum + Number(order.companyCharge), 0).toFixed(2));
+    const statusMix = Array.from(orders.reduce((map, order) => {
+      map.set(order.status, (map.get(order.status) || 0) + 1);
+      return map;
+    }, new Map<string, number>()).entries()).map(([status, count]) => ({ status, count })).sort((left, right) => right.count - left.count);
+    const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    for (const order of orders) {
+      if (order.assignedDriverId) {
+        const driver = byCourier.get(order.assignedDriverId) || { driverId: order.assignedDriverId, driverName: driverNameById.get(order.assignedDriverId) || 'Unknown courier', totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+        driver.totalOrders += 1;
+        driver.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+        driver.totalRestaurantCharges += Number(order.companyCharge);
+        byCourier.set(order.assignedDriverId, driver);
+      }
+      const dayKey = order.createdAt.toISOString().slice(0, 10);
+      const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+      day.totalOrders += 1;
+      day.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+      day.totalRestaurantCharges += Number(order.companyCharge);
+      byDay.set(dayKey, day);
+    }
     return {
       totalOrders,
       activeOrders,
       deliveredOrders,
-      totalRestaurantCharges: Number((charges._sum.companyCharge ?? 0).toFixed(2)),
+      totalRestaurantCharges,
+      averageRestaurantCharge: totalOrders ? Number((totalRestaurantCharges / totalOrders).toFixed(2)) : 0,
+      completionRate: totalOrders ? Number(((deliveredOrders / totalOrders) * 100).toFixed(1)) : 0,
+      statusMix,
+      byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
+      byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
     };
   }
 
   async getMerchantReport(merchantId: string, range: ReportDateRange = {}): Promise<MerchantReport> {
-    const restaurantIds = (
-      await this.prisma.restaurant.findMany({
-        where: { merchantId },
-        select: { id: true },
-      })
-    ).map((item) => item.id);
+    const restaurants = await this.prisma.restaurant.findMany({ where: { merchantId }, select: { id: true, name: true } });
+    const restaurantIds = restaurants.map((item) => item.id);
 
     if (!restaurantIds.length) {
       return {
@@ -144,29 +171,75 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         activeOrders: 0,
         deliveredOrders: 0,
         totalRestaurantCharges: 0,
+        averageRestaurantCharge: 0,
+        completionRate: 0,
+        statusMix: [],
+        byStore: [],
+        byCourier: [],
+        byDay: [],
       };
     }
 
     const dateWhere = this.toOrderDateWhere(range);
-    const [totalOrders, activeOrders, deliveredOrders, charges] = await this.prisma.$transaction([
-      this.prisma.order.count({ where: { restaurantId: { in: restaurantIds }, ...dateWhere } }),
-      this.prisma.order.count({
-        where: {
-          restaurantId: { in: restaurantIds },
-          ...dateWhere,
-          status: { in: [...activeRestaurantStatuses] },
+    const [orders, drivers] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: { restaurantId: { in: restaurantIds }, ...dateWhere },
+        select: {
+          restaurantId: true,
+          status: true,
+          companyCharge: true,
+          tripEarnings: true,
+          assignedDriverId: true,
+          createdAt: true,
         },
       }),
-      this.prisma.order.count({ where: { restaurantId: { in: restaurantIds }, ...dateWhere, status: 'delivered' } }),
-      this.prisma.order.aggregate({ where: { restaurantId: { in: restaurantIds }, ...dateWhere }, _sum: { companyCharge: true } }),
+      this.prisma.driver.findMany({ select: { id: true, name: true } }),
     ]);
-
+    const restaurantNameById = new Map(restaurants.map((restaurant) => [restaurant.id, restaurant.name]));
+    const driverNameById = new Map(drivers.map((driver) => [driver.id, driver.name]));
+    const totalOrders = orders.length;
+    const activeOrders = orders.filter((order) => activeRestaurantStatuses.includes(order.status as (typeof activeRestaurantStatuses)[number])).length;
+    const deliveredOrders = orders.filter((order) => order.status === 'delivered').length;
+    const totalRestaurantCharges = Number(orders.reduce((sum, order) => sum + Number(order.companyCharge), 0).toFixed(2));
+    const statusMix = Array.from(orders.reduce((map, order) => {
+      map.set(order.status, (map.get(order.status) || 0) + 1);
+      return map;
+    }, new Map<string, number>()).entries()).map(([status, count]) => ({ status, count })).sort((left, right) => right.count - left.count);
+    const byStore = new Map<string, { restaurantId: string; restaurantName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    for (const order of orders) {
+      const store = byStore.get(order.restaurantId) || { restaurantId: order.restaurantId, restaurantName: restaurantNameById.get(order.restaurantId) || 'Unknown store', totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+      store.totalOrders += 1;
+      store.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+      store.totalRestaurantCharges += Number(order.companyCharge);
+      byStore.set(order.restaurantId, store);
+      if (order.assignedDriverId) {
+        const driver = byCourier.get(order.assignedDriverId) || { driverId: order.assignedDriverId, driverName: driverNameById.get(order.assignedDriverId) || 'Unknown courier', totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+        driver.totalOrders += 1;
+        driver.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+        driver.totalRestaurantCharges += Number(order.companyCharge);
+        byCourier.set(order.assignedDriverId, driver);
+      }
+      const dayKey = order.createdAt.toISOString().slice(0, 10);
+      const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+      day.totalOrders += 1;
+      day.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+      day.totalRestaurantCharges += Number(order.companyCharge);
+      byDay.set(dayKey, day);
+    }
     return {
       totalRestaurants: restaurantIds.length,
       totalOrders,
       activeOrders,
       deliveredOrders,
-      totalRestaurantCharges: Number((charges._sum.companyCharge ?? 0).toFixed(2)),
+      totalRestaurantCharges,
+      averageRestaurantCharge: totalOrders ? Number((totalRestaurantCharges / totalOrders).toFixed(2)) : 0,
+      completionRate: totalOrders ? Number(((deliveredOrders / totalOrders) * 100).toFixed(1)) : 0,
+      statusMix,
+      byStore: Array.from(byStore.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
+      byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
+      byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
     };
   }
 

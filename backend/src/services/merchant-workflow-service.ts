@@ -60,12 +60,49 @@ export class MerchantWorkflowService {
     }
     const restaurants = await this.listMerchantRestaurants(merchantId);
     const reports = await Promise.all(restaurants.map((restaurant) => this.restaurantWorkflowService.getRestaurantReport(restaurant.id, range)));
+    const groups = await this.getMerchantOrders(merchantId, range);
+    const allOrders = groups.flatMap((group) => group.orders.map((order) => ({ restaurant: group.restaurant, order })));
+    const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    for (const item of allOrders) {
+      if (item.order.assignedDriverId && item.order.tracking.assignedDriverName) {
+        const driver = byCourier.get(item.order.assignedDriverId) || { driverId: item.order.assignedDriverId, driverName: item.order.tracking.assignedDriverName, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+        driver.totalOrders += 1;
+        driver.deliveredOrders += item.order.status === 'delivered' ? 1 : 0;
+        driver.totalRestaurantCharges += item.order.companyCharge;
+        byCourier.set(item.order.assignedDriverId, driver);
+      }
+      const dayKey = item.order.createdAt.slice(0, 10);
+      const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+      day.totalOrders += 1;
+      day.deliveredOrders += item.order.status === 'delivered' ? 1 : 0;
+      day.totalRestaurantCharges += item.order.companyCharge;
+      byDay.set(dayKey, day);
+    }
+    const totalOrders = reports.reduce((sum, item) => sum + item.totalOrders, 0);
+    const deliveredOrders = reports.reduce((sum, item) => sum + item.deliveredOrders, 0);
+    const totalRestaurantCharges = Number(reports.reduce((sum, item) => sum + item.totalRestaurantCharges, 0).toFixed(2));
     return {
       totalRestaurants: restaurants.length,
-      totalOrders: reports.reduce((sum, item) => sum + item.totalOrders, 0),
+      totalOrders,
       activeOrders: reports.reduce((sum, item) => sum + item.activeOrders, 0),
-      deliveredOrders: reports.reduce((sum, item) => sum + item.deliveredOrders, 0),
-      totalRestaurantCharges: Number(reports.reduce((sum, item) => sum + item.totalRestaurantCharges, 0).toFixed(2)),
+      deliveredOrders,
+      totalRestaurantCharges,
+      averageRestaurantCharge: totalOrders ? Number((totalRestaurantCharges / totalOrders).toFixed(2)) : 0,
+      completionRate: totalOrders ? Number(((deliveredOrders / totalOrders) * 100).toFixed(1)) : 0,
+      statusMix: Array.from(allOrders.reduce((map, item) => {
+        map.set(item.order.status, (map.get(item.order.status) || 0) + 1);
+        return map;
+      }, new Map<string, number>()).entries()).map(([status, count]) => ({ status, count })).sort((left, right) => right.count - left.count),
+      byStore: restaurants.map((restaurant, index) => ({
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+        totalOrders: reports[index].totalOrders,
+        deliveredOrders: reports[index].deliveredOrders,
+        totalRestaurantCharges: reports[index].totalRestaurantCharges,
+      })).sort((left, right) => right.totalOrders - left.totalOrders),
+      byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
+      byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
     };
   }
 

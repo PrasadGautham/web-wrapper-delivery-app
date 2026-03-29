@@ -73,14 +73,45 @@ export class RestaurantWorkflowService {
     }
     return this.runtime.withOperationalDb(async (state) => {
       this.dispatchService.tick(state as never);
+      const activeStatuses = new Set(['queued', 'pending', 'accepted', 'atRestaurant', 'pickedUp']);
       const orders = state.orders.filter((order) => order.restaurantId === restaurantId && orderFallsWithinRange(order.createdAt, range));
+      const totalOrders = orders.length;
+      const activeOrders = orders.filter((order) => activeStatuses.has(order.status)).length;
+      const deliveredOrders = orders.filter((order) => order.status === 'delivered').length;
+      const totalRestaurantCharges = Number(orders.reduce((sum, order) => sum + order.companyCharge, 0).toFixed(2));
+      const driverById = new Map(state.drivers.map((driver) => [driver.id, driver]));
+      const statusMix = Array.from(orders.reduce((map, order) => {
+        map.set(order.status, (map.get(order.status) || 0) + 1);
+        return map;
+      }, new Map<string, number>()).entries()).map(([status, count]) => ({ status, count })).sort((left, right) => right.count - left.count);
+      const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+      const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+      for (const order of orders) {
+        if (order.assignedDriverId) {
+          const driverName = driverById.get(order.assignedDriverId)?.name || 'Unknown courier';
+          const driver = byCourier.get(order.assignedDriverId) || { driverId: order.assignedDriverId, driverName, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+          driver.totalOrders += 1;
+          driver.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+          driver.totalRestaurantCharges += order.companyCharge;
+          byCourier.set(order.assignedDriverId, driver);
+        }
+        const dayKey = order.createdAt.slice(0, 10);
+        const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+        day.totalOrders += 1;
+        day.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+        day.totalRestaurantCharges += order.companyCharge;
+        byDay.set(dayKey, day);
+      }
       return {
-        totalOrders: orders.length,
-        activeOrders: orders.filter((order) =>
-          ['queued', 'pending', 'accepted', 'atRestaurant', 'pickedUp'].includes(order.status),
-        ).length,
-        deliveredOrders: orders.filter((order) => order.status === 'delivered').length,
-        totalRestaurantCharges: Number(orders.reduce((sum, order) => sum + order.companyCharge, 0).toFixed(2)),
+        totalOrders,
+        activeOrders,
+        deliveredOrders,
+        totalRestaurantCharges,
+        averageRestaurantCharge: totalOrders ? Number((totalRestaurantCharges / totalOrders).toFixed(2)) : 0,
+        completionRate: totalOrders ? Number(((deliveredOrders / totalOrders) * 100).toFixed(1)) : 0,
+        statusMix,
+        byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
+        byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
       };
     });
   }

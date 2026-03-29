@@ -287,6 +287,22 @@ export interface RestaurantReport {
   activeOrders: number;
   deliveredOrders: number;
   totalRestaurantCharges: number;
+  averageRestaurantCharge: number;
+  completionRate: number;
+  statusMix: Array<{ status: string; count: number }>;
+  byCourier: Array<{
+    driverId: string;
+    driverName: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalRestaurantCharges: number;
+  }>;
+  byDay: Array<{
+    date: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalRestaurantCharges: number;
+  }>;
 }
 
 export interface MerchantReport {
@@ -295,6 +311,102 @@ export interface MerchantReport {
   activeOrders: number;
   deliveredOrders: number;
   totalRestaurantCharges: number;
+  averageRestaurantCharge: number;
+  completionRate: number;
+  statusMix: Array<{ status: string; count: number }>;
+  byStore: Array<{
+    restaurantId: string;
+    restaurantName: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalRestaurantCharges: number;
+  }>;
+  byCourier: Array<{
+    driverId: string;
+    driverName: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalRestaurantCharges: number;
+  }>;
+  byDay: Array<{
+    date: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalRestaurantCharges: number;
+  }>;
+}
+
+export interface AdminOrderReportView {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  merchantId: string;
+  merchantName: string;
+  restaurantId: string;
+  restaurantName: string;
+  assignedDriverId: string | null;
+  assignedDriverName: string | null;
+  customerName: string;
+  destinationAddress: string;
+  deliveryArea: string;
+  status: OrderStatus;
+  createdAt: string;
+  deliveredAt: string | null;
+  storeCharge: number;
+  driverPay: number;
+  currency: string;
+}
+
+export interface AdminOperationsReport {
+  totalOrders: number;
+  activeOrders: number;
+  deliveredOrders: number;
+  totalStoreCharges: number;
+  totalDriverPay: number;
+  averageStoreCharge: number;
+  averageDriverPay: number;
+  completionRate: number;
+  statusMix: Array<{ status: string; count: number }>;
+  byTenant: Array<{
+    tenantId: string;
+    tenantName: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalStoreCharges: number;
+    totalDriverPay: number;
+  }>;
+  byMerchantGroup: Array<{
+    merchantId: string;
+    merchantName: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalStoreCharges: number;
+    totalDriverPay: number;
+  }>;
+  byStore: Array<{
+    restaurantId: string;
+    restaurantName: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalStoreCharges: number;
+    totalDriverPay: number;
+  }>;
+  byDriver: Array<{
+    driverId: string;
+    driverName: string;
+    totalOrders: number;
+    activeOrders: number;
+    deliveredOrders: number;
+    totalStoreCharges: number;
+    totalDriverPay: number;
+  }>;
+  byDay: Array<{
+    date: string;
+    totalOrders: number;
+    deliveredOrders: number;
+    totalStoreCharges: number;
+    totalDriverPay: number;
+  }>;
 }
 
 export interface SessionRecord {

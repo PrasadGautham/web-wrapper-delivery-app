@@ -89,6 +89,39 @@ Primary demo accounts:
 
 Secondary seeded accounts also exist for the second sample tenant and restaurant. If you need the full list, use [seed.json](/c:/dev/DriverApp/backend/data/seed.json) as the source of truth.
 
+
+## Reporting Surfaces
+
+Current reporting and export behavior:
+- Platform admin and tenant admin:
+  - date-filtered operational reporting
+  - breakdowns by driver, store, merchant group, day, and tenant
+  - CSV exports with clear type-and-date filenames such as `platform-admin-report-drivers-2026-03-01-to-2026-03-31.csv`
+- Merchant portal:
+  - date-filtered merchant-wide reporting across all owned stores
+  - breakdowns by store, courier, day, and status mix
+  - CSV export filenames such as `merchant-orders-report-2026-03-01-to-2026-03-31.csv`
+- Restaurant portal:
+  - date-filtered store-only reporting
+  - breakdowns by courier, day, status mix, and store-facing billing totals
+  - CSV export filenames such as `restaurant-orders-report-2026-03-01-to-2026-03-31.csv`
+
+Commercial visibility boundaries remain enforced:
+- admin can see both `driver pay` and `store charge`
+- merchant and restaurant can see `store charge` only
+- driver app can see `driver pay` only
+
+## Portal Frontend Structure
+
+Web portal assets now use a cleaner split so the browser surfaces are easier to maintain:
+- shared admin shell: [admin.html](/c:/dev/DriverApp/backend/public/admin.html) served for both `/platform-admin` and `/tenant-admin`
+- merchant shell: [merchant.html](/c:/dev/DriverApp/backend/public/merchant.html)
+- restaurant shell: [restaurant.html](/c:/dev/DriverApp/backend/public/restaurant.html)
+- shared browser helpers: [backend/public/shared](/c:/dev/DriverApp/backend/public/shared)
+- portal stylesheets: [backend/public/styles](/c:/dev/DriverApp/backend/public/styles)
+
+This keeps auth-gate logic, formatting helpers, date-range helpers, and page styles from drifting across duplicated files.
+
 ## Docs Map
 
 - Documentation index: [DOCS_INDEX.md](/c:/dev/DriverApp/docs/DOCS_INDEX.md)

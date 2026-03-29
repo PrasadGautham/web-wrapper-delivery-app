@@ -4,6 +4,7 @@ import { AdminRole, DistancePricingRule, DistanceUnit, DriverDispatchMode, Drive
 import { assertValidPricingRule, normalizePricingRule } from '../services/pricing-rules.js';
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
+import { assertValidReportDateRange, toCsv } from '../utils/reporting.js';
 import {
   AuthTransport,
   clearWebSessionCookie,
@@ -83,6 +84,48 @@ async function ensureScopedDriver(backendService: BackendService, adminRequest: 
   if (!drivers.some((driver) => driver.id === driverId)) {
     throw new Error('Driver not found for admin scope.');
   }
+}
+
+function getReportRange(request: FastifyRequest) {
+  const query = request.query as { startDate?: string; endDate?: string };
+  const range = {
+    startDate: query.startDate?.trim() || undefined,
+    endDate: query.endDate?.trim() || undefined,
+  };
+  assertValidReportDateRange(range);
+  return range;
+}
+
+function buildReportFileName(prefix: string, type: string, range: { startDate?: string; endDate?: string }) {
+  if (!range.startDate && !range.endDate) {
+    return `${prefix}-${type}-all-dates.csv`;
+  }
+  if (range.startDate && range.endDate) {
+    return `${prefix}-${type}-${range.startDate}-to-${range.endDate}.csv`;
+  }
+  if (range.startDate) {
+    return `${prefix}-${type}-from-${range.startDate}.csv`;
+  }
+  return `${prefix}-${type}-until-${range.endDate}.csv`;
+}
+
+function describeReportRange(range: { startDate?: string; endDate?: string }) {
+  if (!range.startDate && !range.endDate) {
+    return 'All available dates';
+  }
+  if (range.startDate && range.endDate) {
+    return `${range.startDate} to ${range.endDate}`;
+  }
+  if (range.startDate) {
+    return `From ${range.startDate}`;
+  }
+  return `Until ${range.endDate}`;
+}
+
+function normalizeAdminReportType(value: unknown) {
+  const normalized = String(value || 'orders').trim();
+  const valid = new Set(['orders', 'drivers', 'stores', 'merchant-groups', 'tenants', 'days']);
+  return valid.has(normalized) ? normalized : 'orders';
 }
 
 export async function registerAdminRoutes(
@@ -208,6 +251,86 @@ export async function registerAdminRoutes(
     const adminRequest = request as AdminAuthedRequest;
     return backendService.listAdminUsers({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
   });
+  app.get('/api/admin/report', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    try {
+      const range = getReportRange(request);
+      const query = request.query as { tenantId?: string };
+      return backendService.getAdminOperationsReport({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, range, query.tenantId?.trim() || undefined);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.get('/api/admin/orders', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    try {
+      const range = getReportRange(request);
+      const query = request.query as { tenantId?: string };
+      return backendService.getAdminOrders({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, range, query.tenantId?.trim() || undefined);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
+  app.get('/api/admin/report-export.csv', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    try {
+      const range = getReportRange(request);
+      const query = request.query as { tenantId?: string; reportType?: string };
+      const reportType = normalizeAdminReportType(query.reportType);
+      const scopedTenantId = query.tenantId?.trim() || undefined;
+      const [report, orders] = await Promise.all([
+        backendService.getAdminOperationsReport({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, range, scopedTenantId),
+        backendService.getAdminOrders({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, range, scopedTenantId),
+      ]);
+      const rows: string[][] = [
+        ['Report Scope', scopedTenantId ? 'Single tenant workspace' : 'Visible admin scope'],
+        ['Report Period', describeReportRange(range)],
+        [],
+      ];
+
+      if (reportType === 'drivers') {
+        rows.push(['Driver', 'Total Orders', 'Active Orders', 'Delivered Orders', 'Store Charges', 'Driver Pay']);
+        for (const item of report.byDriver) {
+          rows.push([item.driverName, String(item.totalOrders), String(item.activeOrders), String(item.deliveredOrders), String(item.totalStoreCharges), String(item.totalDriverPay)]);
+        }
+      } else if (reportType === 'stores') {
+        rows.push(['Store', 'Total Orders', 'Delivered Orders', 'Store Charges', 'Driver Pay']);
+        for (const item of report.byStore) {
+          rows.push([item.restaurantName, String(item.totalOrders), String(item.deliveredOrders), String(item.totalStoreCharges), String(item.totalDriverPay)]);
+        }
+      } else if (reportType === 'merchant-groups') {
+        rows.push(['Merchant Group', 'Total Orders', 'Delivered Orders', 'Store Charges', 'Driver Pay']);
+        for (const item of report.byMerchantGroup) {
+          rows.push([item.merchantName, String(item.totalOrders), String(item.deliveredOrders), String(item.totalStoreCharges), String(item.totalDriverPay)]);
+        }
+      } else if (reportType === 'tenants') {
+        rows.push(['Tenant', 'Total Orders', 'Delivered Orders', 'Store Charges', 'Driver Pay']);
+        for (const item of report.byTenant) {
+          rows.push([item.tenantName, String(item.totalOrders), String(item.deliveredOrders), String(item.totalStoreCharges), String(item.totalDriverPay)]);
+        }
+      } else if (reportType === 'days') {
+        rows.push(['Date', 'Total Orders', 'Delivered Orders', 'Store Charges', 'Driver Pay']);
+        for (const item of report.byDay) {
+          rows.push([item.date, String(item.totalOrders), String(item.deliveredOrders), String(item.totalStoreCharges), String(item.totalDriverPay)]);
+        }
+      } else {
+        rows.push(['Tenant', 'Merchant Group', 'Store', 'Order ID', 'Created At', 'Delivered At', 'Customer', 'Destination Address', 'Delivery Area', 'Status', 'Assigned Driver', 'Store Charge', 'Driver Pay', 'Currency']);
+        for (const order of orders) {
+          rows.push([order.tenantName, order.merchantName, order.restaurantName, order.id, order.createdAt, order.deliveredAt || '', order.customerName, order.destinationAddress, order.deliveryArea, order.status, order.assignedDriverName || '', String(order.storeCharge), String(order.driverPay), order.currency]);
+        }
+      }
+
+      const prefix = isPlatformAdminUser(adminRequest) ? 'platform-admin-report' : 'tenant-admin-report';
+      reply.header('Content-Type', 'text/csv; charset=utf-8');
+      reply.header('Content-Disposition', `attachment; filename="${buildReportFileName(prefix, reportType, range)}"`);
+      return toCsv(rows);
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
+
   app.get('/api/admin/restaurants/:restaurantId/staff-users', async (request) => {
     const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string };

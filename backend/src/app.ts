@@ -350,8 +350,8 @@ export async function buildApp(
 
   app.get('/restaurant', async (_request, reply) => reply.sendFile('restaurant.html'));
   app.get('/merchant', async (_request, reply) => reply.sendFile('merchant.html'));
-  app.get('/platform-admin', async (_request, reply) => reply.sendFile('platform-admin.html'));
-  app.get('/tenant-admin', async (_request, reply) => reply.sendFile('tenant-admin.html'));
+  app.get('/platform-admin', async (_request, reply) => reply.sendFile('admin.html'));
+  app.get('/tenant-admin', async (_request, reply) => reply.sendFile('admin.html'));
 
   app.addHook('onClose', async () => {
     if (prisma) {

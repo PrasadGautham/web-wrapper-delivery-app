@@ -9,6 +9,8 @@ import {
   MerchantProfile,
   MerchantRecord,
   MerchantReport,
+  AdminOperationsReport,
+  AdminOrderReportView,
   MerchantRestaurantProfile,
   MerchantUserProfile,
   MerchantUserRole,
@@ -294,6 +296,22 @@ export class BackendService {
     pricing: { driverPayoutRule: DistancePricingRule; merchantBillingRule: DistancePricingRule },
   ): Promise<RestaurantProfile> {
     return this.adminWorkflow.updateRestaurantPricing(restaurantId, pricing);
+  }
+
+  getAdminOrders(
+    adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' },
+    range: ReportDateRange = {},
+    tenantId?: string,
+  ): Promise<AdminOrderReportView[]> {
+    return this.adminWorkflow.getOrdersReport(adminUser, range, tenantId);
+  }
+
+  getAdminOperationsReport(
+    adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' },
+    range: ReportDateRange = {},
+    tenantId?: string,
+  ): Promise<AdminOperationsReport> {
+    return this.adminWorkflow.getOperationsReport(adminUser, range, tenantId);
   }
 
   runDispatchCycle(): Promise<void> {
