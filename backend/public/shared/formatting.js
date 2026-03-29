@@ -1,3 +1,5 @@
+import { DEFAULT_CURRENCY_CODE, DEFAULT_DISTANCE_UNIT } from './constants.js';
+
 const MILES_PER_KILOMETER = 0.621371;
 const KILOMETERS_PER_MILE = 1.609344;
 
@@ -5,8 +7,8 @@ export function normalizeCurrencyCode(value) {
   return String(value || '').trim().toUpperCase();
 }
 
-export function formatMoney(value, currency = 'AED') {
-  const code = normalizeCurrencyCode(currency) || 'AED';
+export function formatMoney(value, currency = DEFAULT_CURRENCY_CODE) {
+  const code = normalizeCurrencyCode(currency) || DEFAULT_CURRENCY_CODE;
   try {
     return new Intl.NumberFormat('en', {
       style: 'currency',
@@ -46,39 +48,39 @@ export function formatEtaSource(value) {
   return value;
 }
 
-export function toDisplayDistance(kmValue, unit = 'kilometer') {
+export function toDisplayDistance(kmValue, unit = DEFAULT_DISTANCE_UNIT) {
   const numeric = Number(kmValue || 0);
   return unit === 'mile' ? numeric * MILES_PER_KILOMETER : numeric;
 }
 
-export function fromDisplayDistance(displayValue, unit = 'kilometer') {
+export function fromDisplayDistance(displayValue, unit = DEFAULT_DISTANCE_UNIT) {
   const numeric = Number(displayValue || 0);
   return unit === 'mile' ? numeric * KILOMETERS_PER_MILE : numeric;
 }
 
-export function toDisplayRate(perKmValue, unit = 'kilometer') {
+export function toDisplayRate(perKmValue, unit = DEFAULT_DISTANCE_UNIT) {
   const numeric = Number(perKmValue || 0);
   return unit === 'mile' ? numeric * KILOMETERS_PER_MILE : numeric;
 }
 
-export function fromDisplayRate(displayRate, unit = 'kilometer') {
+export function fromDisplayRate(displayRate, unit = DEFAULT_DISTANCE_UNIT) {
   const numeric = Number(displayRate || 0);
   return unit === 'mile' ? numeric / KILOMETERS_PER_MILE : numeric;
 }
 
-export function distanceUnitShort(unit = 'kilometer') {
+export function distanceUnitShort(unit = DEFAULT_DISTANCE_UNIT) {
   return unit === 'mile' ? 'mi' : 'km';
 }
 
-export function distanceUnitWord(unit = 'kilometer') {
+export function distanceUnitWord(unit = DEFAULT_DISTANCE_UNIT) {
   return unit === 'mile' ? 'mile' : 'km';
 }
 
-export function formatDistance(kmValue, unit = 'kilometer') {
+export function formatDistance(kmValue, unit = DEFAULT_DISTANCE_UNIT) {
   return `${toDisplayDistance(kmValue, unit).toFixed(1)} ${distanceUnitShort(unit)}`;
 }
 
-export function summarizePricingRule(rule, currency, unit = 'kilometer') {
+export function summarizePricingRule(rule, currency, unit = DEFAULT_DISTANCE_UNIT) {
   const included = toDisplayDistance(rule.includedDistanceKm || 0, unit);
   const extraRate = toDisplayRate(rule.additionalPerKm || 0, unit);
   if (Number(extraRate) <= 0) {
@@ -86,3 +88,4 @@ export function summarizePricingRule(rule, currency, unit = 'kilometer') {
   }
   return `${formatMoney(rule.baseAmount, currency)} includes ${included.toFixed(1)} ${distanceUnitShort(unit)}, then ${formatMoney(extraRate, currency)} per extra ${distanceUnitWord(unit)}`;
 }
+

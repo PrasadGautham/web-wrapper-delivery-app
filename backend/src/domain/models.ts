@@ -4,6 +4,8 @@ export interface TenantRecord {
   id: string;
   name: string;
   slug: string;
+  currency: string;
+  timeZone: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -12,6 +14,8 @@ export interface TenantProfile {
   id: string;
   name: string;
   slug: string;
+  currency: string;
+  timeZone: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -58,6 +62,8 @@ export interface MerchantProfile {
   id: string;
   tenantId: string;
   name: string;
+  currency: string;
+  timeZone: string;
 }
 
 export interface MerchantView extends MerchantProfile {
@@ -110,6 +116,8 @@ export interface DriverProfile {
   maxActiveOrders: number;
   currentLoad: number;
   locationFreshness: 'fresh' | 'stale' | 'missing';
+  displayCurrency: string;
+  timeZone: string;
 }
 
 export type RestaurantStaffRole = 'owner' | 'manager' | 'dispatcher' | 'viewer';
@@ -182,6 +190,7 @@ export interface RestaurantProfile {
   pickupLocation: LocationSnapshot;
   pricing: RestaurantPricingRules;
   currency: string;
+  timeZone: string;
   distanceUnit: DistanceUnit;
   trackingSettings: RestaurantTrackingSettings;
   driverOfferSettings: DriverOfferSettings;
@@ -409,6 +418,57 @@ export interface AdminOperationsReport {
   }>;
 }
 
+export interface AdminOperationalHealthReport {
+  generatedAt: string;
+  scope: 'platform' | 'tenant';
+  timeZone: string;
+  tenantId: string | null;
+  tenantName: string | null;
+  summary: {
+    totalOrders: number;
+    queuedOrders: number;
+    pendingOffers: number;
+    activeTrips: number;
+    deliveredOrders: number;
+    oldestQueuedOrderMinutes: number;
+    averageQueuedOrderMinutes: number;
+    stuckQueuedOrders: number;
+    onlineDrivers: number;
+    driversWithFreshLocation: number;
+    driversWithStaleLocation: number;
+    driversWithMissingLocation: number;
+    recentAuthFailures: number;
+    pushOffersSent: number;
+    pushOfferFailures: number;
+    dispatchAssignments: number;
+    offerExpirations: number;
+  };
+  locationFreshness: Array<{
+    state: 'fresh' | 'stale' | 'missing';
+    count: number;
+  }>;
+  authFailures: Array<{
+    route: string;
+    count: number;
+  }>;
+  topStuckOrders: Array<{
+    orderId: string;
+    tenantName: string;
+    restaurantName: string;
+    ageMinutes: number;
+    lastEventType: string | null;
+  }>;
+  staleDrivers: Array<{
+    driverId: string;
+    driverName: string;
+    tenantName: string;
+    freshness: 'stale' | 'missing';
+    isOnline: boolean;
+    lastLocationAt: string | null;
+    minutesSinceLocation: number | null;
+  }>;
+}
+
 export interface SessionRecord {
   token: string;
   userType: UserType;
@@ -451,3 +511,4 @@ export interface DatabaseShape {
   passwordResetTokens: PasswordResetTokenRecord[];
   auditLogs: AuditLogRecord[];
 }
+

@@ -129,9 +129,15 @@ C:\flutter\bin\flutter.bat test
 ```
 
 Quick web report checks after startup:
-- `/platform-admin` or `/tenant-admin`: apply a date filter and export `orders`, `drivers`, or `stores`
-- `/merchant`: apply a date filter and export the merchant-wide report
-- `/restaurant`: apply a date filter and export the store-only report
+- `/platform-admin`: confirm the active tenant currency and time zone, then apply a date filter and export `orders`, `drivers`, or `stores`
+- `/tenant-admin`: confirm the inherited tenant currency and time zone, then apply a date filter
+- `/merchant`: apply a date filter and confirm the report note shows the tenant time zone before exporting the merchant-wide report
+- `/restaurant`: apply a date filter and confirm the report note shows the tenant time zone before exporting the store-only report
+
+Localization defaults are centralized in:
+- `backend/src/utils/timezones.ts` for backend behavior
+- `backend/public/shared/constants.js` for web portals
+- `lib/core/config/app_defaults.dart` for Flutter fallbacks
 
 ## Notes
 
@@ -142,3 +148,7 @@ Quick web report checks after startup:
 - File-store local mode is only a fallback demo option and no longer injects local secrets automatically.
 - Android is the current supported launch track from this Windows environment.
 - iOS native validation still requires macOS.
+
+Operational health tuning envs:
+- `ORDER_STUCK_MINUTES` controls when a queued order is treated as operationally stuck
+- `OPS_HEALTH_ALERT_INTERVAL_SECONDS` controls how often the backend evaluates degraded-ops alerts

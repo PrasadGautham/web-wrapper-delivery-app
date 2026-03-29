@@ -10,6 +10,7 @@ import {
   MerchantRecord,
   MerchantReport,
   AdminOperationsReport,
+  AdminOperationalHealthReport,
   AdminOrderReportView,
   MerchantRestaurantProfile,
   MerchantUserProfile,
@@ -37,6 +38,7 @@ import { DriverWorkflowService } from './driver-workflow-service.js';
 import { EtaProvider } from './eta-provider.js';
 import { MerchantWorkflowService } from './merchant-workflow-service.js';
 import { PasswordResetNotifier } from './password-reset-notifier.js';
+import { ObservabilityService } from './observability-service.js';
 import { PushGateway } from './push-gateway.js';
 import { RestaurantRealtimeService } from './restaurant-realtime-service.js';
 import { RestaurantWorkflowService } from './restaurant-workflow-service.js';
@@ -62,6 +64,7 @@ export class BackendService {
     restaurantRealtime: RestaurantRealtimeService,
     backofficeReadService: BackofficeReadService | null = null,
     logger?: { warn: (message: unknown) => void },
+    observability?: ObservabilityService,
   ) {
     this.runtime = new BackendRuntime(store, dispatchService, pushGateway, defaultSessionHours, logger);
     const workflowStore = hasWorkflowStore(store) ? store : null;
@@ -81,6 +84,7 @@ export class BackendService {
       this.runtime,
       dispatchService,
       workflowStore,
+      observability,
     );
     this.restaurantWorkflow = new RestaurantWorkflowService(
       this.runtime,
@@ -167,8 +171,12 @@ export class BackendService {
     return this.adminWorkflow.listTenants(adminUser);
   }
 
-  createTenant(input: { name: string; slug: string }): Promise<TenantProfile> {
+  createTenant(input: { name: string; slug: string; currency?: string; timeZone?: string }): Promise<TenantProfile> {
     return this.adminWorkflow.createTenant(input);
+  }
+
+  updateTenantSettings(tenantId: string, settings: { currency: string; timeZone: string }): Promise<TenantProfile> {
+    return this.adminWorkflow.updateTenantSettings(tenantId, settings);
   }
 
   createTenantAdmin(tenantId: string, input: { name: string; email: string; password: string; role: Extract<AdminRole, 'tenantAdmin' | 'tenantOps' | 'tenantSupport'> }): Promise<AdminUserProfile> {
@@ -216,7 +224,7 @@ export class BackendService {
     return this.adminWorkflow.createMerchant(adminUser, input);
   }
 
-  createRestaurant(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; merchantId: string; name: string; email: string; password: string; pickupLocation: RestaurantRecord['pickupLocation']; currency?: string; distanceUnit?: DistanceUnit }): Promise<RestaurantProfile> {
+  createRestaurant(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; merchantId: string; name: string; email: string; password: string; pickupLocation: RestaurantRecord['pickupLocation']; distanceUnit?: DistanceUnit }): Promise<RestaurantProfile> {
     return this.adminWorkflow.createRestaurant(adminUser, input);
   }
 
@@ -279,7 +287,7 @@ export class BackendService {
 
   updateRestaurantDisplaySettings(
     restaurantId: string,
-    settings: { currency: string; distanceUnit: DistanceUnit },
+    settings: { distanceUnit: DistanceUnit },
   ): Promise<RestaurantProfile> {
     return this.adminWorkflow.updateRestaurantDisplaySettings(restaurantId, settings);
   }
@@ -312,6 +320,13 @@ export class BackendService {
     tenantId?: string,
   ): Promise<AdminOperationsReport> {
     return this.adminWorkflow.getOperationsReport(adminUser, range, tenantId);
+  }
+
+  getAdminOperationalHealth(
+    adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' },
+    tenantId?: string,
+  ): Promise<AdminOperationalHealthReport> {
+    return this.adminWorkflow.getOperationalHealth(adminUser, tenantId);
   }
 
   runDispatchCycle(): Promise<void> {
@@ -443,6 +458,7 @@ export class BackendService {
     return this.restaurantWorkflow.getRestaurantReport(restaurantId, range);
   }
 }
+
 
 
 

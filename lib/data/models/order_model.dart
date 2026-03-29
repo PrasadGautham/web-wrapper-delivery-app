@@ -1,3 +1,4 @@
+import '../../core/config/app_defaults.dart';
 import '../../domain/entities/order.dart';
 
 class OrderModel {
@@ -14,8 +15,8 @@ class OrderModel {
       driverDisplayDistanceKm: ((json['driverDisplayDistanceKm'] ?? json['estimatedKm']) as num).toDouble(),
       driverDisplayMinutes: (json['driverDisplayMinutes'] ?? json['estimatedMinutes']) as int,
       driverDisplayMode: (json['driverDisplayMode'] ?? 'storeToCustomer') as String,
-      driverDisplayDistanceUnit: (json['driverDisplayDistanceUnit'] ?? 'kilometer') as String,
-      displayCurrency: (json['displayCurrency'] ?? 'AED') as String,
+      driverDisplayDistanceUnit: (json['driverDisplayDistanceUnit'] ?? AppDefaults.distanceUnit) as String,
+      displayCurrency: (json['displayCurrency'] ?? AppDefaults.tenantCurrencyCode) as String,
       tripEarnings: (json['tripEarnings'] as num).toDouble(),
       createdAt: json['createdAt'] as String,
       expiresAt: json['expiresAt'] as String?,
@@ -88,3 +89,4 @@ class OrderModel {
     );
   }
 }
+

@@ -27,9 +27,11 @@ Each restaurant has two separate commercial rule sets:
 - `driver pay`: what the fleet company pays the driver
 - `store charge`: what the fleet company charges the restaurant
 
-Each restaurant also has store-level market settings for how amounts and distances are shown:
+Each tenant now owns the canonical market settings for its workspace:
 - `currency`: for example `AED`, `USD`, `KWD`
-- `distanceUnit`: `kilometer` or `mile`
+- `timeZone`: an IANA zone such as `Asia/Dubai`
+
+Each restaurant still owns its own `distanceUnit`: `kilometer` or `mile`.
 
 Each restaurant also has a driver-offer display setting for what the courier sees in the app:
 - `store to customer only`
@@ -37,7 +39,7 @@ Each restaurant also has a driver-offer display setting for what the courier see
 
 Those values are snapped onto each order so historical reporting and driver-facing offer metrics stay correct even if rules change later.
 
-Admin controls those market settings. Merchant users can view them but cannot change them.
+Platform admin controls tenant market settings. Tenant admins, merchant users, and restaurant users inherit those tenant values. Restaurant distance unit remains store-level and merchant users can view but not change the tenant-owned market settings.
 
 ## Main Entry Points
 
@@ -114,13 +116,20 @@ Commercial visibility boundaries remain enforced:
 ## Portal Frontend Structure
 
 Web portal assets now use a cleaner split so the browser surfaces are easier to maintain:
-- shared admin shell: [admin.html](/c:/dev/DriverApp/backend/public/admin.html) served for both `/platform-admin` and `/tenant-admin`
+- shared admin shell: [admin.html](/c:/dev/DriverApp/backend/public/admin.html) served for both `/platform-admin` and `/tenant-admin`, with role-specific tenant currency and time-zone behavior
 - merchant shell: [merchant.html](/c:/dev/DriverApp/backend/public/merchant.html)
 - restaurant shell: [restaurant.html](/c:/dev/DriverApp/backend/public/restaurant.html)
 - shared browser helpers: [backend/public/shared](/c:/dev/DriverApp/backend/public/shared)
 - portal stylesheets: [backend/public/styles](/c:/dev/DriverApp/backend/public/styles)
 
 This keeps auth-gate logic, formatting helpers, date-range helpers, and page styles from drifting across duplicated files.
+
+Tenant localization defaults are centralized in:
+- [backend/src/utils/timezones.ts](/c:/dev/DriverApp/backend/src/utils/timezones.ts) for backend runtime and reporting
+- [backend/public/shared/constants.js](/c:/dev/DriverApp/backend/public/shared/constants.js) for web portals
+- [lib/core/config/app_defaults.dart](/c:/dev/DriverApp/lib/core/config/app_defaults.dart) for Flutter parsing and formatting fallbacks
+
+Runtime business behavior should derive from tenant settings first, with these files acting only as bootstrap defaults when data is missing or a brand-new tenant is being created.
 
 ## Docs Map
 

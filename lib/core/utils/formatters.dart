@@ -1,15 +1,17 @@
 import 'package:intl/intl.dart';
 
+import '../config/app_defaults.dart';
+
 class Formatters {
   const Formatters._();
 
-  static String currency(num value, {String code = 'AED'}) {
+  static String currency(num value, {String code = AppDefaults.tenantCurrencyCode}) {
     return NumberFormat.simpleCurrency(name: code, decimalDigits: 2).format(value);
   }
 
-  static String distance(num valueKm, {String unit = 'kilometer'}) {
+  static String distance(num valueKm, {String unit = AppDefaults.distanceUnit}) {
     if (unit == 'mile') {
-      return '${(valueKm * 0.621371).toStringAsFixed(1)} mi';
+      return '${(valueKm * AppDefaults.milesPerKilometer).toStringAsFixed(1)} mi';
     }
     return '${valueKm.toStringAsFixed(1)} km';
   }
@@ -26,3 +28,4 @@ class Formatters {
     return '${value.toStringAsFixed(0)}%';
   }
 }
+

@@ -291,6 +291,8 @@
       "id": "tnt_fleet_001",
       "name": "Desert Fleet Services",
       "slug": "desert-fleet-services",
+      "currency": "AED",
+      "timeZone": "Asia/Dubai",
       "isActive": true,
       "createdAt": "2026-01-01T00:00:00.000Z"
     },
@@ -298,6 +300,8 @@
       "id": "tnt_fleet_002",
       "name": "Metro Fleet Partners",
       "slug": "metro-fleet-partners",
+      "currency": "AED",
+      "timeZone": "Asia/Dubai",
       "isActive": true,
       "createdAt": "2026-01-02T00:00:00.000Z"
     }

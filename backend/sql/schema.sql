@@ -2,6 +2,8 @@ create table if not exists tenants (
   id text primary key,
   name text not null,
   slug text not null unique,
+  currency text not null default 'AED',
+  time_zone text not null default 'Asia/Dubai',
   is_active boolean not null default true,
   created_at timestamptz not null
 );
@@ -140,6 +142,8 @@ alter table orders add column if not exists tenant_id text references tenants(id
 alter table sessions add column if not exists tenant_id text references tenants(id) on delete cascade;
 alter table password_reset_tokens add column if not exists tenant_id text references tenants(id) on delete cascade;
 alter table audit_logs add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table tenants add column if not exists currency text not null default 'AED';
+alter table tenants add column if not exists time_zone text not null default 'Asia/Dubai';
 alter table tenants add column if not exists is_active boolean not null default true;
 alter table tenants add column if not exists created_at timestamptz not null default now();
 
@@ -163,3 +167,4 @@ alter table admin_users add constraint admin_users_role_tenant_scope_chk check (
   or
   (role in ('tenantAdmin', 'tenantOps', 'tenantSupport') and tenant_id is not null)
 );
+

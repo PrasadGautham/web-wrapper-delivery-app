@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   AdminOperationsReport,
+  AdminOperationalHealthReport,
   AdminOrderReportView,
   AdminRole,
   AdminUserProfile,
@@ -39,6 +40,8 @@ import {
 import { WorkflowStoreContract } from './store-contract.js';
 import { assertValidPricingRule, normalizePricingRule } from './pricing-rules.js';
 import { orderFallsWithinRange, ReportDateRange } from '../utils/reporting.js';
+import { ObservabilityService } from './observability-service.js';
+import { defaultDistanceUnit, defaultTenantCurrency, defaultTenantTimeZone, extractDateInTimeZone, normalizeTenantCurrency, normalizeTenantTimeZone, platformReportTimeZone } from '../utils/timezones.js';
 
 function createAuditLog(input: Omit<AuditLogRecord, 'id' | 'at'>): AuditLogRecord {
   return {
@@ -73,7 +76,21 @@ function isPlatformAdmin(role: AdminRole): boolean {
 }
 
 function toTenantProfile(tenant: TenantRecord): TenantProfile {
-  return { ...tenant };
+  return {
+    ...tenant,
+    currency: normalizeTenantCurrency(tenant.currency ?? defaultTenantCurrency),
+    timeZone: normalizeTenantTimeZone(tenant.timeZone ?? defaultTenantTimeZone),
+  };
+}
+
+const stuckQueuedOrderThresholdMinutes = Number(process.env.ORDER_STUCK_MINUTES ?? '10');
+
+function resolveReportTimeZone(tenants: TenantRecord[], scopedTenantId: string | null): string {
+  if (!scopedTenantId) {
+    return platformReportTimeZone;
+  }
+  const tenant = tenants.find((item) => item.id === scopedTenantId) ?? null;
+  return normalizeTenantTimeZone(tenant?.timeZone ?? defaultTenantTimeZone);
 }
 
 export class AdminWorkflowService {
@@ -81,6 +98,7 @@ export class AdminWorkflowService {
     private readonly runtime: BackendRuntime,
     private readonly dispatchService: DispatchService,
     private readonly workflowStore: WorkflowStoreContract | null = null,
+    private readonly observability?: ObservabilityService,
   ) {}
 
   async listTenants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<TenantProfile[]> {
@@ -93,27 +111,30 @@ export class AdminWorkflowService {
   }
 
   async listDrivers(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<DriverProfile[]> {
-    return this.runtime.withDb(async (db) =>
-      db.drivers
+    return this.runtime.withDb(async (db) => {
+      const tenantById = new Map(db.tenants.map((tenant) => [tenant.id, tenant]));
+      return db.drivers
         .filter((driver) => isPlatformAdmin(adminUser.role) || driver.tenantId === adminUser.tenantId)
-        .map((driver) => toDriverProfile(driver, this.dispatchService.getDriverLoad(db, driver.id))),
-    );
+        .map((driver) => toDriverProfile(driver, this.dispatchService.getDriverLoad(db, driver.id), tenantById.get(driver.tenantId) ?? null));
+    });
   }
 
   async listRestaurants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<RestaurantProfile[]> {
-    return this.runtime.withDb(async (db) =>
-      db.restaurants
+    return this.runtime.withDb(async (db) => {
+      const tenantById = new Map(db.tenants.map((tenant) => [tenant.id, tenant]));
+      return db.restaurants
         .filter((restaurant) => isPlatformAdmin(adminUser.role) || restaurant.tenantId === adminUser.tenantId)
-        .map((restaurant) => toRestaurantProfile(restaurant)),
-    );
+        .map((restaurant) => toRestaurantProfile(restaurant, tenantById.get(restaurant.tenantId) ?? null));
+    });
   }
 
   async listMerchants(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<MerchantView[]> {
-    return this.runtime.withDb(async (db) =>
-      db.merchants
+    return this.runtime.withDb(async (db) => {
+      const tenantById = new Map(db.tenants.map((tenant) => [tenant.id, tenant]));
+      return db.merchants
         .filter((merchant) => isPlatformAdmin(adminUser.role) || merchant.tenantId === adminUser.tenantId)
-        .map((merchant) => toMerchantView(merchant)),
-    );
+        .map((merchant) => toMerchantView(merchant, tenantById.get(merchant.tenantId) ?? null));
+    });
   }
 
   async listAdminUsers(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }): Promise<AdminUserProfile[]> {
@@ -138,8 +159,10 @@ export class AdminWorkflowService {
       const restaurantById = new Map(db.restaurants.map((restaurant) => [restaurant.id, restaurant]));
       const driverById = new Map(db.drivers.map((driver) => [driver.id, driver]));
 
+      const reportTimeZone = resolveReportTimeZone(db.tenants, scopedTenantId);
+
       return db.orders
-        .filter((order) => (!scopedTenantId || order.tenantId == scopedTenantId) && orderFallsWithinRange(order.createdAt, range))
+        .filter((order) => (!scopedTenantId || order.tenantId == scopedTenantId) && orderFallsWithinRange(order.createdAt, range, reportTimeZone))
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
         .map((order) => {
           const tenant = tenantById.get(order.tenantId);
@@ -164,7 +187,7 @@ export class AdminWorkflowService {
             deliveredAt: order.deliveredAt,
             storeCharge: Number(order.companyCharge.toFixed(2)),
             driverPay: Number(order.tripEarnings.toFixed(2)),
-            currency: order.displayCurrency || restaurant?.currency || 'AED',
+            currency: order.displayCurrency || restaurant?.currency || defaultTenantCurrency,
           };
         });
     });
@@ -189,6 +212,7 @@ export class AdminWorkflowService {
     const storeMap = new Map<string, { restaurantId: string; restaurantName: string; totalOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
     const driverMap = new Map<string, { driverId: string; driverName: string; totalOrders: number; activeOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
     const dayMap = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
+    const reportTimeZone = await this.runtime.withDb(async (db) => resolveReportTimeZone(db.tenants, this.resolveReportTenantId(adminUser, requestedTenantId)));
 
     for (const row of rows) {
       statusMap.set(row.status, (statusMap.get(row.status) || 0) + 1);
@@ -224,7 +248,7 @@ export class AdminWorkflowService {
         driverMap.set(row.assignedDriverId, driver);
       }
 
-      const dateKey = row.createdAt.slice(0, 10);
+      const dateKey = extractDateInTimeZone(row.createdAt, reportTimeZone);
       const day = dayMap.get(dateKey) || { date: dateKey, totalOrders: 0, deliveredOrders: 0, totalStoreCharges: 0, totalDriverPay: 0 };
       day.totalOrders += 1;
       day.deliveredOrders += row.status === 'delivered' ? 1 : 0;
@@ -253,7 +277,117 @@ export class AdminWorkflowService {
     };
   }
 
-  async createTenant(input: { name: string; slug: string }): Promise<TenantProfile> {
+  async getOperationalHealth(
+    adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' },
+    requestedTenantId?: string,
+  ): Promise<AdminOperationalHealthReport> {
+    const scopedTenantId = this.resolveReportTenantId(adminUser, requestedTenantId);
+    return this.runtime.withDb(async (db) => {
+      this.dispatchService.tick(db as never);
+      this.dispatchService.assignQueuedOrders(db as never);
+
+      const visibleTenants = db.tenants.filter((tenant) => isPlatformAdmin(adminUser.role) ? (!scopedTenantId || tenant.id === scopedTenantId) : tenant.id === scopedTenantId);
+      const tenantIds = new Set(visibleTenants.map((tenant) => tenant.id));
+      const tenantById = new Map(visibleTenants.map((tenant) => [tenant.id, tenant]));
+      const restaurants = db.restaurants.filter((restaurant) => tenantIds.has(restaurant.tenantId));
+      const restaurantById = new Map(restaurants.map((restaurant) => [restaurant.id, restaurant]));
+      const orders = db.orders.filter((order) => tenantIds.has(order.tenantId));
+      const drivers = db.drivers.filter((driver) => tenantIds.has(driver.tenantId));
+      const timeZone = resolveReportTimeZone(db.tenants, scopedTenantId);
+      const counters = this.observability?.getCountersSnapshot() ?? { authFailures: [], recentAuthFailures: 0, pushOffersSent: 0, pushOfferFailures: 0, dispatchAssignments: 0, offerExpirations: 0 };
+
+      const queuedOrders = orders.filter((order) => order.status === 'queued');
+      const pendingOffers = orders.filter((order) => order.status === 'pending');
+      const activeTrips = orders.filter((order) => order.status === 'accepted' || order.status === 'atRestaurant' || order.status === 'pickedUp');
+      const deliveredOrders = orders.filter((order) => order.status === 'delivered');
+      const now = Date.now();
+      const queuedAges = queuedOrders.map((order) => Math.max(0, (now - new Date(order.createdAt).getTime()) / 60000));
+      const oldestQueuedOrderMinutes = queuedAges.length ? Number(Math.max(...queuedAges).toFixed(1)) : 0;
+      const averageQueuedOrderMinutes = queuedAges.length ? Number((queuedAges.reduce((sum, age) => sum + age, 0) / queuedAges.length).toFixed(1)) : 0;
+      const stuckOrders = queuedOrders
+        .map((order) => ({
+          order,
+          ageMinutes: Math.max(0, (now - new Date(order.createdAt).getTime()) / 60000),
+          restaurant: restaurantById.get(order.restaurantId) ?? null,
+          tenant: tenantById.get(order.tenantId) ?? null,
+          lastEventType: order.events.length ? order.events[order.events.length - 1].type : null,
+        }))
+        .filter((item) => item.ageMinutes >= stuckQueuedOrderThresholdMinutes)
+        .sort((left, right) => right.ageMinutes - left.ageMinutes);
+
+      const freshnessCounts = { fresh: 0, stale: 0, missing: 0 };
+      const staleDrivers: AdminOperationalHealthReport['staleDrivers'] = drivers
+        .map((driver) => {
+          const freshness = this.dispatchService.getLocationFreshness(driver);
+          freshnessCounts[freshness] += 1;
+          const lastLocationAt = driver.currentLocation.capturedAt ?? null;
+          const minutesSinceLocation = lastLocationAt ? Number(((now - new Date(lastLocationAt).getTime()) / 60000).toFixed(1)) : null;
+          return {
+            driverId: driver.id,
+            driverName: driver.name,
+            tenantName: tenantById.get(driver.tenantId)?.name ?? driver.tenantId,
+            freshness,
+            isOnline: driver.isOnline,
+            lastLocationAt,
+            minutesSinceLocation,
+          };
+        })
+        .filter((driver): driver is AdminOperationalHealthReport['staleDrivers'][number] => driver.freshness !== 'fresh')
+        .sort((left, right) => Number(right.isOnline) - Number(left.isOnline) || (right.minutesSinceLocation ?? -1) - (left.minutesSinceLocation ?? -1))
+        .slice(0, 8);
+
+      this.observability?.updateOperationalSnapshot({
+        queuedOrders: queuedOrders.length,
+        pendingOffers: pendingOffers.length,
+        stuckQueuedOrders: stuckOrders.length,
+        onlineDrivers: drivers.filter((driver) => driver.isOnline).length,
+        driverFreshness: freshnessCounts,
+      });
+
+      return {
+        generatedAt: new Date().toISOString(),
+        scope: isPlatformAdmin(adminUser.role) ? 'platform' : 'tenant',
+        timeZone,
+        tenantId: scopedTenantId,
+        tenantName: scopedTenantId ? (tenantById.get(scopedTenantId)?.name ?? null) : null,
+        summary: {
+          totalOrders: orders.length,
+          queuedOrders: queuedOrders.length,
+          pendingOffers: pendingOffers.length,
+          activeTrips: activeTrips.length,
+          deliveredOrders: deliveredOrders.length,
+          oldestQueuedOrderMinutes,
+          averageQueuedOrderMinutes,
+          stuckQueuedOrders: stuckOrders.length,
+          onlineDrivers: drivers.filter((driver) => driver.isOnline).length,
+          driversWithFreshLocation: freshnessCounts.fresh,
+          driversWithStaleLocation: freshnessCounts.stale,
+          driversWithMissingLocation: freshnessCounts.missing,
+          recentAuthFailures: counters.recentAuthFailures,
+          pushOffersSent: counters.pushOffersSent,
+          pushOfferFailures: counters.pushOfferFailures,
+          dispatchAssignments: counters.dispatchAssignments,
+          offerExpirations: counters.offerExpirations,
+        },
+        locationFreshness: [
+          { state: 'fresh', count: freshnessCounts.fresh },
+          { state: 'stale', count: freshnessCounts.stale },
+          { state: 'missing', count: freshnessCounts.missing },
+        ],
+        authFailures: counters.authFailures,
+        topStuckOrders: stuckOrders.slice(0, 8).map((item) => ({
+          orderId: item.order.id,
+          tenantName: item.tenant?.name ?? item.order.tenantId,
+          restaurantName: item.restaurant?.name ?? item.order.restaurantId,
+          ageMinutes: Number(item.ageMinutes.toFixed(1)),
+          lastEventType: item.lastEventType,
+        })),
+        staleDrivers,
+      };
+    });
+  }
+
+  async createTenant(input: { name: string; slug: string; currency?: string; timeZone?: string }): Promise<TenantProfile> {
     return this.runtime.withMutableDb(async (db) => {
       db.tenants ??= [];
       if (db.tenants.some((item) => item.slug.toLowerCase() === input.slug.toLowerCase())) {
@@ -263,6 +397,8 @@ export class AdminWorkflowService {
         id: `tenant-${randomUUID()}`,
         name: input.name,
         slug: input.slug,
+        currency: normalizeTenantCurrency(input.currency ?? defaultTenantCurrency),
+        timeZone: normalizeTenantTimeZone(input.timeZone ?? defaultTenantTimeZone),
         isActive: true,
         createdAt: new Date().toISOString(),
       };
@@ -324,13 +460,17 @@ export class AdminWorkflowService {
       const merchant: MerchantRecord = { id: `merchant-${randomUUID()}`, tenantId, name: input.name, users: [] };
       db.merchants.push(merchant);
       this.runtime.appendAuditLog(db, { actorType: 'admin', actorId: 'admin-api', tenantId, action: 'merchant.created', entityType: 'merchant', entityId: merchant.id });
-      return { id: merchant.id, tenantId: merchant.tenantId, name: merchant.name };
+      return { id: merchant.id, tenantId: merchant.tenantId, name: merchant.name, currency: tenant.currency, timeZone: tenant.timeZone };
     });
   }
 
-  async createRestaurant(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; merchantId: string; name: string; email: string; password: string; pickupLocation: RestaurantRecord['pickupLocation']; currency?: string; distanceUnit?: DistanceUnit }): Promise<RestaurantProfile> {
+  async createRestaurant(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; merchantId: string; name: string; email: string; password: string; pickupLocation: RestaurantRecord['pickupLocation']; distanceUnit?: DistanceUnit }): Promise<RestaurantProfile> {
     return this.runtime.withMutableDb(async (db) => {
       const tenantId = this.resolveManagedTenantId(adminUser, input.tenantId);
+      const tenant = (db.tenants ?? []).find((item) => item.id === tenantId && item.isActive);
+      if (!tenant) {
+        throw new Error('Tenant not found.');
+      }
       const merchant = db.merchants.find((item) => item.id === input.merchantId && item.tenantId === tenantId);
       if (!merchant) {
         throw new Error('Merchant not found for tenant.');
@@ -350,21 +490,25 @@ export class AdminWorkflowService {
           driverPayoutRule: normalizePricingRule({ baseAmount: 0, includedDistanceKm: 0, additionalPerKm: 0 }),
           merchantBillingRule: normalizePricingRule({ baseAmount: 0, includedDistanceKm: 0, additionalPerKm: 0 }),
         },
-        currency: input.currency ?? 'AED',
-        distanceUnit: input.distanceUnit ?? 'kilometer',
+        currency: tenant.currency,
+        distanceUnit: input.distanceUnit ?? defaultDistanceUnit,
         trackingSettings: { showPickedUpAsInTransit: true, showDriverEtaToPickup: true, showDestinationEta: true },
         driverOfferSettings: { distanceMode: 'storeToCustomer' },
         staffUsers: [],
       };
       db.restaurants.push(restaurant);
       this.runtime.appendAuditLog(db, { actorType: 'admin', actorId: 'admin-api', tenantId, action: 'restaurant.created', entityType: 'restaurant', entityId: restaurant.id, metadata: { merchantId: merchant.id } });
-      return toRestaurantProfile(restaurant);
+      return toRestaurantProfile(restaurant, tenant);
     });
   }
 
   async createDriver(adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' }, input: { tenantId?: string; name: string; email: string; password: string }): Promise<DriverProfile> {
     return this.runtime.withMutableDb(async (db) => {
       const tenantId = this.resolveManagedTenantId(adminUser, input.tenantId);
+      const tenant = (db.tenants ?? []).find((item) => item.id === tenantId && item.isActive);
+      if (!tenant) {
+        throw new Error('Tenant not found.');
+      }
       if (db.drivers.some((item) => item.email.toLowerCase() === input.email.toLowerCase())) {
         throw new Error('Driver email already exists.');
       }
@@ -385,7 +529,7 @@ export class AdminWorkflowService {
       };
       db.drivers.push(driver);
       this.runtime.appendAuditLog(db, { actorType: 'admin', actorId: 'admin-api', tenantId, action: 'driver.created', entityType: 'driver', entityId: driver.id });
-      return toDriverProfile(driver, 0);
+      return toDriverProfile(driver, 0, tenant);
     });
   }
 
@@ -650,11 +794,12 @@ export class AdminWorkflowService {
   }
 
 
-  async updateRestaurantDisplaySettings(restaurantId: string, settings: { currency: string; distanceUnit: DistanceUnit }): Promise<RestaurantProfile> {
+  async updateRestaurantDisplaySettings(restaurantId: string, settings: { distanceUnit: DistanceUnit }): Promise<RestaurantProfile> {
     if (!this.workflowStore) {
       return this.runtime.withMutableDb(async (db) => {
         const restaurant = this.runtime.requireRestaurant(db, restaurantId);
-        restaurant.currency = settings.currency;
+        const tenant = db.tenants.find((item) => item.id === restaurant.tenantId) ?? null;
+        restaurant.currency = normalizeTenantCurrency(tenant?.currency ?? restaurant.currency ?? defaultTenantCurrency);
         restaurant.distanceUnit = settings.distanceUnit;
         this.runtime.appendAuditLog(db, {
           actorType: 'admin',
@@ -664,7 +809,7 @@ export class AdminWorkflowService {
           entityId: restaurantId,
           metadata: settings as unknown as Record<string, unknown>,
         });
-        return toRestaurantProfile(restaurant);
+        return toRestaurantProfile(restaurant, tenant);
       });
     }
 
@@ -673,11 +818,12 @@ export class AdminWorkflowService {
       if (!restaurant) {
         throw new Error('Restaurant not found.');
       }
-      restaurant.currency = settings.currency;
+      const tenant = await context.findTenantById(restaurant.tenantId);
+      restaurant.currency = normalizeTenantCurrency(tenant?.currency ?? restaurant.currency ?? defaultTenantCurrency);
       restaurant.distanceUnit = settings.distanceUnit;
       await context.saveRestaurant(restaurant);
       await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: 'admin-api', action: 'restaurant.display-settings.updated', entityType: 'restaurant', entityId: restaurantId, metadata: settings as unknown as Record<string, unknown> }));
-      return toRestaurantProfile(restaurant);
+      return toRestaurantProfile(restaurant, tenant);
     });
   }
 
@@ -685,6 +831,7 @@ export class AdminWorkflowService {
     if (!this.workflowStore) {
       return this.runtime.withMutableDb(async (db) => {
         const restaurant = this.runtime.requireRestaurant(db, restaurantId);
+        const tenant = db.tenants.find((item) => item.id === restaurant.tenantId) ?? null;
         restaurant.driverOfferSettings = { ...settings };
         this.runtime.appendAuditLog(db, {
           actorType: 'admin',
@@ -694,7 +841,7 @@ export class AdminWorkflowService {
           entityId: restaurantId,
           metadata: settings as unknown as Record<string, unknown>,
         });
-        return toRestaurantProfile(restaurant);
+        return toRestaurantProfile(restaurant, tenant);
       });
     }
 
@@ -703,10 +850,11 @@ export class AdminWorkflowService {
       if (!restaurant) {
         throw new Error('Restaurant not found.');
       }
+      const tenant = await context.findTenantById(restaurant.tenantId);
       restaurant.driverOfferSettings = { ...settings };
       await context.saveRestaurant(restaurant);
       await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: 'admin-api', action: 'restaurant.driver-offer-settings.updated', entityType: 'restaurant', entityId: restaurantId, metadata: settings as unknown as Record<string, unknown> }));
-      return toRestaurantProfile(restaurant);
+      return toRestaurantProfile(restaurant, tenant);
     });
   }
 
@@ -714,6 +862,7 @@ export class AdminWorkflowService {
     if (!this.workflowStore) {
       return this.runtime.withMutableDb(async (db) => {
         const restaurant = this.runtime.requireRestaurant(db, restaurantId);
+        const tenant = db.tenants.find((item) => item.id === restaurant.tenantId) ?? null;
         restaurant.trackingSettings = { ...settings };
         this.runtime.appendAuditLog(db, {
           actorType: 'admin',
@@ -723,7 +872,7 @@ export class AdminWorkflowService {
           entityId: restaurantId,
           metadata: settings as unknown as Record<string, unknown>,
         });
-        return toRestaurantProfile(restaurant);
+        return toRestaurantProfile(restaurant, tenant);
       });
     }
 
@@ -732,10 +881,11 @@ export class AdminWorkflowService {
       if (!restaurant) {
         throw new Error('Restaurant not found.');
       }
+      const tenant = await context.findTenantById(restaurant.tenantId);
       restaurant.trackingSettings = { ...settings };
       await context.saveRestaurant(restaurant);
       await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: 'admin-api', action: 'restaurant.tracking-settings.updated', entityType: 'restaurant', entityId: restaurantId, metadata: settings as unknown as Record<string, unknown> }));
-      return toRestaurantProfile(restaurant);
+      return toRestaurantProfile(restaurant, tenant);
     });
   }
 
@@ -746,6 +896,7 @@ export class AdminWorkflowService {
     if (!this.workflowStore) {
       return this.runtime.withMutableDb(async (db) => {
         const restaurant = this.runtime.requireRestaurant(db, restaurantId);
+        const tenant = db.tenants.find((item) => item.id === restaurant.tenantId) ?? null;
         restaurant.pricing = {
           driverPayoutRule: normalizePricingRule(pricing.driverPayoutRule),
           merchantBillingRule: normalizePricingRule(pricing.merchantBillingRule),
@@ -758,7 +909,7 @@ export class AdminWorkflowService {
           entityId: restaurantId,
           metadata: pricing as unknown as Record<string, unknown>,
         });
-        return toRestaurantProfile(restaurant);
+        return toRestaurantProfile(restaurant, tenant);
       });
     }
 
@@ -767,16 +918,40 @@ export class AdminWorkflowService {
       if (!restaurant) {
         throw new Error('Restaurant not found.');
       }
+      const tenant = await context.findTenantById(restaurant.tenantId);
       restaurant.pricing = {
           driverPayoutRule: normalizePricingRule(pricing.driverPayoutRule),
           merchantBillingRule: normalizePricingRule(pricing.merchantBillingRule),
         };
       await context.saveRestaurant(restaurant);
       await context.appendAuditLog(createAuditLog({ actorType: 'admin', actorId: 'admin-api', action: 'restaurant.pricing.updated', entityType: 'restaurant', entityId: restaurantId, metadata: pricing as unknown as Record<string, unknown> }));
-      return toRestaurantProfile(restaurant);
+      return toRestaurantProfile(restaurant, tenant);
     });
   }
 
+  async updateTenantSettings(tenantId: string, settings: { currency: string; timeZone: string }): Promise<TenantProfile> {
+    return this.runtime.withMutableDb(async (db) => {
+      const tenant = (db.tenants ?? []).find((item) => item.id === tenantId);
+      if (!tenant) {
+        throw new Error('Tenant not found.');
+      }
+      tenant.currency = normalizeTenantCurrency(settings.currency);
+      tenant.timeZone = normalizeTenantTimeZone(settings.timeZone);
+      for (const restaurant of db.restaurants.filter((item) => item.tenantId === tenantId)) {
+        restaurant.currency = tenant.currency;
+      }
+      this.runtime.appendAuditLog(db, {
+        actorType: 'admin',
+        actorId: 'admin-api',
+        tenantId,
+        action: 'tenant.settings.updated',
+        entityType: 'tenant',
+        entityId: tenantId,
+        metadata: settings as unknown as Record<string, unknown>,
+      });
+      return toTenantProfile(tenant);
+    });
+  }
   private resolveReportTenantId(
     adminUser: { tenantId: string | null; role: AdminRole } = { tenantId: null, role: 'platformAdmin' },
     requestedTenantId?: string,
@@ -852,6 +1027,20 @@ export class AdminWorkflowService {
     };
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

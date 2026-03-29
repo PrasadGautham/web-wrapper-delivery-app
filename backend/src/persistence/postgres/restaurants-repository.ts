@@ -2,6 +2,7 @@ import { PoolClient } from 'pg';
 
 import { RestaurantRecord } from '../../domain/models.js';
 import { toJson } from './pg-json.js';
+import { defaultDistanceUnit } from '../../utils/timezones.js';
 
 function mapRestaurant(row: Record<string, unknown>): RestaurantRecord {
   return {
@@ -17,7 +18,7 @@ function mapRestaurant(row: Record<string, unknown>): RestaurantRecord {
       merchantBillingRule: row.merchant_billing_rule as RestaurantRecord['pricing']['merchantBillingRule'],
     },
     currency: row.currency as string,
-    distanceUnit: (row.distance_unit as RestaurantRecord['distanceUnit'] | null) ?? 'kilometer',
+    distanceUnit: (row.distance_unit as RestaurantRecord['distanceUnit'] | null) ?? defaultDistanceUnit,
     trackingSettings: row.tracking_settings as RestaurantRecord['trackingSettings'],
     driverOfferSettings: (row.driver_offer_settings as RestaurantRecord['driverOfferSettings'] | null) ?? { distanceMode: 'storeToCustomer' },
     staffUsers: (row.staff_users as RestaurantRecord['staffUsers'] | null) ?? [],
@@ -87,7 +88,7 @@ export class PostgresRestaurantsRepository {
         toJson(item.pricing.driverPayoutRule),
         toJson(item.pricing.merchantBillingRule),
         item.currency,
-        item.distanceUnit ?? 'kilometer',
+        item.distanceUnit ?? defaultDistanceUnit,
         toJson(item.trackingSettings),
         toJson(item.driverOfferSettings ?? { distanceMode: 'storeToCustomer' }),
         toJson(item.staffUsers ?? []),
@@ -105,3 +106,6 @@ export class PostgresRestaurantsRepository {
     await client.query('delete from restaurants where id <> all($1::text[])', [ids]);
   }
 }
+
+
+

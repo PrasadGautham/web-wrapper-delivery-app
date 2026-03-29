@@ -1,6 +1,7 @@
 import { resolveLoginCredentials } from './shared/auth.js';
 import { describeDateRange, resolveDateRange } from './shared/date-range.js';
 import { renderEmpty } from './shared/dom.js';
+import { DEFAULT_CURRENCY_CODE, DEFAULT_PLATFORM_TIME_ZONE } from './shared/constants.js';
 import { escapeHtml, formatEtaSource, formatMinutes, formatMoney, formatStatus } from './shared/formatting.js';
 
 const apiBase = '';
@@ -101,7 +102,7 @@ function averageCharge(orders) {
 }
 
 function getActiveRange() {
-  return resolveDateRange(reportFilterState);
+  return resolveDateRange(reportFilterState, currentProfile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE);
 }
 
 function rangeQueryString() {
@@ -127,7 +128,7 @@ function updateFilterInputs() {
     nodes.reportEndDate.value = reportFilterState.endDate || '';
   }
   const range = getActiveRange();
-  nodes.reportRangeNote.textContent = describeDateRange(range);
+  nodes.reportRangeNote.textContent = `${describeDateRange(range, currentProfile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE)} Time zone: ${currentProfile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE}.`;
 }
 
 async function request(path, options = {}, attemptRefresh = true) {
@@ -190,7 +191,7 @@ function renderReports(profile, report, orders) {
   nodes.reportActiveShare.textContent = `${activeShare}%`;
   nodes.reportTrackingMode.textContent = profile?.trackingSettings?.showPickedUpAsInTransit ? 'In transit after pickup' : 'Picked up after pickup';
   nodes.reportStatusMix.innerHTML = (report.statusMix || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.status)}</span><strong>${row.count}</strong></div>`).join('') || '<div class="muted">No orders yet.</div>';
-  nodes.reportBillingSummary.innerHTML = [['Store charge total', currency(report.totalRestaurantCharges, profile?.currency)], ['Average charge per order', averageCharge(orders)], ['Commercial currency', String(profile?.currency || 'AED').toUpperCase()], ['Distance unit', profile?.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)']].map(([label, value]) => `<div class="list-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
+  nodes.reportBillingSummary.innerHTML = [['Store charge total', currency(report.totalRestaurantCharges, profile?.currency)], ['Average charge per order', averageCharge(orders)], ['Commercial currency', String(profile?.currency || DEFAULT_CURRENCY_CODE).toUpperCase()], ['Time zone', profile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE], ['Distance unit', profile?.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)']].map(([label, value]) => `<div class="list-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
   nodes.reportCourierSummary.innerHTML = (report.byCourier || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.driverName)}</span><strong>${row.totalOrders} orders</strong></div>`).join('') || '<div class="muted">No courier data yet.</div>';
   nodes.reportDailyVolume.innerHTML = (report.byDay || []).map((row) => `<div class="list-row"><span>${row.date}</span><strong>${row.totalOrders}</strong></div>`).join('') || '<div class="muted">No day-by-day activity yet.</div>';
   nodes.reportTrackingSummary.innerHTML = [['Post-pickup status label', profile?.trackingSettings?.showPickedUpAsInTransit ? 'In transit' : 'Picked up'], ['Pickup ETA visible', profile?.trackingSettings?.showDriverEtaToPickup ? 'Yes' : 'No'], ['Destination ETA visible', profile?.trackingSettings?.showDestinationEta ? 'Yes' : 'No']].map(([label, value]) => `<div class="list-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
@@ -254,7 +255,7 @@ async function refreshDashboard() {
     currentOrders = orders;
     nodes.sessionStatus.textContent = `Logged in as ${profile.name}`;
     nodes.gateStatus.textContent = `Logged in as ${profile.name}`;
-    nodes.storeSummary.innerHTML = `<div><strong>${escapeHtml(profile.name)}</strong></div><div>${escapeHtml(profile.pickupLocation.address)}</div><div>Commercial currency: ${String(profile.currency || 'AED').toUpperCase()}</div><div>Distance unit: ${profile.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)'}</div><div class="success">Store charge visibility only. Courier pay remains private to the fleet company.</div>`;
+    nodes.storeSummary.innerHTML = `<div><strong>${escapeHtml(profile.name)}</strong></div><div>${escapeHtml(profile.pickupLocation.address)}</div><div>Commercial currency: ${String(profile.currency || DEFAULT_CURRENCY_CODE).toUpperCase()}</div><div>Time zone: ${profile.timeZone || DEFAULT_PLATFORM_TIME_ZONE}</div><div>Distance unit: ${profile.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)'}</div><div class="success">Store charge visibility only. Courier pay remains private to the fleet company.</div>`;
     nodes.statTotal.textContent = String(report.totalOrders || 0);
     nodes.statActive.textContent = String(report.activeOrders || 0);
     nodes.statDelivered.textContent = String(report.deliveredOrders || 0);
@@ -390,3 +391,4 @@ clearDashboard();
 updateFilterInputs();
 setView(currentView);
 bootstrapSession().then((authenticated) => { if (authenticated) return refreshDashboard().then(() => connectStream()); return null; }).catch(() => {});
+

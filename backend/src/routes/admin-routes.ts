@@ -5,6 +5,7 @@ import { assertValidPricingRule, normalizePricingRule } from '../services/pricin
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
 import { assertValidReportDateRange, toCsv } from '../utils/reporting.js';
+import { formatDateTimeInTimeZone, isValidTimeZone, platformReportTimeZone } from '../utils/timezones.js';
 import {
   AuthTransport,
   clearWebSessionCookie,
@@ -289,6 +290,8 @@ export async function registerAdminRoutes(
       const query = request.query as { tenantId?: string; reportType?: string };
       const reportType = normalizeAdminReportType(query.reportType);
       const scopedTenantId = query.tenantId?.trim() || undefined;
+      const visibleTenants = await backendService.listTenants({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole });
+      const reportTimeZone = scopedTenantId ? (visibleTenants.find((tenant) => tenant.id === scopedTenantId)?.timeZone || platformReportTimeZone) : (isPlatformAdminUser(adminRequest) ? platformReportTimeZone : (visibleTenants[0]?.timeZone || platformReportTimeZone));
       const [report, orders] = await Promise.all([
         backendService.getAdminOperationsReport({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, range, scopedTenantId),
         backendService.getAdminOrders({ tenantId: adminRequest.adminTenantId ?? null, role: adminRequest.adminRole as AdminRole }, range, scopedTenantId),
@@ -296,6 +299,7 @@ export async function registerAdminRoutes(
       const rows: string[][] = [
         ['Report Scope', scopedTenantId ? 'Single tenant workspace' : 'Visible admin scope'],
         ['Report Period', describeReportRange(range)],
+        ['Report Time Zone', reportTimeZone],
         [],
       ];
 
@@ -327,7 +331,7 @@ export async function registerAdminRoutes(
       } else {
         rows.push(['Tenant', 'Merchant Group', 'Store', 'Order ID', 'Created At', 'Delivered At', 'Customer', 'Destination Address', 'Delivery Area', 'Status', 'Assigned Driver', 'Store Charge', 'Driver Pay', 'Currency']);
         for (const order of orders) {
-          rows.push([order.tenantName, order.merchantName, order.restaurantName, order.id, order.createdAt, order.deliveredAt || '', order.customerName, order.destinationAddress, order.deliveryArea, order.status, order.assignedDriverName || '', String(order.storeCharge), String(order.driverPay), order.currency]);
+          rows.push([order.tenantName, order.merchantName, order.restaurantName, order.id, formatDateTimeInTimeZone(order.createdAt, reportTimeZone), order.deliveredAt ? formatDateTimeInTimeZone(order.deliveredAt, reportTimeZone) : '', order.customerName, order.destinationAddress, order.deliveryArea, order.status, order.assignedDriverName || '', String(order.storeCharge), String(order.driverPay), order.currency]);
         }
       }
 
@@ -352,17 +356,39 @@ export async function registerAdminRoutes(
     if (!isPlatformAdminUser(adminRequest)) {
       return reply.status(403).send({ message: 'Only platform admins can create tenants.' });
     }
-    const body = request.body as { name?: string; slug?: string };
+    const body = request.body as { name?: string; slug?: string; currency?: string; timeZone?: string };
     if (!body.name || !body.slug) {
       return reply.status(400).send({ message: 'name and slug are required.' });
     }
+    if (body.timeZone != null && !isValidTimeZone(body.timeZone)) {
+      return reply.status(400).send({ message: 'timeZone must be a valid IANA timezone.' });
+    }
     try {
-      return await backendService.createTenant({ name: body.name, slug: body.slug.trim().toLowerCase() });
+      return await backendService.createTenant({ name: body.name, slug: body.slug.trim().toLowerCase(), currency: body.currency, timeZone: body.timeZone });
     } catch (error) {
       return reply.status(400).send({ message: (error as Error).message });
     }
   });
 
+  app.patch('/api/admin/tenants/:tenantId/settings', async (request, reply) => {
+    const adminRequest = request as AdminAuthedRequest;
+    if (!isPlatformAdminUser(adminRequest)) {
+      return reply.status(403).send({ message: 'Only platform admins can update tenant market settings.' });
+    }
+    const params = request.params as { tenantId: string };
+    const body = request.body as { currency?: string; timeZone?: string };
+    if (!isCurrencyCode(body.currency) || !isValidTimeZone(body.timeZone)) {
+      return reply.status(400).send({ message: 'currency must be a 3-letter ISO code and timeZone must be a valid IANA timezone.' });
+    }
+    try {
+      return await backendService.updateTenantSettings(params.tenantId, {
+        currency: body.currency,
+        timeZone: body.timeZone,
+      });
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
+  });
   app.post('/api/admin/tenants/:tenantId/admin-users', async (request, reply) => {
     const adminRequest = request as AdminAuthedRequest;
     if (!isPlatformAdminUser(adminRequest)) {
@@ -433,12 +459,9 @@ export async function registerAdminRoutes(
 
   app.post('/api/admin/restaurants', async (request, reply) => {
     const adminRequest = request as AdminAuthedRequest;
-    const body = request.body as { tenantId?: string; merchantId?: string; name?: string; email?: string; password?: string; pickupLocation?: { name?: string; address?: string; latitude?: number; longitude?: number }; currency?: string; distanceUnit?: DistanceUnit };
+    const body = request.body as { tenantId?: string; merchantId?: string; name?: string; email?: string; password?: string; pickupLocation?: { name?: string; address?: string; latitude?: number; longitude?: number }; distanceUnit?: DistanceUnit };
     if (!body.merchantId || !body.name || !body.email || !body.password || !body.pickupLocation?.name || !body.pickupLocation?.address || typeof body.pickupLocation.latitude !== 'number' || typeof body.pickupLocation.longitude !== 'number') {
       return reply.status(400).send({ message: 'merchantId, name, email, password, and a complete pickupLocation are required.' });
-    }
-    if (body.currency != null && !isCurrencyCode(body.currency)) {
-      return reply.status(400).send({ message: 'currency must be a 3-letter ISO code.' });
     }
     if (body.distanceUnit != null && !isDistanceUnit(body.distanceUnit)) {
       return reply.status(400).send({ message: 'distanceUnit must be kilometer or mile.' });
@@ -451,7 +474,6 @@ export async function registerAdminRoutes(
         email: body.email,
         password: body.password,
         pickupLocation: { name: body.pickupLocation.name, address: body.pickupLocation.address, latitude: body.pickupLocation.latitude, longitude: body.pickupLocation.longitude },
-        currency: body.currency,
         distanceUnit: body.distanceUnit,
       });
     } catch (error) {
@@ -592,16 +614,15 @@ export async function registerAdminRoutes(
   app.patch('/api/admin/restaurants/:restaurantId/display-settings', async (request, reply) => {
     const adminRequest = request as AdminAuthedRequest;
     const params = request.params as { restaurantId: string };
-    const body = request.body as { currency?: string; distanceUnit?: DistanceUnit };
+    const body = request.body as { distanceUnit?: DistanceUnit };
 
-    if (!isCurrencyCode(body.currency) || !isDistanceUnit(body.distanceUnit)) {
-      return reply.status(400).send({ message: 'currency must be a 3-letter ISO code and distanceUnit must be kilometer or mile.' });
+    if (!isDistanceUnit(body.distanceUnit)) {
+      return reply.status(400).send({ message: 'distanceUnit must be kilometer or mile.' });
     }
 
     try {
       await ensureScopedRestaurant(backendService, adminRequest, params.restaurantId);
       const updated = await backendService.updateRestaurantDisplaySettings(params.restaurantId, {
-        currency: body.currency,
         distanceUnit: body.distanceUnit,
       });
       restaurantRealtime.publishRestaurantUpdated(params.restaurantId);
@@ -689,4 +710,10 @@ export async function registerAdminRoutes(
     }
   });
 }
+
+
+
+
+
+
 

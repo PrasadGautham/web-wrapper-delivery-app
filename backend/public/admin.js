@@ -9,8 +9,9 @@ import {
   toDisplayDistance,
   toDisplayRate,
 } from './shared/formatting.js';
-import { dateOffsetIso, monthStartIso, todayIso, describeDateRange } from './shared/date-range.js';
+import { resolveDateRange, describeDateRange } from './shared/date-range.js';
 import { resolveLoginCredentials } from './shared/auth.js';
+import { DEFAULT_CURRENCY_CODE, DEFAULT_DISTANCE_UNIT, DEFAULT_PLATFORM_TIME_ZONE, DEFAULT_TENANT_TIME_ZONE } from './shared/constants.js';
 
 const apiBase = '';
 let hasSession = false;
@@ -69,6 +70,7 @@ const nodes = {
   staffStatus: document.getElementById('staffStatus'),
   restaurantPricingStatus: document.getElementById('restaurantPricingStatus'),
   displaySettingsStatus: document.getElementById('displaySettingsStatus'),
+  tenantSettingsStatus: document.getElementById('tenantSettingsStatus'),
   restaurantTrackingStatus: document.getElementById('restaurantTrackingStatus'),
   driverControlsStatus: document.getElementById('driverControlsStatus'),
   tenantStatus: document.getElementById('tenantStatus'),
@@ -92,6 +94,8 @@ const nodes = {
   reportByDay: document.getElementById('reportByDay'),
   reportByTenant: document.getElementById('reportByTenant'),
   reportStatusMix: document.getElementById('reportStatusMix'),
+  tenantTimeZone: document.getElementById('tenantTimeZone'),
+  tenantMarketSummary: document.getElementById('tenantMarketSummary'),
 };
 
 const statusNodes = [
@@ -99,6 +103,7 @@ const statusNodes = [
   nodes.staffStatus,
   nodes.restaurantPricingStatus,
   nodes.displaySettingsStatus,
+  nodes.tenantSettingsStatus,
   nodes.restaurantTrackingStatus,
   nodes.driverControlsStatus,
   nodes.tenantStatus,
@@ -149,6 +154,34 @@ function tenantName(tenantId) {
   return tenants.find((tenant) => tenant.id === tenantId)?.name || tenantId || 'Platform';
 }
 
+function activeTenant() {
+  const tenantId = activeTenantId();
+  return tenants.find((tenant) => tenant.id === tenantId) || null;
+}
+
+function activeTenantCurrency() {
+  return normalizeCurrencyCode(activeTenant()?.currency || DEFAULT_CURRENCY_CODE);
+}
+
+function activeTenantTimeZone() {
+  return activeTenant()?.timeZone || DEFAULT_PLATFORM_TIME_ZONE;
+}
+
+function reportHasMixedCurrencies() {
+  if ((nodes.reportScopeSelect?.value || 'workspace') !== 'all') {
+    return false;
+  }
+  const currencies = new Set(visibleTenants().map((tenant) => normalizeCurrencyCode(tenant.currency || DEFAULT_CURRENCY_CODE)));
+  return currencies.size > 1;
+}
+
+function formatReportMoney(amount, report) {
+  if (reportHasMixedCurrencies()) {
+    return 'Mixed';
+  }
+  return formatMoney(amount, activeTenantCurrency());
+}
+
 function currentRestaurant() {
   const list = visibleRestaurants();
   return list.find((item) => item.id === nodes.settingsRestaurantSelect.value) || list[0] || null;
@@ -167,13 +200,7 @@ function clearStatuses() {
 }
 
 function getActiveReportRange() {
-  const preset = reportFilterState.preset;
-  if (preset === 'all') return {};
-  if (preset === 'today') { const today = todayIso(); return { startDate: today, endDate: today }; }
-  if (preset === 'last7') return { startDate: dateOffsetIso(-6), endDate: todayIso() };
-  if (preset === 'last30') return { startDate: dateOffsetIso(-29), endDate: todayIso() };
-  if (preset === 'thisMonth') return { startDate: monthStartIso(), endDate: todayIso() };
-  return { startDate: reportFilterState.startDate || undefined, endDate: reportFilterState.endDate || undefined };
+  return resolveDateRange(reportFilterState, activeTenantTimeZone());
 }
 
 function adminReportQueryString() {
@@ -204,7 +231,7 @@ function updateReportFiltersUi() {
     nodes.reportStartDate.value = reportFilterState.startDate || '';
     nodes.reportEndDate.value = reportFilterState.endDate || '';
   }
-  nodes.reportRangeNote.textContent = describeDateRange(range);
+  nodes.reportRangeNote.textContent = `${describeDateRange(range, activeTenantTimeZone())} Time zone: ${activeTenantTimeZone()}.`;
 }
 
 function renderReportCards(target, items, render) {
@@ -231,13 +258,13 @@ function renderAdminReports(report) {
   latestAdminReport = report;
   nodes.reportTotalOrders.textContent = String(report.totalOrders || 0);
   nodes.reportDeliveredOrders.textContent = String(report.deliveredOrders || 0);
-  nodes.reportTotalStoreCharges.textContent = formatMoney(report.totalStoreCharges || 0, 'AED');
-  nodes.reportTotalDriverPay.textContent = formatMoney(report.totalDriverPay || 0, 'AED');
-  renderReportCards(nodes.reportByDriver, report.byDriver || [], (item) => `<article class="card"><strong>${item.driverName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered | ${item.activeOrders} active</div><div class="muted">Driver pay: ${formatMoney(item.totalDriverPay, 'AED')}</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div></article>`);
-  renderReportCards(nodes.reportByStore, report.byStore || [], (item) => `<article class="card"><strong>${item.restaurantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div><div class="muted">Driver pay: ${formatMoney(item.totalDriverPay, 'AED')}</div></article>`);
-  renderReportCards(nodes.reportByMerchantGroup, report.byMerchantGroup || [], (item) => `<article class="card"><strong>${item.merchantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div><div class="muted">Driver pay: ${formatMoney(item.totalDriverPay, 'AED')}</div></article>`);
-  renderReportCards(nodes.reportByDay, report.byDay || [], (item) => `<article class="card"><strong>${item.date}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div></article>`);
-  renderReportCards(nodes.reportByTenant, report.byTenant || [], (item) => `<article class="card"><strong>${item.tenantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatMoney(item.totalStoreCharges, 'AED')}</div><div class="muted">Driver pay: ${formatMoney(item.totalDriverPay, 'AED')}</div></article>`);
+  nodes.reportTotalStoreCharges.textContent = formatReportMoney(report.totalStoreCharges || 0, report);
+  nodes.reportTotalDriverPay.textContent = formatReportMoney(report.totalDriverPay || 0, report);
+  renderReportCards(nodes.reportByDriver, report.byDriver || [], (item) => `<article class="card"><strong>${item.driverName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered | ${item.activeOrders} active</div><div class="muted">Driver pay: ${formatReportMoney(item.totalDriverPay, report)}</div><div class="muted">Store charges: ${formatReportMoney(item.totalStoreCharges, report)}</div></article>`);
+  renderReportCards(nodes.reportByStore, report.byStore || [], (item) => `<article class="card"><strong>${item.restaurantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatReportMoney(item.totalStoreCharges, report)}</div><div class="muted">Driver pay: ${formatReportMoney(item.totalDriverPay, report)}</div></article>`);
+  renderReportCards(nodes.reportByMerchantGroup, report.byMerchantGroup || [], (item) => `<article class="card"><strong>${item.merchantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatReportMoney(item.totalStoreCharges, report)}</div><div class="muted">Driver pay: ${formatReportMoney(item.totalDriverPay, report)}</div></article>`);
+  renderReportCards(nodes.reportByDay, report.byDay || [], (item) => `<article class="card"><strong>${item.date}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatReportMoney(item.totalStoreCharges, report)}</div></article>`);
+  renderReportCards(nodes.reportByTenant, report.byTenant || [], (item) => `<article class="card"><strong>${item.tenantName}</strong><div class="muted">${item.totalOrders} orders | ${item.deliveredOrders} delivered</div><div class="muted">Store charges: ${formatReportMoney(item.totalStoreCharges, report)}</div><div class="muted">Driver pay: ${formatReportMoney(item.totalDriverPay, report)}</div></article>`);
   renderReportCards(nodes.reportStatusMix, report.statusMix || [], (item) => `<article class="card"><strong>${item.status}</strong><div class="muted">${item.count} orders</div></article>`);
 }
 
@@ -247,7 +274,7 @@ function setStatus(node, message, isError = false) {
   node.style.color = isError ? '#9b1c1c' : '';
 }
 
-function updatePricingFieldLabels(unit = 'kilometer') {
+function updatePricingFieldLabels(unit = DEFAULT_DISTANCE_UNIT) {
   const short = distanceUnitShort(unit);
   document.getElementById('driverPayoutIncludedDistanceLabel').textContent = `Included distance (${short})`;
   document.getElementById('driverPayoutAdditionalPerUnitLabel').textContent = `Additional amount per extra ${distanceUnitWord(unit)}`;
@@ -271,8 +298,8 @@ function readRuleInputs(prefix, unit) {
 
 function updatePricingSummaries() {
   const restaurant = currentRestaurant();
-  const currencyCode = normalizeCurrencyCode(document.getElementById('currencyCode').value || restaurant?.currency || 'AED');
-  const distanceUnit = document.getElementById('distanceUnit').value || restaurant?.distanceUnit || 'kilometer';
+  const currencyCode = normalizeCurrencyCode(document.getElementById('currencyCode').value || restaurant?.currency || DEFAULT_CURRENCY_CODE);
+  const distanceUnit = document.getElementById('distanceUnit').value || restaurant?.distanceUnit || DEFAULT_DISTANCE_UNIT;
   updatePricingFieldLabels(distanceUnit);
   document.getElementById('driverPayoutSummary').textContent = summarizePricingRule(readRuleInputs('driverPayout', distanceUnit), currencyCode, distanceUnit);
   document.getElementById('merchantBillingSummary').textContent = summarizePricingRule(readRuleInputs('merchantBilling', distanceUnit), currencyCode, distanceUnit);
@@ -359,6 +386,7 @@ function clearWorkspace() {
   nodes.selectedRestaurantSummary.textContent = 'Choose a store in the current workspace.';
   nodes.selectedDriverSummary.textContent = 'Choose a driver in the current workspace.';
   nodes.tenantContextSummary.textContent = 'Sign in to load tenant context.';
+  if (nodes.tenantMarketSummary) nodes.tenantMarketSummary.textContent = 'Select a tenant workspace to review and edit its market settings.';
   nodes.architectureSummary.textContent = '';
   clearReportUi();
   document.getElementById('tenants').innerHTML = '<div class="muted">Sign in to load tenant data.</div>';
@@ -411,6 +439,7 @@ function syncTenantContext() {
   populateTenantSelect(nodes.tenantContextSelect);
   if (!sessionInfo) {
     nodes.tenantContextSummary.textContent = 'Sign in to load tenant context.';
+  if (nodes.tenantMarketSummary) nodes.tenantMarketSummary.textContent = 'Select a tenant workspace to review and edit its market settings.';
     return;
   }
   if (isPlatformAdmin()) {
@@ -419,12 +448,24 @@ function syncTenantContext() {
     }
     nodes.tenantContextSelect.disabled = false;
     nodes.tenantContextSelect.value = selectedTenantId || '';
+    const tenant = activeTenant();
     nodes.tenantContextSummary.innerHTML = `<strong>Platform admin mode</strong><div>Active workspace: ${tenantName(selectedTenantId)}</div><div>You can switch tenants here without changing sessions.</div>`;
+    if (tenant && nodes.tenantTimeZone) {
+      document.getElementById('currencyCode').value = normalizeCurrencyCode(tenant.currency || DEFAULT_CURRENCY_CODE);
+      nodes.tenantTimeZone.value = tenant.timeZone || DEFAULT_TENANT_TIME_ZONE;
+      nodes.tenantMarketSummary.textContent = `Tenant currency: ${normalizeCurrencyCode(tenant.currency || DEFAULT_CURRENCY_CODE)} | Time zone: ${tenant.timeZone || DEFAULT_TENANT_TIME_ZONE}`;
+    }
   } else {
     selectedTenantId = sessionInfo.tenantId || '';
     nodes.tenantContextSelect.disabled = true;
     nodes.tenantContextSelect.value = selectedTenantId || '';
+    const tenant = activeTenant();
     nodes.tenantContextSummary.innerHTML = `<strong>Tenant admin mode</strong><div>Locked to: ${tenantName(selectedTenantId)}</div><div>All lists and actions are automatically scoped to this tenant.</div>`;
+    if (tenant && nodes.tenantTimeZone) {
+      document.getElementById('currencyCode').value = normalizeCurrencyCode(tenant.currency || DEFAULT_CURRENCY_CODE);
+      nodes.tenantTimeZone.value = tenant.timeZone || DEFAULT_TENANT_TIME_ZONE;
+      nodes.tenantMarketSummary.textContent = `Tenant currency: ${normalizeCurrencyCode(tenant.currency || DEFAULT_CURRENCY_CODE)} | Time zone: ${tenant.timeZone || DEFAULT_TENANT_TIME_ZONE}`;
+    }
   }
 }
 
@@ -473,11 +514,10 @@ function syncRestaurantSettingsForm() {
     return;
   }
   nodes.settingsRestaurantSelect.value = restaurant.id;
-  document.getElementById('currencyCode').value = normalizeCurrencyCode(restaurant.currency);
-  document.getElementById('distanceUnit').value = restaurant.distanceUnit || 'kilometer';
-  updatePricingFieldLabels(restaurant.distanceUnit || 'kilometer');
-  setRuleInputs('driverPayout', restaurant.pricing.driverPayoutRule, restaurant.distanceUnit || 'kilometer');
-  setRuleInputs('merchantBilling', restaurant.pricing.merchantBillingRule, restaurant.distanceUnit || 'kilometer');
+  document.getElementById('distanceUnit').value = restaurant.distanceUnit || DEFAULT_DISTANCE_UNIT;
+  updatePricingFieldLabels(restaurant.distanceUnit || DEFAULT_DISTANCE_UNIT);
+  setRuleInputs('driverPayout', restaurant.pricing.driverPayoutRule, restaurant.distanceUnit || DEFAULT_DISTANCE_UNIT);
+  setRuleInputs('merchantBilling', restaurant.pricing.merchantBillingRule, restaurant.distanceUnit || DEFAULT_DISTANCE_UNIT);
   document.getElementById('showPickedUpAsInTransit').checked = Boolean(restaurant.trackingSettings.showPickedUpAsInTransit);
   document.getElementById('showDriverEtaToPickup').checked = Boolean(restaurant.trackingSettings.showDriverEtaToPickup);
   document.getElementById('showDestinationEta').checked = Boolean(restaurant.trackingSettings.showDestinationEta);
@@ -487,7 +527,7 @@ function syncRestaurantSettingsForm() {
     <strong>${restaurant.name}</strong>
     <div>Tenant: ${tenantName(restaurant.tenantId)}</div>
     <div>Merchant group: ${merchantName}</div>
-    <div>Market: ${normalizeCurrencyCode(restaurant.currency)} | ${restaurant.distanceUnit === 'mile' ? 'Miles' : 'Kilometers'}</div>
+    <div>Tenant market: ${normalizeCurrencyCode(activeTenant()?.currency || restaurant.currency)} | ${activeTenant()?.timeZone || DEFAULT_PLATFORM_TIME_ZONE}</div><div>Store distance unit: ${restaurant.distanceUnit === 'mile' ? 'Miles' : 'Kilometers'}</div>
     <div>Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency, restaurant.distanceUnit)}</div>
     <div>Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency, restaurant.distanceUnit)}</div>
   `;
@@ -532,12 +572,12 @@ function renderDashboard() {
   nodes.statOnlineDrivers.textContent = String(driverRows.filter((driver) => driver.isOnline).length);
   nodes.statAdmins.textContent = String(adminRows.length);
 
-  renderCollection('tenants', tenantRows, (tenant) => `<article class="card"><div><strong>${tenant.name}</strong></div><div class="muted mono">${tenant.slug}</div><div class="muted">${tenant.isActive ? 'Active' : 'Inactive'} tenant</div></article>`);
+  renderCollection('tenants', tenantRows, (tenant) => `<article class="card"><div><strong>${tenant.name}</strong></div><div class="muted mono">${tenant.slug}</div><div class="muted">${tenant.isActive ? 'Active' : 'Inactive'} tenant</div><div class="muted">Currency: ${normalizeCurrencyCode(tenant.currency || DEFAULT_CURRENCY_CODE)} | Time zone: ${tenant.timeZone || DEFAULT_TENANT_TIME_ZONE}</div></article>`);
   renderCollection('admins', adminRows, (admin) => `<article class="card"><div><strong>${admin.name}</strong></div><div class="muted">${admin.email}</div><div class="muted">${admin.role} | ${admin.isActive ? 'Active' : 'Inactive'}</div><div class="muted">Workspace: ${admin.tenantId ? tenantName(admin.tenantId) : 'Platform-wide'}</div></article>`);
   renderCollection('merchants', merchantRows, (merchant) => `<article class="card"><div><strong>${merchant.name}</strong></div><div class="muted">Tenant: ${tenantName(merchant.tenantId)}</div><div class="muted">${merchant.users.length} merchant users</div><div class="muted">${merchant.users.map((user) => `${user.name} (${user.role})`).join(', ') || 'No merchant users'}</div></article>`);
   renderCollection('restaurants', restaurantRows, (restaurant) => {
     const merchantName = merchants.find((merchant) => merchant.id === restaurant.merchantId)?.name || restaurant.merchantId;
-    return `<article class="card"><div class="eyebrow">${tenantName(restaurant.tenantId)}</div><h4 style="margin:4px 0">${restaurant.name}</h4><div class="muted">Merchant group: ${merchantName}</div><div class="muted">Market: ${normalizeCurrencyCode(restaurant.currency)} | ${restaurant.distanceUnit === 'mile' ? 'Miles' : 'Kilometers'}</div><div class="muted">Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency, restaurant.distanceUnit)}</div><div class="muted">Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency, restaurant.distanceUnit)}</div><div class="muted">Driver app offer: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer only'}</div></article>`;
+    return `<article class="card"><div class="eyebrow">${tenantName(restaurant.tenantId)}</div><h4 style="margin:4px 0">${restaurant.name}</h4><div class="muted">Merchant group: ${merchantName}</div><div class="muted">Tenant market: ${normalizeCurrencyCode(activeTenant()?.currency || restaurant.currency)} | ${restaurant.timeZone || activeTenant()?.timeZone || DEFAULT_PLATFORM_TIME_ZONE}</div><div class="muted">Store distance unit: ${restaurant.distanceUnit === 'mile' ? 'Miles' : 'Kilometers'}</div><div class="muted">Driver pay: ${summarizePricingRule(restaurant.pricing.driverPayoutRule, restaurant.currency, restaurant.distanceUnit)}</div><div class="muted">Store charge: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency, restaurant.distanceUnit)}</div><div class="muted">Driver app offer: ${restaurant.driverOfferSettings?.distanceMode === 'includeCommuteToStore' ? 'Commute + delivery' : 'Store to customer only'}</div></article>`;
   });
   renderCollection('drivers', driverRows, (driver) => {
     const assignedRestaurantNames = restaurantRows.filter((restaurant) => driver.dispatchPolicy.restaurantIds.includes(restaurant.id)).map((restaurant) => restaurant.name).join(', ') || 'None selected';
@@ -676,7 +716,7 @@ function createTenantScope(selectNode) {
 async function createTenant() {
   const tenant = await request('/api/admin/tenants', {
     method: 'POST',
-    body: JSON.stringify({ name: document.getElementById('tenantName').value.trim(), slug: document.getElementById('tenantSlug').value.trim() }),
+    body: JSON.stringify({ name: document.getElementById('tenantName').value.trim(), slug: document.getElementById('tenantSlug').value.trim(), currency: normalizeCurrencyCode(document.getElementById('tenantCurrencyCode').value || DEFAULT_CURRENCY_CODE), timeZone: document.getElementById('tenantTimeZoneCreate').value.trim() || DEFAULT_TENANT_TIME_ZONE }),
   });
   selectedTenantId = tenant.id;
   setStatus(nodes.tenantStatus, `Tenant created: ${tenant.name}`);
@@ -736,7 +776,6 @@ async function createRestaurant() {
         latitude: Number(document.getElementById('restaurantLatitude').value),
         longitude: Number(document.getElementById('restaurantLongitude').value),
       },
-      currency: normalizeCurrencyCode(document.getElementById('restaurantCurrency').value),
       distanceUnit: document.getElementById('restaurantDistanceUnit').value,
     }),
   });
@@ -778,11 +817,25 @@ async function saveRestaurantPricing() {
   await request(`/api/admin/restaurants/${restaurant.id}/pricing`, {
     method: 'PATCH',
     body: JSON.stringify({
-      driverPayoutRule: readRuleInputs('driverPayout', restaurant.distanceUnit || 'kilometer'),
-      merchantBillingRule: readRuleInputs('merchantBilling', restaurant.distanceUnit || 'kilometer'),
+      driverPayoutRule: readRuleInputs('driverPayout', restaurant.distanceUnit || DEFAULT_DISTANCE_UNIT),
+      merchantBillingRule: readRuleInputs('merchantBilling', restaurant.distanceUnit || DEFAULT_DISTANCE_UNIT),
     }),
   });
   setStatus(nodes.restaurantPricingStatus, 'Store commercial terms updated.');
+  await refreshDashboard();
+}
+
+async function saveTenantSettings() {
+  const tenant = activeTenant();
+  if (!tenant) return;
+  await request(`/api/admin/tenants/${tenant.id}/settings`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      currency: normalizeCurrencyCode(document.getElementById('currencyCode').value || tenant.currency || DEFAULT_CURRENCY_CODE),
+      timeZone: nodes.tenantTimeZone.value.trim() || tenant.timeZone || DEFAULT_TENANT_TIME_ZONE,
+    }),
+  });
+  setStatus(nodes.tenantSettingsStatus, 'Tenant market settings updated.');
   await refreshDashboard();
 }
 
@@ -791,7 +844,7 @@ async function saveDisplaySettings() {
   if (!restaurant) return;
   await request(`/api/admin/restaurants/${restaurant.id}/display-settings`, {
     method: 'PATCH',
-    body: JSON.stringify({ currency: normalizeCurrencyCode(document.getElementById('currencyCode').value), distanceUnit: document.getElementById('distanceUnit').value }),
+    body: JSON.stringify({ distanceUnit: document.getElementById('distanceUnit').value }),
   });
   setStatus(nodes.displaySettingsStatus, 'Store market settings updated.');
   await refreshDashboard();
@@ -868,6 +921,7 @@ document.getElementById('createRestaurantBtn').addEventListener('click', runActi
 document.getElementById('createMerchantUserBtn').addEventListener('click', runAction(createMerchantUser, nodes.merchantUserStatus));
 document.getElementById('createStaffBtn').addEventListener('click', runAction(createStaffUser, nodes.staffStatus));
 document.getElementById('saveRestaurantPricingBtn').addEventListener('click', runAction(saveRestaurantPricing, nodes.restaurantPricingStatus));
+document.getElementById('saveTenantSettingsBtn').addEventListener('click', runAction(saveTenantSettings, nodes.tenantSettingsStatus));
 document.getElementById('saveDisplaySettingsBtn').addEventListener('click', runAction(saveDisplaySettings, nodes.displaySettingsStatus));
 document.getElementById('saveTrackingBtn').addEventListener('click', runAction(saveTrackingSettings, nodes.restaurantTrackingStatus));
 document.getElementById('saveDriverSettingsBtn').addEventListener('click', runAction(saveDriverSettings, nodes.driverControlsStatus));
@@ -912,3 +966,4 @@ updateReportFiltersUi();
 setSessionUi();
 bootstrapSession().then((authenticated) => { if (authenticated) return refreshDashboard(); return null; }).catch(() => {});
 setInterval(() => { if (hasSession) refreshSession().catch(() => {}); }, 10 * 60 * 1000);
+

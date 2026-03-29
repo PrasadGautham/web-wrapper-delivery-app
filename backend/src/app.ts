@@ -195,13 +195,13 @@ export async function buildApp(
   const store = createStore(config, app);
   const prisma = config.databaseUrl ? new PrismaClient({ datasourceUrl: config.databaseUrl }) : null;
   const backofficeReadService = prisma ? new PrismaBackofficeReadService(prisma) : null;
-  const pushGateway = new PushGateway(app.log);
+  const pushGateway = new PushGateway(app.log, observability);
   const etaProvider = config.googleMapsApiKey ? new GoogleRoutesEtaProvider(config.googleMapsApiKey) : null;
   const restaurantRealtime = new RestaurantRealtimeService();
   const passwordResetNotifier = createPasswordResetNotifier(config, app);
   const backendService = new BackendService(
     store,
-    new DispatchService(),
+    new DispatchService(observability),
     pushGateway,
     etaProvider,
     passwordResetNotifier,
@@ -289,7 +289,7 @@ export async function buildApp(
         route.startsWith('/api/auth/admin/login')
       )
     ) {
-      observability.authFailuresTotal.inc({ route });
+      observability.recordAuthFailure(route);
     }
   });
 

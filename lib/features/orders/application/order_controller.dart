@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/utils/timezone_helper.dart';
 import '../../../domain/entities/app_notification.dart';
 import '../../../domain/entities/order.dart';
 import '../../../domain/repositories/notification_repository.dart';
 import '../../../domain/usecases/order_usecases.dart';
+import '../../../core/utils/formatters.dart';
 
 class OrderState {
   const OrderState({
@@ -227,9 +227,7 @@ class OrderController extends StateNotifier<OrderState> {
       return;
     }
 
-    final localizedExpiry = TimezoneHelper.toLocalTime(expiry);
-    final now = TimezoneHelper.toLocalTime(DateTime.now().toUtc());
-    final secondsRemaining = localizedExpiry.difference(now).inSeconds;
+    final secondsRemaining = expiry.difference(DateTime.now().toUtc()).inSeconds;
 
     state = state.copyWith(
       incomingOrder: order,
@@ -242,7 +240,7 @@ class OrderController extends StateNotifier<OrderState> {
       AppNotification(
         title: order.restaurant.name,
         body:
-            '${order.deliveryArea} | ${order.driverDisplayDistanceUnit == 'mile' ? '${(order.driverDisplayDistanceKm * 0.621371).toStringAsFixed(1)} mi' : '${order.driverDisplayDistanceKm.toStringAsFixed(1)} km'} | ${order.displayCurrency} ${order.tripEarnings.toStringAsFixed(2)}',
+            '${order.deliveryArea} | ${Formatters.distance(order.driverDisplayDistanceKm, unit: order.driverDisplayDistanceUnit)} | ${order.displayCurrency} ${order.tripEarnings.toStringAsFixed(2)}',
         route: '/incoming-order',
         payload: {'orderId': order.id, 'route': '/incoming-order'},
       ),

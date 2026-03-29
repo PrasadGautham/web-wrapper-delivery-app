@@ -114,16 +114,22 @@ Per restaurant, admin can set:
 
 These rules change restaurant-facing display only.
 
-## Store Market Settings
+## Tenant Market Settings
 
-Per restaurant, admin can set:
+Per tenant, platform admin can set:
 - `currency`, using a 3-letter ISO code such as `AED`, `USD`, or `KWD`
+- `timeZone`, using an IANA zone such as `Asia/Dubai`
+
+Per restaurant, tenant admin can still set:
 - `distanceUnit`, either `kilometer` or `mile`
 
 The backend uses these settings to:
 - format pricing and payout values consistently across portals and the driver app
+- interpret report date ranges and per-day bucketing in the tenant's local time zone
 - convert pricing-rule distance thresholds and per-distance rates between internal kilometers and the selected business unit
 - snapshot the driver-facing currency and distance unit onto each order
+
+Centralized backend defaults live in [backend/src/utils/timezones.ts](/c:/dev/DriverApp/backend/src/utils/timezones.ts). They are bootstrap defaults only, not tenant-specific business values.
 
 ## Driver Offer Display Rules
 
@@ -214,7 +220,7 @@ Merchant can:
 - manage owned-store driver-offer display rules
 - manage owned-store staff
 - see merchant-wide reporting and live order updates
-- view admin-controlled store market settings
+- view platform-admin-controlled tenant market settings and store distance units
 - does not receive driver-pay data from the backend
 
 ### Restaurant

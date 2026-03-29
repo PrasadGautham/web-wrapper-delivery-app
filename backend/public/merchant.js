@@ -1,6 +1,7 @@
 import { resolveLoginCredentials } from './shared/auth.js';
 import { describeDateRange, resolveDateRange } from './shared/date-range.js';
 import { renderEmpty } from './shared/dom.js';
+import { DEFAULT_CURRENCY_CODE, DEFAULT_PLATFORM_TIME_ZONE } from './shared/constants.js';
 import {
   distanceUnitShort,
   distanceUnitWord,
@@ -100,15 +101,15 @@ function activeOrderCount(groups) {
 function summarizeCurrencyTotals(groups, field) {
   const totals = new Map();
   for (const group of groups) {
-    const currencyCode = normalizeCurrencyCode(group.restaurant.currency || 'AED');
+    const currencyCode = normalizeCurrencyCode(group.restaurant.currency || DEFAULT_CURRENCY_CODE);
     const total = group.orders.reduce((sum, order) => sum + Number(order[field] || 0), 0);
     totals.set(currencyCode, (totals.get(currencyCode) || 0) + total);
   }
-  if (!totals.size) return formatMoney(0, 'AED');
+  if (!totals.size) return formatMoney(0, DEFAULT_CURRENCY_CODE);
   return Array.from(totals.entries())
     .filter(([, amount]) => amount > 0)
     .map(([currencyCode, amount]) => formatMoney(amount, currencyCode))
-    .join(' / ') || formatMoney(0, 'AED');
+    .join(' / ') || formatMoney(0, DEFAULT_CURRENCY_CODE);
 }
 
 function averageCharge(groups) {
@@ -151,7 +152,7 @@ function setSessionUi() {
 }
 
 function getActiveRange() {
-  return resolveDateRange(reportFilterState);
+  return resolveDateRange(reportFilterState, currentProfile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE);
 }
 
 function rangeQueryString() {
@@ -178,11 +179,11 @@ function updateFilterInputs() {
   }
   const range = getActiveRange();
   if (!range.startDate && !range.endDate) {
-    nodes.reportRangeNote.textContent = 'Showing all available dates.';
+    nodes.reportRangeNote.textContent = `Showing all available dates. Time zone: ${currentProfile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE}.`;
   } else if (range.startDate && range.endDate) {
-    nodes.reportRangeNote.textContent = `Showing data from ${range.startDate} to ${range.endDate}.`;
+    nodes.reportRangeNote.textContent = `Showing data from ${range.startDate} to ${range.endDate}. Time zone: ${currentProfile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE}.`;
   } else {
-    nodes.reportRangeNote.textContent = `Showing data ${range.startDate ? `from ${range.startDate}` : `until ${range.endDate}`}.`;
+    nodes.reportRangeNote.textContent = `Showing data ${range.startDate ? `from ${range.startDate}` : `until ${range.endDate}`}. Time zone: ${currentProfile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE}.`;
   }
 }
 
@@ -288,7 +289,7 @@ function syncSelectedRestaurant() {
   nodes.selectedStoreSummary.innerHTML = `
     <div><strong>${escapeHtml(restaurant.name)}</strong></div>
     <div>${escapeHtml(restaurant.pickupLocation.address)}</div>
-    <div>Commercial currency: ${normalizeCurrencyCode(restaurant.currency)}</div>
+    <div>Commercial currency: ${normalizeCurrencyCode(restaurant.currency)}</div><div>Time zone: ${escapeHtml(restaurant.timeZone || currentProfile?.timeZone || DEFAULT_PLATFORM_TIME_ZONE)}</div>
     <div>Distance unit: ${restaurant.distanceUnit === 'mile' ? 'Miles (mi)' : 'Kilometers (km)'}</div>
     <div>Store billing: ${summarizePricingRule(restaurant.pricing.merchantBillingRule, restaurant.currency, restaurant.distanceUnit)}</div>
     <div>Open orders now: <span class="accent-value">${liveForStore}</span></div>
@@ -376,7 +377,7 @@ function renderReports(groups, report) {
 
   nodes.reportStoreVolume.innerHTML = (report.byStore || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.restaurantName)}</span><strong>${row.totalOrders}</strong></div>`).join('') || '<div class="muted">No store data yet.</div>';
   nodes.reportStoreCharges.innerHTML = (report.byStore || []).map((row) => {
-    const currency = latestOrderGroups.find((group) => group.restaurant.id === row.restaurantId)?.restaurant.currency || 'AED';
+    const currency = latestOrderGroups.find((group) => group.restaurant.id === row.restaurantId)?.restaurant.currency || DEFAULT_CURRENCY_CODE;
     return `<div class="list-row"><span>${escapeHtml(row.restaurantName)}</span><strong>${formatMoney(row.totalRestaurantCharges, currency)}</strong></div>`;
   }).join('') || '<div class="muted">No billing data yet.</div>';
   nodes.reportCourierPerformance.innerHTML = (report.byCourier || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.driverName)}</span><strong>${row.totalOrders} orders</strong></div>`).join('') || '<div class="muted">No courier activity yet.</div>';
@@ -601,3 +602,4 @@ setInterval(() => {
     refreshSession().catch(() => {});
   }
 }, 10 * 60 * 1000);
+

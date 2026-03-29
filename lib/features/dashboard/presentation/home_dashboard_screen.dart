@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_defaults.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/utils/formatters.dart';
@@ -21,6 +22,7 @@ class HomeDashboardScreen extends ConsumerWidget {
     final secondsRemaining = orders.secondsRemaining == null
         ? 0
         : (orders.secondsRemaining! < 0 ? 0 : orders.secondsRemaining!);
+    final currencyCode = dashboard.driver?.displayCurrency ?? AppDefaults.tenantCurrencyCode;
 
     return AppShell(
       title: l10n.text('dashboard'),
@@ -118,7 +120,7 @@ class HomeDashboardScreen extends ConsumerWidget {
               children: [
                 MetricCard(
                   label: l10n.text('todaysEarnings'),
-                  value: Formatters.currency(dashboard.earnings?.daily ?? 0),
+                  value: Formatters.currency(dashboard.earnings?.daily ?? 0, code: currencyCode),
                   icon: Icons.wallet_outlined,
                 ),
                 MetricCard(
@@ -174,3 +176,4 @@ class HomeDashboardScreen extends ConsumerWidget {
     );
   }
 }
+

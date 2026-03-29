@@ -13,6 +13,7 @@ import { DriverWorkflowService } from './driver-workflow-service.js';
 import { toRestaurantPortalProfile } from './profile-projections.js';
 import { RestaurantRealtimeService } from './restaurant-realtime-service.js';
 import { orderFallsWithinRange, ReportDateRange } from '../utils/reporting.js';
+import { extractDateInTimeZone, normalizeTenantTimeZone } from '../utils/timezones.js';
 
 export class RestaurantWorkflowService {
   constructor(
@@ -24,9 +25,11 @@ export class RestaurantWorkflowService {
   ) {}
 
   async getRestaurantProfile(restaurantId: string): Promise<RestaurantPortalProfile> {
-    return this.runtime.withOperationalDb(async (state) => {
-      this.dispatchService.tick(state as never);
-      return toRestaurantPortalProfile(this.runtime.requireRestaurant(state, restaurantId));
+    return this.runtime.withDb(async (db) => {
+      this.dispatchService.tick(db as never);
+      const restaurant = this.runtime.requireRestaurant(db, restaurantId);
+      const tenant = db.tenants.find((item) => item.id === restaurant.tenantId) ?? null;
+      return toRestaurantPortalProfile(restaurant, tenant);
     });
   }
 
@@ -57,13 +60,15 @@ export class RestaurantWorkflowService {
   }
 
   async getRestaurantOrders(restaurantId: string, range: ReportDateRange = {}): Promise<StoreOrderView[]> {
-    return this.runtime.withOperationalDb(async (state) => {
-      this.dispatchService.tick(state as never);
-      const restaurant = this.runtime.requireRestaurant(state, restaurantId);
-      const orders = state.orders
-        .filter((order) => order.restaurantId === restaurantId && orderFallsWithinRange(order.createdAt, range))
+    return this.runtime.withDb(async (db) => {
+      this.dispatchService.tick(db as never);
+      const restaurant = this.runtime.requireRestaurant(db, restaurantId);
+      const tenant = db.tenants.find((item) => item.id === restaurant.tenantId) ?? null;
+      const timeZone = normalizeTenantTimeZone(tenant?.timeZone);
+      const orders = db.orders
+        .filter((order) => order.restaurantId === restaurantId && orderFallsWithinRange(order.createdAt, range, timeZone))
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-      return Promise.all(orders.map((order) => this.toRestaurantOrderView(state as DatabaseShape, restaurant, order)));
+      return Promise.all(orders.map((order) => this.toRestaurantOrderView(db as DatabaseShape, restaurant, order)));
     });
   }
 
@@ -71,15 +76,18 @@ export class RestaurantWorkflowService {
     if (this.backofficeReadService) {
       return this.backofficeReadService.getRestaurantReport(restaurantId, range);
     }
-    return this.runtime.withOperationalDb(async (state) => {
-      this.dispatchService.tick(state as never);
+    return this.runtime.withDb(async (db) => {
+      this.dispatchService.tick(db as never);
+      const restaurant = this.runtime.requireRestaurant(db, restaurantId);
+      const tenant = db.tenants.find((item) => item.id === restaurant.tenantId) ?? null;
+      const timeZone = normalizeTenantTimeZone(tenant?.timeZone);
       const activeStatuses = new Set(['queued', 'pending', 'accepted', 'atRestaurant', 'pickedUp']);
-      const orders = state.orders.filter((order) => order.restaurantId === restaurantId && orderFallsWithinRange(order.createdAt, range));
+      const orders = db.orders.filter((order) => order.restaurantId === restaurantId && orderFallsWithinRange(order.createdAt, range, timeZone));
       const totalOrders = orders.length;
       const activeOrders = orders.filter((order) => activeStatuses.has(order.status)).length;
       const deliveredOrders = orders.filter((order) => order.status === 'delivered').length;
       const totalRestaurantCharges = Number(orders.reduce((sum, order) => sum + order.companyCharge, 0).toFixed(2));
-      const driverById = new Map(state.drivers.map((driver) => [driver.id, driver]));
+      const driverById = new Map(db.drivers.map((driver) => [driver.id, driver]));
       const statusMix = Array.from(orders.reduce((map, order) => {
         map.set(order.status, (map.get(order.status) || 0) + 1);
         return map;
@@ -95,7 +103,7 @@ export class RestaurantWorkflowService {
           driver.totalRestaurantCharges += order.companyCharge;
           byCourier.set(order.assignedDriverId, driver);
         }
-        const dayKey = order.createdAt.slice(0, 10);
+        const dayKey = extractDateInTimeZone(order.createdAt, timeZone);
         const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
         day.totalOrders += 1;
         day.deliveredOrders += order.status === 'delivered' ? 1 : 0;
@@ -159,3 +167,4 @@ export class RestaurantWorkflowService {
     };
   }
 }
+

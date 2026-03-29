@@ -63,6 +63,8 @@ class MockApiClient {
       maxActiveOrders: _driver.maxActiveOrders,
       currentLoad: _driver.currentLoad,
       locationFreshness: _driver.locationFreshness,
+      displayCurrency: _driver.displayCurrency,
+      timeZone: _driver.timeZone,
     );
     _driverController.add(_driver);
     if (isOnline) {
@@ -131,6 +133,8 @@ class MockApiClient {
       maxActiveOrders: _driver.maxActiveOrders,
       currentLoad: _driver.currentLoad,
       locationFreshness: _driver.locationFreshness,
+      displayCurrency: _driver.displayCurrency,
+      timeZone: _driver.timeZone,
     );
     _driverController.add(_driver);
     _scheduleNextOrder(force: true);

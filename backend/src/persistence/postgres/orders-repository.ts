@@ -2,6 +2,7 @@ import { PoolClient } from 'pg';
 
 import { OrderRecord } from '../../domain/models.js';
 import { toJson } from './pg-json.js';
+import { defaultDistanceUnit, defaultTenantCurrency } from '../../utils/timezones.js';
 
 export class PostgresOrdersRepository {
   async list(client: PoolClient): Promise<OrderRecord[]> {
@@ -28,8 +29,8 @@ export class PostgresOrdersRepository {
       driverDisplayDistanceKm: Number(row.driver_display_distance_km ?? row.estimated_km),
       driverDisplayMinutes: row.driver_display_minutes ?? row.estimated_minutes,
       driverDisplayMode: row.driver_display_mode ?? 'storeToCustomer',
-      driverDisplayDistanceUnit: row.driver_display_distance_unit ?? 'kilometer',
-      displayCurrency: row.display_currency ?? 'AED',
+      driverDisplayDistanceUnit: row.driver_display_distance_unit ?? defaultDistanceUnit,
+      displayCurrency: row.display_currency ?? defaultTenantCurrency,
       tripEarnings: Number(row.trip_earnings),
       companyCharge: Number(row.company_charge),
       createdAt: row.created_at.toISOString(),
@@ -85,8 +86,8 @@ export class PostgresOrdersRepository {
           item.driverDisplayDistanceKm,
           item.driverDisplayMinutes,
           item.driverDisplayMode,
-          item.driverDisplayDistanceUnit ?? 'kilometer',
-          item.displayCurrency ?? 'AED',
+          item.driverDisplayDistanceUnit ?? defaultDistanceUnit,
+          item.displayCurrency ?? defaultTenantCurrency,
           item.tripEarnings,
           item.companyCharge,
           item.createdAt,
@@ -105,3 +106,8 @@ export class PostgresOrdersRepository {
     await client.query('delete from orders where id <> all($1::text[])', [ids]);
   }
 }
+
+
+
+
+

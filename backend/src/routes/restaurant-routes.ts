@@ -3,6 +3,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 import { BackendService } from '../services/backend-service.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
 import { assertValidReportDateRange, toCsv } from '../utils/reporting.js';
+import { formatDateTimeInTimeZone } from '../utils/timezones.js';
 import {
   AuthTransport,
   clearWebSessionCookie,
@@ -263,8 +264,8 @@ export async function registerRestaurantRoutes(
       for (const order of orders) {
         rows.push([
           order.id,
-          order.createdAt,
-          order.deliveredAt || '',
+          formatDateTimeInTimeZone(order.createdAt, profile.timeZone),
+          order.deliveredAt ? formatDateTimeInTimeZone(order.deliveredAt, profile.timeZone) : '',
           order.customer.name,
           order.customer.address,
           order.deliveryArea,
@@ -284,3 +285,4 @@ export async function registerRestaurantRoutes(
     }
   });
 }
+

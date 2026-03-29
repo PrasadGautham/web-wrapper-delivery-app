@@ -157,7 +157,7 @@ export class AuthWorkflowService {
         });
         return {
           token,
-          driver: toDriverProfile(driver, this.dispatchService.getDriverLoad(db, driver.id)),
+          driver: toDriverProfile(driver, this.dispatchService.getDriverLoad(db, driver.id), db.tenants.find((item) => item.id === driver.tenantId) ?? null),
         };
       });
     }
@@ -184,7 +184,7 @@ export class AuthWorkflowService {
       return {
         ok: true as const,
         token: session.token,
-        driver: toDriverProfile(driver, await context.countDriverActiveLoad(driver.id)),
+        driver: toDriverProfile(driver, await context.countDriverActiveLoad(driver.id), await context.findTenantById(driver.tenantId)),
       };
     });
 
@@ -218,7 +218,7 @@ export class AuthWorkflowService {
           entityId: match.restaurant.id,
           metadata: match.staffUser ? { staffUserId: match.staffUser.id, role: match.staffUser.role } : { role: 'owner' },
         });
-        return { token, restaurant: toRestaurantProfile(match.restaurant) };
+        return { token, restaurant: toRestaurantProfile(match.restaurant, db.tenants.find((item) => item.id === match.restaurant.tenantId) ?? null) };
       });
     }
 
@@ -245,7 +245,7 @@ export class AuthWorkflowService {
         entityId: match.restaurant.id,
         metadata: match.staffUser ? { staffUserId: match.staffUser.id, role: match.staffUser.role } : { role: 'owner' },
       }));
-      return { token: session.token, restaurant: toRestaurantProfile(match.restaurant) };
+      return { token: session.token, restaurant: toRestaurantProfile(match.restaurant, await context.findTenantById(match.restaurant.tenantId)) };
     });
   }
 
@@ -272,7 +272,7 @@ export class AuthWorkflowService {
           entityId: match.merchant.id,
           metadata: { merchantUserId: match.user.id, role: match.user.role },
         });
-        return { token, merchant: toMerchantProfile(match.merchant) };
+        return { token, merchant: toMerchantProfile(match.merchant, db.tenants.find((item) => item.id === match.merchant.tenantId) ?? null) };
       });
     }
 
@@ -299,7 +299,7 @@ export class AuthWorkflowService {
         entityId: match.merchant.id,
         metadata: { merchantUserId: match.user.id, role: match.user.role },
       }));
-      return { token: session.token, merchant: toMerchantProfile(match.merchant) };
+      return { token: session.token, merchant: toMerchantProfile(match.merchant, await context.findTenantById(match.merchant.tenantId)) };
     });
   }
 
@@ -772,4 +772,5 @@ export class AuthWorkflowService {
     return adminUser && adminUser.isActive ? { userId: adminUser.id, email: adminUser.email, tenantId: adminUser.tenantId ?? null } : null;
   }
 }
+
 

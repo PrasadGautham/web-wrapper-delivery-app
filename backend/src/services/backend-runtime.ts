@@ -8,6 +8,7 @@ import {
   SessionRecord,
   UserType,
 } from '../domain/models.js';
+import { defaultDistanceUnit, defaultTenantCurrency } from '../utils/timezones.js';
 import { DispatchService } from './dispatch-service.js';
 import { calculatePricingAmount } from './pricing-rules.js';
 import { PushGateway } from './push-gateway.js';
@@ -153,7 +154,7 @@ export class BackendRuntime {
 
   private normalizeOperationalState(db: Pick<DatabaseShape, 'restaurants' | 'orders'>): void {
     for (const restaurant of db.restaurants) {
-      restaurant.currency ??= 'AED';
+      restaurant.currency ??= defaultTenantCurrency;
     }
     for (const order of db.orders) {
       const restaurant = db.restaurants.find((item) => item.id === order.restaurantId);
@@ -177,10 +178,10 @@ export class BackendRuntime {
         order.driverDisplayMode = restaurant.driverOfferSettings.distanceMode ?? 'storeToCustomer';
       }
       if (order.driverDisplayDistanceUnit !== 'kilometer' && order.driverDisplayDistanceUnit !== 'mile') {
-        order.driverDisplayDistanceUnit = restaurant.distanceUnit ?? 'kilometer';
+        order.driverDisplayDistanceUnit = restaurant.distanceUnit ?? defaultDistanceUnit;
       }
       if (typeof order.displayCurrency !== 'string' || order.displayCurrency.trim().length !== 3) {
-        order.displayCurrency = restaurant.currency ?? 'AED';
+        order.displayCurrency = restaurant.currency ?? defaultTenantCurrency;
       }
     }
   }
@@ -204,3 +205,8 @@ export class BackendRuntime {
     }
   }
 }
+
+
+
+
+

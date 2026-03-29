@@ -8,11 +8,8 @@ import { BackendRuntime } from './backend-runtime.js';
 import { DispatchService } from './dispatch-service.js';
 import { EtaProvider } from './eta-provider.js';
 import { getDriverLocationFreshness, toDriverProfile } from './profile-projections.js';
+import { defaultTenantTimeZone, extractDateInTimeZone, localDateBoundaryToUtc, normalizeTenantTimeZone } from '../utils/timezones.js';
 import { RestaurantRealtimeService } from './restaurant-realtime-service.js';
-
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
 
 const averageKmPerMinute = 0.55;
 const maxReasonableStaticEtaDistanceKm = 80;
@@ -58,7 +55,7 @@ export class DriverWorkflowService {
         },
       });
       this.publishRestaurantsForDriver(state.orders, driverId);
-      return toDriverProfile(driver, this.dispatchService.getDriverLoad(state as never, driver.id));
+      return toDriverProfile(driver, this.dispatchService.getDriverLoad(state as never, driver.id), null);
     });
   }
 
@@ -72,9 +69,10 @@ export class DriverWorkflowService {
   }
 
   async getDriverProfile(driverId: string): Promise<DriverProfile> {
-    return this.runtime.withOperationalDb(async (state) => {
+    return this.runtime.withDb(async (state) => {
       this.dispatchService.tick(state as never);
-      return toDriverProfile(this.runtime.requireDriver(state, driverId), this.dispatchService.getDriverLoad(state as never, driverId));
+      const driver = this.runtime.requireDriver(state, driverId);
+      return toDriverProfile(driver, this.dispatchService.getDriverLoad(state as never, driverId), state.tenants.find((item) => item.id === driver.tenantId) ?? null);
     });
   }
 
@@ -92,7 +90,7 @@ export class DriverWorkflowService {
         metadata: { isOnline },
       });
       this.publishRestaurantsForChangedOrders(before, state.orders);
-      return toDriverProfile(driver, this.dispatchService.getDriverLoad(state as never, driver.id));
+      return toDriverProfile(driver, this.dispatchService.getDriverLoad(state as never, driver.id), null);
     });
   }
 
@@ -196,41 +194,41 @@ export class DriverWorkflowService {
     distanceTravelledKm: number;
     points: Array<{ label: string; amount: number }>;
   }> {
-    return this.runtime.withOperationalDb(async (state) => {
+    return this.runtime.withDb(async (state) => {
       this.dispatchService.tick(state as never);
       const driver = this.runtime.requireDriver(state, driverId);
+      const tenant = state.tenants.find((item) => item.id === driver.tenantId) ?? null;
+      const timeZone = normalizeTenantTimeZone(tenant?.timeZone ?? defaultTenantTimeZone);
       const delivered = state.orders.filter(
         (order) => order.assignedDriverId === driverId && order.status === 'delivered' && order.deliveredAt,
       );
-      const now = new Date();
-      const dayStart = startOfDay(now).getTime();
-      const weekStart = dayStart - 6 * 24 * 60 * 60 * 1000;
+
+      const todayKey = extractDateInTimeZone(new Date(), timeZone);
+      const dayStart = localDateBoundaryToUtc(todayKey, timeZone, false);
+      const weeklyDateKeys = Array.from({ length: 7 }).map((_, reverseIndex) => {
+        const offset = 6 - reverseIndex;
+        const bucketDate = new Date(dayStart - offset * 24 * 60 * 60 * 1000);
+        return extractDateInTimeZone(bucketDate, timeZone);
+      });
+      const weeklyDateKeySet = new Set(weeklyDateKeys);
 
       const daily = delivered
-        .filter((order) => new Date(order.deliveredAt as string).getTime() >= dayStart)
+        .filter((order) => extractDateInTimeZone(order.deliveredAt as string, timeZone) === todayKey)
         .reduce((sum, order) => sum + order.tripEarnings, 0);
       const weekly = delivered
-        .filter((order) => new Date(order.deliveredAt as string).getTime() >= weekStart)
+        .filter((order) => weeklyDateKeySet.has(extractDateInTimeZone(order.deliveredAt as string, timeZone)))
         .reduce((sum, order) => sum + order.tripEarnings, 0);
       const total = delivered.reduce((sum, order) => sum + order.tripEarnings, 0);
 
-      const points = Array.from({ length: 7 }).map((_, index) => {
-        const date = new Date(weekStart + index * 24 * 60 * 60 * 1000);
-        const bucketStart = startOfDay(date).getTime();
-        const bucketEnd = bucketStart + 24 * 60 * 60 * 1000;
-        return {
-          label: date.toLocaleDateString('en-US', { weekday: 'short' }),
-          amount: Number(
-            delivered
-              .filter((order) => {
-                const deliveredAt = new Date(order.deliveredAt as string).getTime();
-                return deliveredAt >= bucketStart && deliveredAt < bucketEnd;
-              })
-              .reduce((sum, order) => sum + order.tripEarnings, 0)
-              .toFixed(2),
-          ),
-        };
-      });
+      const points = weeklyDateKeys.map((dateKey) => ({
+        label: new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(new Date(localDateBoundaryToUtc(dateKey, timeZone, false))),
+        amount: Number(
+          delivered
+            .filter((order) => extractDateInTimeZone(order.deliveredAt as string, timeZone) === dateKey)
+            .reduce((sum, order) => sum + order.tripEarnings, 0)
+            .toFixed(2),
+        ),
+      }));
 
       return {
         daily: Number(daily.toFixed(2)),
@@ -289,3 +287,9 @@ export class DriverWorkflowService {
     }
   }
 }
+
+
+
+
+
+

@@ -21,6 +21,8 @@ class MockSeed {
       'maxActiveOrders': 1,
       'currentLoad': 0,
       'locationFreshness': 'missing',
+      'displayCurrency': 'AED',
+      'timeZone': 'Asia/Dubai',
     };
   }
 

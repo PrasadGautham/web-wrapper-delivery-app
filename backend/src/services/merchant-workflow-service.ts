@@ -18,6 +18,7 @@ import { BackendRuntime } from './backend-runtime.js';
 import { DispatchService } from './dispatch-service.js';
 import { toMerchantProfile, toMerchantRestaurantProfile, toRestaurantStaffProfile } from './profile-projections.js';
 import { ReportDateRange } from '../utils/reporting.js';
+import { extractDateInTimeZone, normalizeTenantTimeZone } from '../utils/timezones.js';
 
 export class MerchantWorkflowService {
   constructor(
@@ -36,13 +37,14 @@ export class MerchantWorkflowService {
       if (!merchant) {
         throw new Error('Merchant not found.');
       }
-      return toMerchantProfile(merchant);
+      const tenant = db.tenants.find((item) => item.id === merchant.tenantId) ?? null;
+      return toMerchantProfile(merchant, tenant);
     });
   }
 
   async listMerchantRestaurants(merchantId: string): Promise<MerchantRestaurantProfile[]> {
-    return this.runtime.withOperationalDb(async (state) =>
-      state.restaurants.filter((restaurant) => restaurant.merchantId === merchantId).map((restaurant) => toMerchantRestaurantProfile(restaurant)),
+    return this.runtime.withDb(async (db) =>
+      db.restaurants.filter((restaurant) => restaurant.merchantId === merchantId).map((restaurant) => toMerchantRestaurantProfile(restaurant, db.tenants.find((item) => item.id === restaurant.tenantId) ?? null)),
     );
   }
 
@@ -63,6 +65,7 @@ export class MerchantWorkflowService {
     const groups = await this.getMerchantOrders(merchantId, range);
     const allOrders = groups.flatMap((group) => group.orders.map((order) => ({ restaurant: group.restaurant, order })));
     const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    const timeZone = normalizeTenantTimeZone(restaurants[0]?.timeZone);
     const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
     for (const item of allOrders) {
       if (item.order.assignedDriverId && item.order.tracking.assignedDriverName) {
@@ -72,7 +75,7 @@ export class MerchantWorkflowService {
         driver.totalRestaurantCharges += item.order.companyCharge;
         byCourier.set(item.order.assignedDriverId, driver);
       }
-      const dayKey = item.order.createdAt.slice(0, 10);
+      const dayKey = extractDateInTimeZone(item.order.createdAt, timeZone);
       const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
       day.totalOrders += 1;
       day.deliveredOrders += item.order.status === 'delivered' ? 1 : 0;
@@ -189,7 +192,7 @@ export class MerchantWorkflowService {
         entityId: restaurantId,
         metadata: settings as unknown as Record<string, unknown>,
       });
-      return toMerchantRestaurantProfile(restaurant);
+      return toMerchantRestaurantProfile(restaurant, db.tenants.find((item) => item.id === restaurant.tenantId) ?? null);
     });
   }
 
@@ -209,7 +212,7 @@ export class MerchantWorkflowService {
         entityId: restaurantId,
         metadata: settings as unknown as Record<string, unknown>,
       });
-      return toMerchantRestaurantProfile(restaurant);
+      return toMerchantRestaurantProfile(restaurant, db.tenants.find((item) => item.id === restaurant.tenantId) ?? null);
     });
   }
   private requireMerchantRestaurant(restaurants: RestaurantRecord[], merchantId: string, restaurantId: string): RestaurantRecord {
@@ -220,6 +223,7 @@ export class MerchantWorkflowService {
     return restaurant;
   }
 }
+
 
 
 

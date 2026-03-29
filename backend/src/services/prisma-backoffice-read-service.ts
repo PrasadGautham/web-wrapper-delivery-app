@@ -12,7 +12,9 @@ import {
   RestaurantRecord,
   RestaurantReport,
   RestaurantTrackingSettings,
+  TenantRecord,
 } from '../domain/models.js';
+import { defaultDistanceUnit, defaultTenantTimeZone, extractDateInTimeZone, localDateBoundaryToUtc, normalizeTenantCurrency, normalizeTenantTimeZone, platformReportTimeZone } from '../utils/timezones.js';
 import { BackofficeReadService } from './backoffice-read-service.js';
 import { toDriverProfile, toMerchantView, toRestaurantProfile } from './profile-projections.js';
 import { ReportDateRange } from '../utils/reporting.js';
@@ -60,64 +62,73 @@ type PrismaMerchantRow = {
   users?: unknown;
 };
 
+type PrismaTenantRow = {
+  id: string;
+  name: string;
+  slug: string;
+  currency: string;
+  timeZone: string;
+  isActive: boolean;
+  createdAt: Date;
+};
+
 export class PrismaBackofficeReadService implements BackofficeReadService {
   constructor(private readonly prisma: PrismaClient) {}
 
-  private toOrderDateWhere(range: ReportDateRange = {}) {
+  private toOrderDateWhere(range: ReportDateRange = {}, timeZone = platformReportTimeZone) {
     const createdAt = {
-      ...(range.startDate ? { gte: new Date(`${range.startDate}T00:00:00.000Z`) } : {}),
-      ...(range.endDate ? { lte: new Date(`${range.endDate}T23:59:59.999Z`) } : {}),
+      ...(range.startDate ? { gte: new Date(localDateBoundaryToUtc(range.startDate, timeZone, false)) } : {}),
+      ...(range.endDate ? { lte: new Date(localDateBoundaryToUtc(range.endDate, timeZone, true)) } : {}),
     };
     return Object.keys(createdAt).length ? { createdAt } : {};
   }
 
   async listDrivers(): Promise<DriverProfile[]> {
-    const [drivers, activeAssignments] = await this.prisma.$transaction([
+    const [drivers, activeAssignments, tenants] = await Promise.all([
       this.prisma.driver.findMany({ orderBy: { id: 'asc' } }),
       this.prisma.order.findMany({
-        where: {
-          assignedDriverId: { not: null },
-          status: { in: [...capacityStatuses] },
-        },
+        where: { assignedDriverId: { not: null }, status: { in: [...capacityStatuses] } },
         select: { assignedDriverId: true },
       }),
+      this.loadTenants(),
     ]);
 
     const loadByDriverId = new Map<string, number>();
     for (const row of activeAssignments) {
-      if (!row.assignedDriverId) {
-        continue;
-      }
+      if (!row.assignedDriverId) continue;
       loadByDriverId.set(row.assignedDriverId, (loadByDriverId.get(row.assignedDriverId) ?? 0) + 1);
     }
-
-    return drivers.map((driver) =>
-      toDriverProfile(this.mapDriver(driver), loadByDriverId.get(driver.id) ?? 0),
-    );
+    const tenantById = new Map<string, TenantRecord>(tenants.map((tenant: PrismaTenantRow) => [tenant.id, this.mapTenant(tenant)]));
+    return drivers.map((driver: PrismaDriverRow) => toDriverProfile(this.mapDriver(driver), loadByDriverId.get(driver.id) ?? 0, tenantById.get(driver.tenantId ?? '') ?? null));
   }
 
   async listRestaurants(): Promise<RestaurantProfile[]> {
-    const restaurants = await this.prisma.restaurant.findMany({ orderBy: { id: 'asc' } });
-    return restaurants.map((restaurant) => toRestaurantProfile(this.mapRestaurant(restaurant)));
+    const [restaurants, tenants] = await Promise.all([
+      this.prisma.restaurant.findMany({ orderBy: { id: 'asc' } }),
+      this.loadTenants(),
+    ]);
+    const tenantById = new Map<string, TenantRecord>(tenants.map((tenant: PrismaTenantRow) => [tenant.id, this.mapTenant(tenant)]));
+    return restaurants.map((restaurant: PrismaRestaurantRow) => toRestaurantProfile(this.mapRestaurant(restaurant), tenantById.get(restaurant.tenantId ?? '') ?? null));
   }
 
   async listMerchants(): Promise<MerchantView[]> {
-    const merchants = await this.prisma.merchant.findMany({ orderBy: { id: 'asc' } });
-    return merchants.map((merchant) => toMerchantView(this.mapMerchant(merchant)));
+    const [merchants, tenants] = await Promise.all([
+      this.prisma.merchant.findMany({ orderBy: { id: 'asc' } }),
+      this.loadTenants(),
+    ]);
+    const tenantById = new Map<string, TenantRecord>(tenants.map((tenant: PrismaTenantRow) => [tenant.id, this.mapTenant(tenant)]));
+    return merchants.map((merchant: PrismaMerchantRow) => toMerchantView(this.mapMerchant(merchant), tenantById.get(merchant.tenantId ?? '') ?? null));
   }
 
   async getRestaurantReport(restaurantId: string, range: ReportDateRange = {}): Promise<RestaurantReport> {
-    const dateWhere = this.toOrderDateWhere(range);
+    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { tenantId: true } });
+    const tenant = restaurant?.tenantId ? await this.findTenantById(restaurant.tenantId) : null;
+    const timeZone = normalizeTenantTimeZone(tenant?.timeZone ?? defaultTenantTimeZone);
+    const dateWhere = this.toOrderDateWhere(range, timeZone);
     const [orders, drivers] = await this.prisma.$transaction([
       this.prisma.order.findMany({
         where: { restaurantId, ...dateWhere },
-        select: {
-          status: true,
-          companyCharge: true,
-          tripEarnings: true,
-          assignedDriverId: true,
-          createdAt: true,
-        },
+        select: { status: true, companyCharge: true, tripEarnings: true, assignedDriverId: true, createdAt: true },
       }),
       this.prisma.driver.findMany({ select: { id: true, name: true } }),
     ]);
@@ -140,7 +151,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         driver.totalRestaurantCharges += Number(order.companyCharge);
         byCourier.set(order.assignedDriverId, driver);
       }
-      const dayKey = order.createdAt.toISOString().slice(0, 10);
+      const dayKey = extractDateInTimeZone(order.createdAt.toISOString(), timeZone);
       const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
       day.totalOrders += 1;
       day.deliveredOrders += order.status === 'delivered' ? 1 : 0;
@@ -161,6 +172,9 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
   }
 
   async getMerchantReport(merchantId: string, range: ReportDateRange = {}): Promise<MerchantReport> {
+    const merchant = await this.prisma.merchant.findUnique({ where: { id: merchantId }, select: { tenantId: true } });
+    const tenant = merchant?.tenantId ? await this.findTenantById(merchant.tenantId) : null;
+    const timeZone = normalizeTenantTimeZone(tenant?.timeZone ?? defaultTenantTimeZone);
     const restaurants = await this.prisma.restaurant.findMany({ where: { merchantId }, select: { id: true, name: true } });
     const restaurantIds = restaurants.map((item) => item.id);
 
@@ -180,18 +194,11 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       };
     }
 
-    const dateWhere = this.toOrderDateWhere(range);
+    const dateWhere = this.toOrderDateWhere(range, timeZone);
     const [orders, drivers] = await this.prisma.$transaction([
       this.prisma.order.findMany({
         where: { restaurantId: { in: restaurantIds }, ...dateWhere },
-        select: {
-          restaurantId: true,
-          status: true,
-          companyCharge: true,
-          tripEarnings: true,
-          assignedDriverId: true,
-          createdAt: true,
-        },
+        select: { restaurantId: true, status: true, companyCharge: true, tripEarnings: true, assignedDriverId: true, createdAt: true },
       }),
       this.prisma.driver.findMany({ select: { id: true, name: true } }),
     ]);
@@ -221,7 +228,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         driver.totalRestaurantCharges += Number(order.companyCharge);
         byCourier.set(order.assignedDriverId, driver);
       }
-      const dayKey = order.createdAt.toISOString().slice(0, 10);
+      const dayKey = extractDateInTimeZone(order.createdAt.toISOString(), timeZone);
       const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
       day.totalOrders += 1;
       day.deliveredOrders += order.status === 'delivered' ? 1 : 0;
@@ -240,6 +247,37 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       byStore: Array.from(byStore.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
       byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
       byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
+    };
+  }
+
+
+  private async loadTenants(): Promise<PrismaTenantRow[]> {
+    return this.prisma.$queryRawUnsafe<PrismaTenantRow[]>(`
+      select id, name, slug, currency, time_zone as "timeZone", is_active as "isActive", created_at as "createdAt"
+      from tenants
+      order by id asc
+    `);
+  }
+
+  private async findTenantById(tenantId: string): Promise<PrismaTenantRow | null> {
+    const rows = await this.prisma.$queryRawUnsafe<PrismaTenantRow[]>(`
+      select id, name, slug, currency, time_zone as "timeZone", is_active as "isActive", created_at as "createdAt"
+      from tenants
+      where id = $1
+      limit 1
+    `, tenantId);
+    return rows[0] ?? null;
+  }
+
+  private mapTenant(tenant: PrismaTenantRow): TenantRecord {
+    return {
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug,
+      currency: normalizeTenantCurrency(tenant.currency),
+      timeZone: normalizeTenantTimeZone(tenant.timeZone),
+      isActive: tenant.isActive,
+      createdAt: tenant.createdAt.toISOString(),
     };
   }
 
@@ -275,7 +313,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         merchantBillingRule: restaurant.merchantBillingRule as RestaurantRecord['pricing']['merchantBillingRule'],
       },
       currency: restaurant.currency,
-      distanceUnit: (restaurant.distanceUnit as RestaurantRecord['distanceUnit'] | null) ?? 'kilometer',
+      distanceUnit: (restaurant.distanceUnit as RestaurantRecord['distanceUnit'] | null) ?? defaultDistanceUnit,
       trackingSettings: restaurant.trackingSettings as RestaurantTrackingSettings,
       driverOfferSettings: (restaurant.driverOfferSettings as RestaurantRecord['driverOfferSettings'] | null) ?? { distanceMode: 'storeToCustomer' },
       staffUsers: (restaurant.staffUsers as RestaurantRecord['staffUsers'] | null) ?? [],
@@ -291,3 +329,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
     };
   }
 }
+
+
+
+

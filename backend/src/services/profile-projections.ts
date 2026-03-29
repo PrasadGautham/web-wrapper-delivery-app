@@ -12,7 +12,9 @@ import {
   RestaurantProfile,
   RestaurantRecord,
   RestaurantStaffUserProfile,
+  TenantRecord,
 } from '../domain/models.js';
+import { defaultTenantCurrency, defaultTenantTimeZone, normalizeTenantCurrency, normalizeTenantTimeZone } from '../utils/timezones.js';
 
 const locationMaxAgeMinutes = Number(process.env.STALE_LOCATION_MINUTES ?? '5');
 
@@ -31,28 +33,42 @@ export function getDriverLocationFreshness(
   return ageMs <= locationMaxAgeMinutes * 60 * 1000 ? 'fresh' : 'stale';
 }
 
-export function toDriverProfile(driver: DriverRecord, currentLoad: number): DriverProfile {
+function tenantCurrency(tenant?: TenantRecord | null): string {
+  return normalizeTenantCurrency(tenant?.currency ?? defaultTenantCurrency);
+}
+
+function tenantTimeZone(tenant?: TenantRecord | null): string {
+  return normalizeTenantTimeZone(tenant?.timeZone ?? defaultTenantTimeZone);
+}
+
+export function toDriverProfile(driver: DriverRecord, currentLoad: number, tenant?: TenantRecord | null): DriverProfile {
   const { password: _password, ...profile } = driver;
   return {
     ...profile,
     currentLoad,
     locationFreshness: getDriverLocationFreshness(driver.currentLocation),
+    displayCurrency: tenantCurrency(tenant),
+    timeZone: tenantTimeZone(tenant),
   };
 }
 
-export function toRestaurantProfile(restaurant: RestaurantRecord): RestaurantProfile {
+export function toRestaurantProfile(restaurant: RestaurantRecord, tenant?: TenantRecord | null): RestaurantProfile {
   const { password: _password, email: _email, staffUsers: _staffUsers, ...profile } = restaurant;
-  return profile;
+  return {
+    ...profile,
+    currency: tenantCurrency(tenant),
+    timeZone: tenantTimeZone(tenant),
+  };
 }
 
-export function toRestaurantPortalProfile(restaurant: RestaurantRecord): RestaurantPortalProfile {
-  const profile = toRestaurantProfile(restaurant);
+export function toRestaurantPortalProfile(restaurant: RestaurantRecord, tenant?: TenantRecord | null): RestaurantPortalProfile {
+  const profile = toRestaurantProfile(restaurant, tenant);
   const { pricing: _pricing, ...storeProfile } = profile;
   return storeProfile;
 }
 
-export function toMerchantRestaurantProfile(restaurant: RestaurantRecord): MerchantRestaurantProfile {
-  const profile = toRestaurantProfile(restaurant);
+export function toMerchantRestaurantProfile(restaurant: RestaurantRecord, tenant?: TenantRecord | null): MerchantRestaurantProfile {
+  const profile = toRestaurantProfile(restaurant, tenant);
   return {
     ...profile,
     pricing: {
@@ -61,9 +77,13 @@ export function toMerchantRestaurantProfile(restaurant: RestaurantRecord): Merch
   };
 }
 
-export function toMerchantProfile(merchant: MerchantRecord): MerchantProfile {
+export function toMerchantProfile(merchant: MerchantRecord, tenant?: TenantRecord | null): MerchantProfile {
   const { users: _users, ...profile } = merchant;
-  return profile;
+  return {
+    ...profile,
+    currency: tenantCurrency(tenant),
+    timeZone: tenantTimeZone(tenant),
+  };
 }
 
 export function toMerchantUserProfile(user: MerchantRecord['users'][number]): MerchantUserProfile {
@@ -71,9 +91,9 @@ export function toMerchantUserProfile(user: MerchantRecord['users'][number]): Me
   return profile;
 }
 
-export function toMerchantView(merchant: MerchantRecord): MerchantView {
+export function toMerchantView(merchant: MerchantRecord, tenant?: TenantRecord | null): MerchantView {
   return {
-    ...toMerchantProfile(merchant),
+    ...toMerchantProfile(merchant, tenant),
     users: merchant.users.map((user) => toMerchantUserProfile(user)),
   };
 }

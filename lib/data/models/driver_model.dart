@@ -1,3 +1,4 @@
+import '../../core/config/app_defaults.dart';
 import '../../domain/entities/driver.dart';
 
 class DriverModel {
@@ -22,6 +23,8 @@ class DriverModel {
       maxActiveOrders: json['maxActiveOrders'] as int,
       currentLoad: json['currentLoad'] as int,
       locationFreshness: json['locationFreshness'] as String,
+      displayCurrency: (json['displayCurrency'] as String?) ?? AppDefaults.tenantCurrencyCode,
+      timeZone: (json['timeZone'] as String?) ?? AppDefaults.platformTimeZone,
     );
   }
 
@@ -37,6 +40,8 @@ class DriverModel {
     required this.maxActiveOrders,
     required this.currentLoad,
     required this.locationFreshness,
+    required this.displayCurrency,
+    required this.timeZone,
   });
 
   final String id;
@@ -50,6 +55,8 @@ class DriverModel {
   final int maxActiveOrders;
   final int currentLoad;
   final String locationFreshness;
+  final String displayCurrency;
+  final String timeZone;
 
   Driver toEntity() {
     return Driver(
@@ -64,6 +71,9 @@ class DriverModel {
       maxActiveOrders: maxActiveOrders,
       currentLoad: currentLoad,
       locationFreshness: locationFreshness,
+      displayCurrency: displayCurrency,
+      timeZone: timeZone,
     );
   }
 }
+

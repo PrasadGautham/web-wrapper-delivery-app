@@ -127,21 +127,36 @@
           <section class="section stack" data-platform-only>
             <div class="section-headline">
               <div>
-                <div class="eyebrow">Store market settings</div>
-                <h3 style="margin:0">Currency And Distance Unit</h3>
-                <p class="section-copy">These are admin-only market controls. Merchant groups can view them but cannot change them.</p>
+                <div class="eyebrow">Tenant market settings</div>
+                <h3 style="margin:0">Currency And Time Zone</h3>
+                <p class="section-copy">Set the canonical commercial currency and reporting time zone for the active tenant. Merchant groups, stores, driver views, and reports inherit these tenant settings.</p>
               </div>
-              <span class="pill">Admin only</span>
+              <span class="pill">Platform only</span>
             </div>
-            <label>Currency code (ISO 4217)<input id="currencyCode" maxlength="3" placeholder="AED" /></label>
+            <label>Currency code (ISO 4217)<input id="currencyCode" maxlength="3" placeholder="ISO code" /></label>
+            <label>Tenant time zone (IANA)<input id="tenantTimeZone" placeholder="Region/City" /></label>
+            <div id="tenantMarketSummary" class="hint">Select a tenant workspace to review and edit its market settings.</div>
+            <button id="saveTenantSettingsBtn" type="button" class="secondary">Save Tenant Market Settings</button>
+            <div id="tenantSettingsStatus" class="muted"></div>
+          </section>
+
+          <section class="section stack" data-platform-only>
+            <div class="section-headline">
+              <div>
+                <div class="eyebrow">Store display settings</div>
+                <h3 style="margin:0">Distance Unit</h3>
+                <p class="section-copy">Distance formatting is still controlled per store. Commercial currency and time zone come from the tenant above.</p>
+              </div>
+              <span class="pill">Store</span>
+            </div>
             <label>Distance unit shown for this store
               <select id="distanceUnit">
                 <option value="kilometer">Kilometers (km)</option>
                 <option value="mile">Miles (mi)</option>
               </select>
             </label>
-            <div class="hint">Save these first if you want the pricing fields above to switch between kilometers and miles.</div>
-            <button id="saveDisplaySettingsBtn" type="button" class="secondary">Save Store Market Settings</button>
+            <div class="hint">Save the distance unit first if you want the pricing fields above to switch between kilometers and miles.</div>
+            <button id="saveDisplaySettingsBtn" type="button" class="secondary">Save Store Distance Unit</button>
             <div id="displaySettingsStatus" class="muted"></div>
           </section>
 
@@ -215,6 +230,8 @@
                 <div class="muted">Create a new client workspace before assigning any merchant groups, stores, or drivers.</div>
                 <label>Tenant display name<input id="tenantName" placeholder="Falafel Delivery Operations" /></label>
                 <label>Tenant slug<input id="tenantSlug" placeholder="falafel-ops" /></label>
+                <label>Currency code<input id="tenantCurrencyCode" maxlength="3" placeholder="ISO code"  /></label>
+                <label>Time zone<input id="tenantTimeZoneCreate" placeholder="Region/City"  /></label>
                 <button id="createTenantBtn" type="button">Create Tenant</button>
                 <div id="tenantStatus" class="muted"></div>
               </div>
@@ -269,11 +286,7 @@
               </div>
               <div class="grid">
                 <label>Temporary password<input id="restaurantPassword" type="password" /></label>
-                <label>Currency<select id="restaurantCurrency"><option value="AED">AED</option><option value="USD">USD</option><option value="KWD">KWD</option></select></label>
-              </div>
-              <div class="grid">
                 <label>Distance unit<select id="restaurantDistanceUnit"><option value="kilometer">Kilometers</option><option value="mile">Miles</option></select></label>
-                <div></div>
               </div>
               <div class="grid">
                 <label>Pickup location name<input id="restaurantLocationName" placeholder="Falafel Corner" /></label>
@@ -425,3 +438,4 @@
     <script type="module" src="/admin.js"></script>
   </body>
 </html>
+

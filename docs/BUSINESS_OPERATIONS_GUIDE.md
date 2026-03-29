@@ -51,7 +51,7 @@ Platform admin can:
 - set store-level driver pay rules
 - set store-level store-charge rules
 - set store-level tracking display rules
-- set store-level currency and distance unit
+- set tenant-level currency and time zone
 - set driver max live deliveries
 - set driver assignment scope by named stores and merchant groups
 - run filtered operational reports
@@ -182,14 +182,18 @@ Examples:
   - included km = `3`
   - additional per km = `2`
 
-## Store Market Settings
+## Market And Localization Settings
 
-Per store, admin can also set:
+Per tenant, platform admin can set:
 - pricing currency, for example `AED`, `USD`, `KWD`
+- reporting time zone, for example `Asia/Dubai`
+
+Per store, tenant admin can still set:
 - distance unit, `kilometer` or `mile`
 
 These settings control:
 - how commercial values are shown in admin, merchant, restaurant, and driver trip screens
+- how report date filters and daily groupings are interpreted for that tenant
 - whether pricing-rule distance thresholds are entered and described in kilometers or miles
 - how driver-offer distance is shown on incoming orders
 
@@ -270,14 +274,14 @@ Commonly used demo accounts:
 - driver pay rule
 - store charge rule
 - tracking-display settings
-- currency and distance unit
+- tenant currency and time zone, plus store distance unit
 - driver offer display mode
 5. Select a driver and change:
 - max live deliveries
 - assignment mode
 - allowed stores
 - allowed merchant groups
-6. Save driver settings
+7. Save driver settings
 
 Expected:
 - settings save successfully
@@ -301,7 +305,7 @@ Expected:
 - merchant cannot see driver pay
 - updates apply only to owned stores
 - store billing terms are visible but fleet-company payout rules remain private
-- store currency and distance unit remain admin-controlled
+- tenant currency and time zone remain platform-admin-controlled, while store distance unit remains admin-controlled
 - merchant reports aggregate all owned stores only
 - merchant export filenames include the report date range
 

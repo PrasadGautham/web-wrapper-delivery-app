@@ -29,6 +29,8 @@ class Driver {
     required this.maxActiveOrders,
     required this.currentLoad,
     required this.locationFreshness,
+    required this.displayCurrency,
+    required this.timeZone,
   });
 
   final String id;
@@ -42,6 +44,8 @@ class Driver {
   final int maxActiveOrders;
   final int currentLoad;
   final String locationFreshness;
+  final String displayCurrency;
+  final String timeZone;
 
   Driver copyWith({
     String? id,
@@ -55,6 +59,8 @@ class Driver {
     int? maxActiveOrders,
     int? currentLoad,
     String? locationFreshness,
+    String? displayCurrency,
+    String? timeZone,
   }) {
     return Driver(
       id: id ?? this.id,
@@ -68,6 +74,8 @@ class Driver {
       maxActiveOrders: maxActiveOrders ?? this.maxActiveOrders,
       currentLoad: currentLoad ?? this.currentLoad,
       locationFreshness: locationFreshness ?? this.locationFreshness,
+      displayCurrency: displayCurrency ?? this.displayCurrency,
+      timeZone: timeZone ?? this.timeZone,
     );
   }
 }

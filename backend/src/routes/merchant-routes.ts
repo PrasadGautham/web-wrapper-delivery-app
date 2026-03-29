@@ -3,6 +3,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 import { DriverOfferDistanceMode, RestaurantStaffRole } from '../domain/models.js';
 import { BackendService } from '../services/backend-service.js';
 import { assertValidReportDateRange, toCsv } from '../utils/reporting.js';
+import { formatDateTimeInTimeZone } from '../utils/timezones.js';
 import { RestaurantRealtimeService } from '../services/restaurant-realtime-service.js';
 import {
   AuthTransport,
@@ -225,10 +226,14 @@ export async function registerMerchantRoutes(
     const authedRequest = request as MerchantAuthedRequest;
     try {
       const range = getReportRange(request);
-      const groups = await backendService.getMerchantOrders(authedRequest.merchantId, range);
+      const [profile, groups] = await Promise.all([
+        backendService.getMerchantProfile(authedRequest.merchantId),
+        backendService.getMerchantOrders(authedRequest.merchantId, range),
+      ]);
       const rows = [
         ['Report Scope', 'Merchant-wide across all associated stores'],
         ['Report Period', describeReportRange(range)],
+        ['Report Time Zone', profile.timeZone],
         [],
         [
         'Store',
@@ -250,8 +255,8 @@ export async function registerMerchantRoutes(
           rows.push([
             group.restaurant.name,
             order.id,
-            order.createdAt,
-            order.deliveredAt || '',
+            formatDateTimeInTimeZone(order.createdAt, profile.timeZone),
+            order.deliveredAt ? formatDateTimeInTimeZone(order.deliveredAt, profile.timeZone) : '',
             order.customer.name,
             order.customer.address,
             order.deliveryArea,
@@ -363,4 +368,5 @@ export async function registerMerchantRoutes(
     }
   });
 }
+
 

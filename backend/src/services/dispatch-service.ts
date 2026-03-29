@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { DatabaseShape, DriverOfferDistanceMode, DriverRecord, LocationSnapshot, OrderRecord, RestaurantRecord } from '../domain/models.js';
 import { calculatePricingAmount } from './pricing-rules.js';
 import { haversineDistanceKm } from '../utils/geo.js';
+import { defaultDistanceUnit, defaultTenantCurrency } from '../utils/timezones.js';
+import { ObservabilityService } from './observability-service.js';
 
 const offerWindowSeconds = 30;
 const staleLocationThresholdMinutes = Number(process.env.STALE_LOCATION_MINUTES ?? '5');
@@ -19,6 +21,8 @@ function isActiveStatus(status: OrderRecord['status']): boolean {
 }
 
 export class DispatchService {
+  constructor(private readonly observability?: ObservabilityService) {}
+
   tick(db: DatabaseShape): boolean {
     let changed = false;
     const now = Date.now();
@@ -42,6 +46,7 @@ export class DispatchService {
       order.expiresAt = null;
       order.status = 'queued';
       order.pendingDispatchNotification = false;
+      this.observability?.recordOfferExpiration();
       changed = true;
       if (this.assignBestDriver(db, order)) {
         changed = true;
@@ -86,8 +91,8 @@ export class DispatchService {
       driverDisplayDistanceKm: estimatedKm,
       driverDisplayMinutes: estimatedMinutes,
       driverDisplayMode: restaurant.driverOfferSettings?.distanceMode ?? 'storeToCustomer',
-      driverDisplayDistanceUnit: restaurant.distanceUnit ?? 'kilometer',
-      displayCurrency: restaurant.currency ?? 'AED',
+      driverDisplayDistanceUnit: restaurant.distanceUnit ?? defaultDistanceUnit,
+      displayCurrency: restaurant.currency ?? defaultTenantCurrency,
       tripEarnings: calculatePricingAmount(restaurant.pricing.driverPayoutRule, estimatedKm),
       companyCharge: calculatePricingAmount(restaurant.pricing.merchantBillingRule, estimatedKm),
       createdAt: nowIso(),
@@ -279,14 +284,15 @@ export class DispatchService {
 
     const distanceKm = haversineDistanceKm(selectedDriver.currentLocation, restaurant.pickupLocation);
     const driverDisplay = this.buildDriverDisplayMetrics(restaurant, order, selectedDriver);
+    const dispatchTier = this.describeDispatchTier(selectedDriver, restaurant);
     order.assignedDriverId = selectedDriver.id;
     order.status = 'pending';
     order.expiresAt = new Date(Date.now() + offerWindowSeconds * 1000).toISOString();
     order.driverDisplayDistanceKm = driverDisplay.distanceKm;
     order.driverDisplayMinutes = driverDisplay.minutes;
     order.driverDisplayMode = driverDisplay.mode;
-    order.driverDisplayDistanceUnit = restaurant.distanceUnit ?? 'kilometer';
-    order.displayCurrency = restaurant.currency ?? 'AED';
+    order.driverDisplayDistanceUnit = restaurant.distanceUnit ?? defaultDistanceUnit;
+    order.displayCurrency = restaurant.currency ?? defaultTenantCurrency;
     order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm);
     order.companyCharge = calculatePricingAmount(restaurant.pricing.merchantBillingRule, order.estimatedKm);
     order.pendingDispatchNotification = true;
@@ -294,8 +300,9 @@ export class DispatchService {
       type: 'offerAssigned',
       at: nowIso(),
       actorId: selectedDriver.id,
-      notes: `Tier ${this.describeDispatchTier(selectedDriver, restaurant)} | Distance ${distanceKm.toFixed(2)} km`,
+      notes: `Tier ${dispatchTier} | Distance ${distanceKm.toFixed(2)} km`,
     });
+    this.observability?.recordDispatchAssignment(dispatchTier);
     return true;
   }
 

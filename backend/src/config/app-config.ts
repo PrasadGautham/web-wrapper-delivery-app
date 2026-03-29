@@ -31,6 +31,8 @@ export interface AppConfig {
   sessionTtlHours: number;
   staleLocationMinutes: number;
   dispatchIntervalMs: number;
+  orderStuckMinutes: number;
+  opsHealthAlertIntervalSeconds: number;
 }
 
 function parseEnvFile(raw: string): NodeJS.ProcessEnv {
@@ -182,5 +184,7 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     sessionTtlHours: readPositiveInteger(resolvedEnv.SESSION_TTL_HOURS, 12, 'SESSION_TTL_HOURS'),
     staleLocationMinutes: readPositiveInteger(resolvedEnv.STALE_LOCATION_MINUTES, 5, 'STALE_LOCATION_MINUTES'),
     dispatchIntervalMs: readPositiveInteger(resolvedEnv.DISPATCH_INTERVAL_MS, 5000, 'DISPATCH_INTERVAL_MS'),
+    orderStuckMinutes: readPositiveInteger(resolvedEnv.ORDER_STUCK_MINUTES, 10, 'ORDER_STUCK_MINUTES'),
+    opsHealthAlertIntervalSeconds: readPositiveInteger(resolvedEnv.OPS_HEALTH_ALERT_INTERVAL_SECONDS, 60, 'OPS_HEALTH_ALERT_INTERVAL_SECONDS'),
   };
 }

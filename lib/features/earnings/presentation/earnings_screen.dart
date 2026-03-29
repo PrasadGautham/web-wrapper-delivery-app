@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_defaults.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/utils/formatters.dart';
@@ -17,6 +18,7 @@ class EarningsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(dashboardControllerProvider);
     final earnings = state.earnings;
+    final currencyCode = state.driver?.displayCurrency ?? AppDefaults.tenantCurrencyCode;
 
     return AppShell(
       title: l10n.text('earnings'),
@@ -37,17 +39,17 @@ class EarningsScreen extends ConsumerWidget {
               children: [
                 MetricCard(
                   label: l10n.text('dailyEarnings'),
-                  value: Formatters.currency(earnings?.daily ?? 0),
+                  value: Formatters.currency(earnings?.daily ?? 0, code: currencyCode),
                   icon: Icons.today,
                 ),
                 MetricCard(
                   label: l10n.text('weeklyEarnings'),
-                  value: Formatters.currency(earnings?.weekly ?? 0),
+                  value: Formatters.currency(earnings?.weekly ?? 0, code: currencyCode),
                   icon: Icons.calendar_view_week_outlined,
                 ),
                 MetricCard(
                   label: l10n.text('totalEarnings'),
-                  value: Formatters.currency(earnings?.total ?? 0),
+                  value: Formatters.currency(earnings?.total ?? 0, code: currencyCode),
                   icon: Icons.savings_outlined,
                 ),
                 MetricCard(
@@ -128,3 +130,4 @@ class EarningsScreen extends ConsumerWidget {
     );
   }
 }
+
