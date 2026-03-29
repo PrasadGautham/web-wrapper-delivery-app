@@ -246,6 +246,7 @@ export interface OrderEvent {
 export interface OrderRecord {
   id: string;
   tenantId: string;
+  tripId: string | null;
   restaurantId: string;
   restaurant: LocationSnapshot;
   customer: LocationSnapshot;
@@ -270,6 +271,19 @@ export interface OrderRecord {
   events: OrderEvent[];
 }
 
+export type DriverTripStatus = 'open' | 'completed' | 'cancelled';
+
+export interface DriverTripRecord {
+  id: string;
+  tenantId: string;
+  driverId: string;
+  status: DriverTripStatus;
+  startedAt: string;
+  completedAt: string | null;
+  orderIds: string[];
+  restaurantIds: string[];
+}
+
 export interface RestaurantOrderTracking {
   displayStatus: string;
   driverEtaToPickupMinutes: number | null;
@@ -280,6 +294,8 @@ export interface RestaurantOrderTracking {
 }
 
 export interface StoreOrderView extends Omit<OrderRecord, 'tripEarnings'> {
+  tripOrderCount: number;
+  isBatchedTrip: boolean;
   tracking: RestaurantOrderTracking;
 }
 
@@ -310,6 +326,16 @@ export interface RestaurantReport {
     date: string;
     totalOrders: number;
     deliveredOrders: number;
+    totalRestaurantCharges: number;
+  }>;
+  byTrip: Array<{
+    tripId: string;
+    driverId: string;
+    driverName: string;
+    orderCount: number;
+    deliveredOrders: number;
+    startedAt: string;
+    completedAt: string | null;
     totalRestaurantCharges: number;
   }>;
 }
@@ -343,10 +369,23 @@ export interface MerchantReport {
     deliveredOrders: number;
     totalRestaurantCharges: number;
   }>;
+  byTrip: Array<{
+    tripId: string;
+    driverId: string;
+    driverName: string;
+    orderCount: number;
+    deliveredOrders: number;
+    startedAt: string;
+    completedAt: string | null;
+    totalRestaurantCharges: number;
+  }>;
 }
 
 export interface AdminOrderReportView {
   id: string;
+  tripId: string | null;
+  tripOrderCount: number;
+  isBatchedTrip: boolean;
   tenantId: string;
   tenantName: string;
   merchantId: string;
@@ -413,6 +452,21 @@ export interface AdminOperationsReport {
     date: string;
     totalOrders: number;
     deliveredOrders: number;
+    totalStoreCharges: number;
+    totalDriverPay: number;
+  }>;
+  byTrip: Array<{
+    tripId: string;
+    tenantId: string;
+    tenantName: string;
+    driverId: string;
+    driverName: string;
+    orderCount: number;
+    deliveredOrders: number;
+    storeCount: number;
+    restaurantNames: string[];
+    startedAt: string;
+    completedAt: string | null;
     totalStoreCharges: number;
     totalDriverPay: number;
   }>;
@@ -504,6 +558,7 @@ export interface DatabaseShape {
   tenants: TenantRecord[];
   merchants: MerchantRecord[];
   drivers: DriverRecord[];
+  driverTrips: DriverTripRecord[];
   restaurants: RestaurantRecord[];
   adminUsers: AdminUserRecord[];
   orders: OrderRecord[];

@@ -123,3 +123,8 @@ Common demo accounts:
 - Restaurant staff: `falafel.dispatch@demo.com` / `Password123`
 - Restaurant owner: `falafel.owner@demo.com` / `Password123`
 - Driver: `driver@demo.com` / `Password123`
+
+## Latest Architecture Update
+
+Multi-order courier runs are now modeled explicitly through driver trips. This closes the previous gap where batched deliveries could only be inferred from overlapping timestamps. Reports, exports, and the driver app now surface this grouping directly.
+

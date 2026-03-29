@@ -386,3 +386,13 @@ Not included in current launch claim:
 - Environment: [PRODUCTION_ENV_CHECKLIST.md](/c:/dev/DriverApp/docs/PRODUCTION_ENV_CHECKLIST.md)
 - Go-live: [GO_LIVE_CHECKLIST.md](/c:/dev/DriverApp/docs/GO_LIVE_CHECKLIST.md)
 - Mobile release: [RELEASE.md](/c:/dev/DriverApp/docs/RELEASE.md)
+
+## Batched Delivery Identification
+
+When a courier accepts multiple orders in one run, the system now records them under one explicit trip. Operations teams should use `Trip ID`, `Trip Size`, and `Batched Trip` in exports to identify same-run pickups and deliveries.
+
+Practical interpretation:
+- `Batched Trip = Yes` means the order belonged to a run with more than one order
+- matching `Trip ID` values across exported rows means those orders were part of the same courier trip
+- trip-level export/report views help month-end review of stacked delivery behavior
+

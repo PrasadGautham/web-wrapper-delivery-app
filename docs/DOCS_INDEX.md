@@ -29,6 +29,9 @@ Use it if you are new to the repository and want to know:
 - [SETUP.md](/c:/dev/DriverApp/docs/SETUP.md)
   Local setup, Postgres startup, Flutter startup, and local verification.
 
+- [LOGINS_FOR_TEST.md](/c:/dev/DriverApp/docs/LOGINS_FOR_TEST.md)
+  Seeded demo logins grouped by portal and driver app for repeated test runs.
+
 - [DEPLOY_CHECKS.md](/c:/dev/DriverApp/docs/DEPLOY_CHECKS.md)
   Which checks to run before a normal deployment, before a release candidate, and before first production launch.
 

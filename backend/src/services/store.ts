@@ -54,6 +54,7 @@ export class FileStore implements StoreContract, WorkflowStoreContract, Operatio
     return {
       state: {
         drivers: db.drivers,
+        driverTrips: db.driverTrips,
         restaurants: db.restaurants,
         orders: db.orders,
       },
@@ -71,6 +72,7 @@ export class FileStore implements StoreContract, WorkflowStoreContract, Operatio
     db.tenants ??= [];
     db.passwordResetTokens ??= [];
     db.adminUsers ??= [];
+    db.driverTrips ??= [];
     return {
       listTenants: async () => db.tenants,
       findTenantById: async (tenantId) => db.tenants.find((item) => item.id === tenantId) ?? null,

@@ -138,7 +138,7 @@ class _IncomingOrderCard extends ConsumerWidget {
         color: Theme.of(context).colorScheme.primaryContainer,
         child: ListTile(
           title: Text(incomingOrder.restaurant.name),
-          subtitle: Text('Incoming delivery request • ${secondsRemaining}s remaining'),
+          subtitle: Text('Incoming delivery request - ${secondsRemaining}s remaining'),
           trailing: FilledButton(
             onPressed: () => context.push('/incoming-order'),
             child: const Text('Open'),
@@ -210,7 +210,7 @@ class _ActiveOrderCard extends ConsumerWidget {
           subtitle: Text(
             activeOrder == null
                 ? l10n.text('noActiveOrder')
-                : '${activeOrder.restaurant.name} to ${activeOrder.customer.address}',
+                : '${activeOrder.restaurant.name} to ${activeOrder.customer.address}${activeOrder.tripOrderCount > 1 ? ' - ${activeOrder.tripOrderCount} orders in this trip' : ''}',
           ),
           trailing: activeOrder == null
               ? null

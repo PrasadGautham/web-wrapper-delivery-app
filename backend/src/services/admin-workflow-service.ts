@@ -158,7 +158,6 @@ export class AdminWorkflowService {
       const merchantById = new Map(db.merchants.map((merchant) => [merchant.id, merchant]));
       const restaurantById = new Map(db.restaurants.map((restaurant) => [restaurant.id, restaurant]));
       const driverById = new Map(db.drivers.map((driver) => [driver.id, driver]));
-
       const reportTimeZone = resolveReportTimeZone(db.tenants, scopedTenantId);
 
       return db.orders
@@ -169,8 +168,12 @@ export class AdminWorkflowService {
           const restaurant = restaurantById.get(order.restaurantId);
           const merchant = restaurant ? merchantById.get(restaurant.merchantId) : null;
           const driver = order.assignedDriverId ? driverById.get(order.assignedDriverId) : null;
+          const tripOrderCount = this.dispatchService.getTripOrderCount(db as never, order.tripId);
           return {
             id: order.id,
+            tripId: order.tripId,
+            tripOrderCount,
+            isBatchedTrip: tripOrderCount > 1,
             tenantId: order.tenantId,
             tenantName: tenant?.name || order.tenantId,
             merchantId: merchant?.id || restaurant?.merchantId || '',
@@ -199,6 +202,7 @@ export class AdminWorkflowService {
     requestedTenantId?: string,
   ): Promise<AdminOperationsReport> {
     const rows = await this.getOrdersReport(adminUser, range, requestedTenantId);
+    const scopedTenantId = this.resolveReportTenantId(adminUser, requestedTenantId);
     const activeStatuses = new Set<OrderStatus>(['queued', 'pending', 'accepted', 'atRestaurant', 'pickedUp']);
     const totalOrders = rows.length;
     const activeOrders = rows.filter((row) => activeStatuses.has(row.status)).length;
@@ -212,7 +216,15 @@ export class AdminWorkflowService {
     const storeMap = new Map<string, { restaurantId: string; restaurantName: string; totalOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
     const driverMap = new Map<string, { driverId: string; driverName: string; totalOrders: number; activeOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
     const dayMap = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalStoreCharges: number; totalDriverPay: number }>();
-    const reportTimeZone = await this.runtime.withDb(async (db) => resolveReportTimeZone(db.tenants, this.resolveReportTenantId(adminUser, requestedTenantId)));
+    const tripMap = new Map<string, { tripId: string; tenantId: string; tenantName: string; driverId: string; driverName: string; orderCount: number; deliveredOrders: number; storeCount: number; restaurantNames: string[]; startedAt: string; completedAt: string | null; totalStoreCharges: number; totalDriverPay: number }>();
+    const { reportTimeZone, tripById } = await this.runtime.withDb(async (db) => ({
+      reportTimeZone: resolveReportTimeZone(db.tenants, scopedTenantId),
+      tripById: new Map(
+        db.driverTrips
+          .filter((trip) => !scopedTenantId || trip.tenantId === scopedTenantId)
+          .map((trip) => [trip.id, trip]),
+      ),
+    }));
 
     for (const row of rows) {
       statusMap.set(row.status, (statusMap.get(row.status) || 0) + 1);
@@ -248,6 +260,20 @@ export class AdminWorkflowService {
         driverMap.set(row.assignedDriverId, driver);
       }
 
+      if (row.tripId && row.assignedDriverId && row.assignedDriverName) {
+        const trip = tripById.get(row.tripId) ?? null;
+        const summary = tripMap.get(row.tripId) || { tripId: row.tripId, tenantId: row.tenantId, tenantName: row.tenantName, driverId: trip?.driverId ?? row.assignedDriverId, driverName: row.assignedDriverName, orderCount: 0, deliveredOrders: 0, storeCount: 0, restaurantNames: [], startedAt: trip?.startedAt ?? row.createdAt, completedAt: trip?.completedAt ?? null, totalStoreCharges: 0, totalDriverPay: 0 };
+        summary.orderCount += 1;
+        summary.deliveredOrders += row.status === 'delivered' ? 1 : 0;
+        if (!summary.restaurantNames.includes(row.restaurantName)) {
+          summary.restaurantNames.push(row.restaurantName);
+          summary.storeCount = summary.restaurantNames.length;
+        }
+        summary.completedAt = trip?.completedAt ?? summary.completedAt;
+        summary.totalStoreCharges += row.storeCharge;
+        summary.totalDriverPay += row.driverPay;
+        tripMap.set(row.tripId, summary);
+      }
       const dateKey = extractDateInTimeZone(row.createdAt, reportTimeZone);
       const day = dayMap.get(dateKey) || { date: dateKey, totalOrders: 0, deliveredOrders: 0, totalStoreCharges: 0, totalDriverPay: 0 };
       day.totalOrders += 1;
@@ -274,6 +300,7 @@ export class AdminWorkflowService {
       byStore: roundMoneyRows(Array.from(storeMap.values()).sort((left, right) => right.totalOrders - left.totalOrders)),
       byDriver: roundMoneyRows(Array.from(driverMap.values()).sort((left, right) => right.totalOrders - left.totalOrders)),
       byDay: roundMoneyRows(Array.from(dayMap.values()).sort((left, right) => left.date.localeCompare(right.date))),
+      byTrip: roundMoneyRows(Array.from(tripMap.values()).sort((left, right) => right.orderCount - left.orderCount || left.startedAt.localeCompare(right.startedAt))),
     };
   }
 

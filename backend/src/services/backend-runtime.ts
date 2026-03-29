@@ -25,6 +25,7 @@ export class BackendRuntime {
 
   async withDb<T>(callback: (db: DatabaseShape) => Promise<T> | T): Promise<T> {
     const db = await this.store.read();
+    db.driverTrips ??= [];
     this.cleanupExpiredSessions(db);
     this.normalizeOperationalState(db);
     db.auditLogs ??= [];
@@ -33,6 +34,7 @@ export class BackendRuntime {
 
   async withMutableDb<T>(callback: (db: DatabaseShape) => Promise<T> | T): Promise<T> {
     const db = await this.store.read();
+    db.driverTrips ??= [];
     this.cleanupExpiredSessions(db);
     this.normalizeOperationalState(db);
     db.auditLogs ??= [];
@@ -43,7 +45,7 @@ export class BackendRuntime {
   }
 
   async withOperationalDb<T>(
-    callback: (state: Pick<DatabaseShape, 'drivers' | 'restaurants' | 'orders'>) => Promise<T> | T,
+    callback: (state: Pick<DatabaseShape, 'drivers' | 'driverTrips' | 'restaurants' | 'orders'>) => Promise<T> | T,
   ): Promise<T> {
     if (hasOperationalStateStore(this.store)) {
       return this.store.withOperationalReadContext(async (context) => {
@@ -54,6 +56,7 @@ export class BackendRuntime {
     return this.withDb((db) =>
       callback({
         drivers: db.drivers,
+        driverTrips: db.driverTrips,
         restaurants: db.restaurants,
         orders: db.orders,
       }),
@@ -62,7 +65,7 @@ export class BackendRuntime {
 
   async withMutableOperationalDb<T>(
     callback: (
-      state: Pick<DatabaseShape, 'drivers' | 'restaurants' | 'orders'>,
+      state: Pick<DatabaseShape, 'drivers' | 'driverTrips' | 'restaurants' | 'orders'>,
       appendAuditLog: (input: Omit<AuditLogRecord, 'id' | 'at'>) => Promise<void>,
     ) => Promise<T> | T,
   ): Promise<T> {
@@ -85,6 +88,7 @@ export class BackendRuntime {
       callback(
         {
           drivers: db.drivers,
+          driverTrips: db.driverTrips,
           restaurants: db.restaurants,
           orders: db.orders,
         },
@@ -152,7 +156,8 @@ export class BackendRuntime {
     db.sessions = db.sessions.filter((session) => new Date(session.expiresAt).getTime() > now);
   }
 
-  private normalizeOperationalState(db: Pick<DatabaseShape, 'restaurants' | 'orders'>): void {
+  private normalizeOperationalState(db: Pick<DatabaseShape, 'driverTrips' | 'restaurants' | 'orders'>): void {
+    db.driverTrips ??= [];
     for (const restaurant of db.restaurants) {
       restaurant.currency ??= defaultTenantCurrency;
     }
@@ -162,6 +167,7 @@ export class BackendRuntime {
         continue;
       }
       order.tenantId ??= restaurant.tenantId;
+      order.tripId ??= null;
       if (typeof order.tripEarnings !== 'number' || !Number.isFinite(order.tripEarnings)) {
         order.tripEarnings = calculatePricingAmount(restaurant.pricing.driverPayoutRule, order.estimatedKm ?? 0);
       }

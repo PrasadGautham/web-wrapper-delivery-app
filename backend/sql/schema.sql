@@ -31,6 +31,17 @@ create table if not exists drivers (
   max_active_orders integer not null
 );
 
+create table if not exists driver_trips (
+  id text primary key,
+  tenant_id text not null references tenants(id) on delete cascade,
+  driver_id text not null references drivers(id) on delete cascade,
+  status text not null,
+  started_at timestamptz not null,
+  completed_at timestamptz,
+  order_ids jsonb not null default '[]'::jsonb,
+  restaurant_ids jsonb not null default '[]'::jsonb
+);
+
 create table if not exists restaurants (
   id text primary key,
   tenant_id text not null references tenants(id) on delete cascade,
@@ -62,6 +73,7 @@ create table if not exists admin_users (
 create table if not exists orders (
   id text primary key,
   tenant_id text not null references tenants(id) on delete cascade,
+  trip_id text references driver_trips(id) on delete set null,
   restaurant_id text not null references restaurants(id) on delete cascade,
   restaurant jsonb not null,
   customer jsonb not null,
@@ -118,6 +130,9 @@ create table if not exists audit_logs (
 alter table merchants add column if not exists users jsonb not null default '[]'::jsonb;
 alter table restaurants add column if not exists staff_users jsonb not null default '[]'::jsonb;
 
+create index if not exists idx_driver_trips_tenant_id on driver_trips(tenant_id);
+create index if not exists idx_driver_trips_driver_id on driver_trips(driver_id);
+create index if not exists idx_driver_trips_status on driver_trips(status);
 create index if not exists idx_orders_restaurant_id on orders(restaurant_id);
 create index if not exists idx_orders_assigned_driver_id on orders(assigned_driver_id);
 create index if not exists idx_orders_status on orders(status);
@@ -134,11 +149,19 @@ alter table orders add column if not exists driver_display_mode text not null de
 alter table restaurants add column if not exists distance_unit text not null default 'kilometer';
 alter table orders add column if not exists driver_display_distance_unit text not null default 'kilometer';
 alter table orders add column if not exists display_currency text not null default 'AED';
+alter table driver_trips add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table driver_trips add column if not exists driver_id text references drivers(id) on delete cascade;
+alter table driver_trips add column if not exists status text not null default 'open';
+alter table driver_trips add column if not exists started_at timestamptz not null default now();
+alter table driver_trips add column if not exists completed_at timestamptz;
+alter table driver_trips add column if not exists order_ids jsonb not null default '[]'::jsonb;
+alter table driver_trips add column if not exists restaurant_ids jsonb not null default '[]'::jsonb;
 alter table merchants add column if not exists tenant_id text references tenants(id) on delete cascade;
 alter table drivers add column if not exists tenant_id text references tenants(id) on delete cascade;
 alter table restaurants add column if not exists tenant_id text references tenants(id) on delete cascade;
 alter table admin_users add column if not exists tenant_id text references tenants(id) on delete cascade;
 alter table orders add column if not exists tenant_id text references tenants(id) on delete cascade;
+alter table orders add column if not exists trip_id text references driver_trips(id) on delete set null;
 alter table sessions add column if not exists tenant_id text references tenants(id) on delete cascade;
 alter table password_reset_tokens add column if not exists tenant_id text references tenants(id) on delete cascade;
 alter table audit_logs add column if not exists tenant_id text references tenants(id) on delete cascade;
@@ -152,6 +175,7 @@ create index if not exists idx_drivers_tenant_id on drivers(tenant_id);
 create index if not exists idx_restaurants_tenant_id on restaurants(tenant_id);
 create index if not exists idx_admin_users_tenant_id on admin_users(tenant_id);
 create index if not exists idx_orders_tenant_id on orders(tenant_id);
+create index if not exists idx_orders_trip_id on orders(trip_id);
 create index if not exists idx_sessions_tenant_id on sessions(tenant_id);
 create index if not exists idx_password_reset_tokens_tenant_id on password_reset_tokens(tenant_id);
 create index if not exists idx_audit_logs_tenant_id on audit_logs(tenant_id);

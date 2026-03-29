@@ -76,6 +76,7 @@ export async function runDispatchServiceTests(): Promise<void> {
     db.orders.push({
       id: 'existing-order',
       tenantId: 'tnt_fleet_002',
+      tripId: null,
       restaurantId: 'rst_b72e4d11',
       restaurant: db.restaurants[1]!.pickupLocation,
       customer: {
@@ -124,6 +125,7 @@ export async function runDispatchServiceTests(): Promise<void> {
     db.orders.push({
       id: 'retry-order',
       tenantId: 'tnt_fleet_001',
+      tripId: null,
       restaurantId: 'rst_a13c5f20',
       restaurant: db.restaurants[0]!.pickupLocation,
       customer: {
@@ -168,6 +170,7 @@ export async function runDispatchServiceTests(): Promise<void> {
     db.orders.push({
       id: 'manual-reject-order',
       tenantId: 'tnt_fleet_001',
+      tripId: null,
       restaurantId: 'rst_a13c5f20',
       restaurant: db.restaurants[0]!.pickupLocation,
       customer: {

@@ -3,6 +3,7 @@ import {
   AuditLogRecord,
   DatabaseShape,
   DriverRecord,
+  DriverTripRecord,
   TenantRecord,
   MerchantRecord,
   OrderRecord,
@@ -51,6 +52,7 @@ export interface WorkflowStoreContract {
 
 export interface OperationalState {
   drivers: DriverRecord[];
+  driverTrips: DriverTripRecord[];
   restaurants: RestaurantRecord[];
   orders: OrderRecord[];
 }

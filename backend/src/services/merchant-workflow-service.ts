@@ -66,7 +66,9 @@ export class MerchantWorkflowService {
     const allOrders = groups.flatMap((group) => group.orders.map((order) => ({ restaurant: group.restaurant, order })));
     const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
     const timeZone = normalizeTenantTimeZone(restaurants[0]?.timeZone);
+    const tripRecordById = await this.runtime.withDb(async (db) => new Map(db.driverTrips.map((trip) => [trip.id, trip])));
     const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    const byTrip = new Map<string, { tripId: string; driverId: string; driverName: string; orderCount: number; deliveredOrders: number; storeCount: number; restaurantNames: string[]; startedAt: string; completedAt: string | null; totalRestaurantCharges: number }>();
     for (const item of allOrders) {
       if (item.order.assignedDriverId && item.order.tracking.assignedDriverName) {
         const driver = byCourier.get(item.order.assignedDriverId) || { driverId: item.order.assignedDriverId, driverName: item.order.tracking.assignedDriverName, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
@@ -74,6 +76,19 @@ export class MerchantWorkflowService {
         driver.deliveredOrders += item.order.status === 'delivered' ? 1 : 0;
         driver.totalRestaurantCharges += item.order.companyCharge;
         byCourier.set(item.order.assignedDriverId, driver);
+      }
+      if (item.order.tripId && item.order.assignedDriverId && item.order.tracking.assignedDriverName) {
+        const trip = tripRecordById.get(item.order.tripId) ?? null;
+        const summary = byTrip.get(item.order.tripId) || { tripId: item.order.tripId, driverId: trip?.driverId ?? item.order.assignedDriverId, driverName: item.order.tracking.assignedDriverName, orderCount: 0, deliveredOrders: 0, storeCount: 0, restaurantNames: [], startedAt: trip?.startedAt ?? item.order.createdAt, completedAt: trip?.completedAt ?? null, totalRestaurantCharges: 0 };
+        summary.orderCount += 1;
+        summary.deliveredOrders += item.order.status === 'delivered' ? 1 : 0;
+        if (!summary.restaurantNames.includes(item.restaurant.name)) {
+          summary.restaurantNames.push(item.restaurant.name);
+          summary.storeCount = summary.restaurantNames.length;
+        }
+        summary.completedAt = trip?.completedAt ?? summary.completedAt;
+        summary.totalRestaurantCharges += item.order.companyCharge;
+        byTrip.set(item.order.tripId, summary);
       }
       const dayKey = extractDateInTimeZone(item.order.createdAt, timeZone);
       const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
@@ -106,6 +121,7 @@ export class MerchantWorkflowService {
       })).sort((left, right) => right.totalOrders - left.totalOrders),
       byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
       byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
+      byTrip: Array.from(byTrip.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.orderCount - left.orderCount || left.startedAt.localeCompare(right.startedAt)),
     };
   }
 

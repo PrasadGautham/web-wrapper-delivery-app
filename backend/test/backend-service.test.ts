@@ -119,6 +119,7 @@ export async function runBackendServiceTests(): Promise<void> {
     db.orders.push({
       id: 'pending-order',
       tenantId: 'tnt_fleet_001',
+      tripId: null,
       restaurantId: 'rst_a13c5f20',
       restaurant: db.restaurants[0]!.pickupLocation,
       customer: {
@@ -168,6 +169,7 @@ export async function runBackendServiceTests(): Promise<void> {
     db.orders.unshift({
       id: 'queued-order',
       tenantId: 'tnt_fleet_001',
+      tripId: null,
       restaurantId: 'rst_a13c5f20',
       restaurant: db.restaurants[0]!.pickupLocation,
       customer: {
@@ -254,6 +256,101 @@ export async function runBackendServiceTests(): Promise<void> {
     assert.equal('pricing' in restaurantProfile, false);
     assert.equal('tripEarnings' in (restaurantOrders[0] ?? {}), false);
     assert.equal('totalDriverPayout' in restaurantReport, false);
+  }
+
+  {
+    const store = new InMemoryStore(loadSeed());
+    const service = createService(store);
+    const db = await store.read();
+    db.drivers[0]!.isOnline = true;
+    db.drivers[0]!.maxActiveOrders = 2;
+    db.drivers[0]!.currentLocation = {
+      latitude: 25.0764,
+      longitude: 55.1443,
+      accuracyMeters: 5,
+      speedMetersPerSecond: 0,
+      headingDegrees: 0,
+      capturedAt: new Date().toISOString(),
+    };
+    db.drivers[2]!.isOnline = false;
+    db.orders.unshift({
+      id: 'third-queued-order',
+      tenantId: 'tnt_fleet_001',
+      tripId: null,
+      restaurantId: 'rst_a13c5f20',
+      restaurant: db.restaurants[0]!.pickupLocation,
+      customer: {
+        name: 'Third Customer',
+        address: 'JLT, Dubai',
+        latitude: 25.075,
+        longitude: 55.146,
+      },
+      deliveryArea: 'JLT',
+      status: 'queued',
+      distanceKm: 1,
+      estimatedKm: 2.2,
+      estimatedMinutes: 9,
+      driverDisplayDistanceKm: 2.2,
+      driverDisplayMinutes: 9,
+      driverDisplayMode: 'storeToCustomer',
+      driverDisplayDistanceUnit: 'kilometer',
+      displayCurrency: 'AED',
+      tripEarnings: 24.5,
+      companyCharge: 38,
+      createdAt: new Date().toISOString(),
+      expiresAt: null,
+      assignedDriverId: null,
+      rejectedDriverIds: [],
+      deliveredAt: null,
+      pendingDispatchNotification: false,
+      events: [],
+    });
+    db.orders.unshift({
+      id: 'second-queued-order',
+      tenantId: 'tnt_fleet_001',
+      tripId: null,
+      restaurantId: 'rst_a13c5f20',
+      restaurant: db.restaurants[0]!.pickupLocation,
+      customer: {
+        name: 'Second Customer',
+        address: 'Dubai Marina',
+        latitude: 25.0845,
+        longitude: 55.1417,
+      },
+      deliveryArea: 'Dubai Marina',
+      status: 'queued',
+      distanceKm: 1,
+      estimatedKm: 2,
+      estimatedMinutes: 8,
+      driverDisplayDistanceKm: 2,
+      driverDisplayMinutes: 8,
+      driverDisplayMode: 'storeToCustomer',
+      driverDisplayDistanceUnit: 'kilometer',
+      displayCurrency: 'AED',
+      tripEarnings: 23.5,
+      companyCharge: 37,
+      createdAt: new Date().toISOString(),
+      expiresAt: null,
+      assignedDriverId: null,
+      rejectedDriverIds: [],
+      deliveredAt: null,
+      pendingDispatchNotification: false,
+      events: [],
+    });
+    await store.write(db);
+
+    const incoming = await service.getIncomingOrders('drv_1f2c9a44');
+    await service.acceptOrder('drv_1f2c9a44', incoming[0]!.id);
+    await service.runDispatchCycle();
+    const nextIncoming = await service.getIncomingOrders('drv_1f2c9a44');
+    await service.acceptOrder('drv_1f2c9a44', nextIncoming[0]!.id);
+
+    const updated = await store.read();
+    const accepted = updated.orders.filter((order) => order.assignedDriverId === 'drv_1f2c9a44' && order.status === 'accepted');
+    assert.equal(updated.driverTrips.length, 1);
+    assert.equal(accepted.length, 2);
+    assert.equal(new Set(accepted.map((order) => order.tripId)).size, 1);
+    assert.equal(updated.driverTrips[0]!.orderIds.length, 2);
   }
 
   {

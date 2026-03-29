@@ -5,6 +5,8 @@ class OrderModel {
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
       id: json['id'] as String,
+      tripId: json['tripId'] as String?,
+      tripOrderCount: (json['tripOrderCount'] ?? 1) as int,
       restaurant: Map<String, dynamic>.from(json['restaurant'] as Map),
       customer: Map<String, dynamic>.from(json['customer'] as Map),
       status: json['status'] as String,
@@ -25,6 +27,8 @@ class OrderModel {
 
   const OrderModel({
     required this.id,
+    required this.tripId,
+    required this.tripOrderCount,
     required this.restaurant,
     required this.customer,
     required this.status,
@@ -43,6 +47,8 @@ class OrderModel {
   });
 
   final String id;
+  final String? tripId;
+  final int tripOrderCount;
   final Map<String, dynamic> restaurant;
   final Map<String, dynamic> customer;
   final String status;
@@ -62,6 +68,8 @@ class OrderModel {
   Order toEntity() {
     return Order(
       id: id,
+      tripId: tripId,
+      tripOrderCount: tripOrderCount,
       restaurant: _mapLocation(restaurant),
       customer: _mapLocation(customer),
       status: OrderStatus.values.firstWhere((value) => value.name == status),

@@ -249,6 +249,9 @@ export async function registerRestaurantRoutes(
         ['Report Period', describeReportRange(range)],
         [],
         [
+        'Trip ID',
+        'Trip Size',
+        'Batched Trip',
         'Order ID',
         'Created At',
         'Delivered At',
@@ -263,6 +266,9 @@ export async function registerRestaurantRoutes(
       ]];
       for (const order of orders) {
         rows.push([
+          order.tripId || '',
+          String(order.tripOrderCount || 1),
+          order.isBatchedTrip ? 'Yes' : 'No',
           order.id,
           formatDateTimeInTimeZone(order.createdAt, profile.timeZone),
           order.deliveredAt ? formatDateTimeInTimeZone(order.deliveredAt, profile.timeZone) : '',

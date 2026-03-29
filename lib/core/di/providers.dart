@@ -107,17 +107,17 @@ final updateAvailabilityUseCaseProvider = Provider<UpdateAvailabilityUseCase>(
 final getEarningsUseCaseProvider = Provider<GetEarningsUseCase>(
   (ref) => GetEarningsUseCase(ref.watch(driverRepositoryProvider)),
 );
-final watchIncomingOrderUseCaseProvider = Provider<WatchIncomingOrderUseCase>(
-  (ref) => WatchIncomingOrderUseCase(ref.watch(orderRepositoryProvider)),
+final watchIncomingOrdersUseCaseProvider = Provider<WatchIncomingOrdersUseCase>(
+  (ref) => WatchIncomingOrdersUseCase(ref.watch(orderRepositoryProvider)),
 );
-final getIncomingOrderUseCaseProvider = Provider<GetIncomingOrderUseCase>(
-  (ref) => GetIncomingOrderUseCase(ref.watch(orderRepositoryProvider)),
+final getIncomingOrdersUseCaseProvider = Provider<GetIncomingOrdersUseCase>(
+  (ref) => GetIncomingOrdersUseCase(ref.watch(orderRepositoryProvider)),
 );
-final watchActiveOrderUseCaseProvider = Provider<WatchActiveOrderUseCase>(
-  (ref) => WatchActiveOrderUseCase(ref.watch(orderRepositoryProvider)),
+final watchActiveOrdersUseCaseProvider = Provider<WatchActiveOrdersUseCase>(
+  (ref) => WatchActiveOrdersUseCase(ref.watch(orderRepositoryProvider)),
 );
-final getActiveOrderUseCaseProvider = Provider<GetActiveOrderUseCase>(
-  (ref) => GetActiveOrderUseCase(ref.watch(orderRepositoryProvider)),
+final getActiveOrdersUseCaseProvider = Provider<GetActiveOrdersUseCase>(
+  (ref) => GetActiveOrdersUseCase(ref.watch(orderRepositoryProvider)),
 );
 final acceptOrderUseCaseProvider = Provider<AcceptOrderUseCase>(
   (ref) => AcceptOrderUseCase(ref.watch(orderRepositoryProvider)),
@@ -163,10 +163,10 @@ final dashboardControllerProvider =
 final orderControllerProvider =
     StateNotifierProvider<OrderController, OrderState>((ref) {
   final controller = OrderController(
-    ref.watch(watchIncomingOrderUseCaseProvider),
-    ref.watch(getIncomingOrderUseCaseProvider),
-    ref.watch(watchActiveOrderUseCaseProvider),
-    ref.watch(getActiveOrderUseCaseProvider),
+    ref.watch(watchIncomingOrdersUseCaseProvider),
+    ref.watch(getIncomingOrdersUseCaseProvider),
+    ref.watch(watchActiveOrdersUseCaseProvider),
+    ref.watch(getActiveOrdersUseCaseProvider),
     ref.watch(acceptOrderUseCaseProvider),
     ref.watch(rejectOrderUseCaseProvider),
     ref.watch(markArrivedUseCaseProvider),
@@ -268,8 +268,8 @@ class AppStartup {
       final orders = _ref.read(orderControllerProvider);
       await _ref.read(driverLocationSyncServiceProvider).sync(
         isAuthenticated: auth.isAuthenticated,
-        shouldTrack: (dashboard.driver?.isOnline ?? false) || orders.activeOrder != null,
-        highFrequencyMode: orders.activeOrder != null,
+        shouldTrack: (dashboard.driver?.isOnline ?? false) || orders.activeOrders.isNotEmpty,
+        highFrequencyMode: orders.activeOrders.isNotEmpty,
       );
       logger.d(
         'App startup: location sync evaluation completed in ${stopwatch.elapsedMilliseconds}ms',

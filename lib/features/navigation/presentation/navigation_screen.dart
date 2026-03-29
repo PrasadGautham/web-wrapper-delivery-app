@@ -19,6 +19,9 @@ class NavigationScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(orderControllerProvider);
     final order = state.activeOrder;
+    final incomingOrder = state.incomingOrder;
+    final activeOrders = state.activeOrders;
+    final incomingOrders = state.incomingOrders;
 
     if (order == null) {
       return AppShell(
@@ -36,6 +39,43 @@ class NavigationScreen extends ConsumerWidget {
       body: ListView(
         children: [
           const SizedBox(height: 12),
+          if (activeOrders.length > 1) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: activeOrders
+                  .map((item) => ChoiceChip(
+                        label: Text(item.restaurant.name),
+                        selected: item.id == order.id,
+                        onSelected: (_) => ref.read(orderControllerProvider.notifier).selectActiveOrder(item.id),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (incomingOrder != null) ...[
+            Card(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: ListTile(
+                leading: const Icon(Icons.notifications_active_outlined),
+                title: Text(
+                  incomingOrders.length > 1
+                      ? 'New delivery offers (${incomingOrders.length})'
+                      : 'New delivery offer: ${incomingOrder.restaurant.name}',
+                ),
+                subtitle: Text(
+                  incomingOrders.length > 1
+                      ? 'Review the pending offers assigned to you.'
+                      : 'Expires in ${(state.secondsRemaining ?? 0) < 0 ? 0 : (state.secondsRemaining ?? 0)} seconds',
+                ),
+                trailing: FilledButton(
+                  onPressed: () => context.push('/incoming-order'),
+                  child: const Text('Review'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           Container(
             height: 260,
             decoration: BoxDecoration(
@@ -133,6 +173,13 @@ class NavigationScreen extends ConsumerWidget {
                         ? 'This offer view includes your commute to the pickup store and the delivery leg.'
                         : 'This offer view shows only the delivery leg from the store to the customer.',
                   ),
+                  if (order.tripOrderCount > 1) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'This order is part of a batched trip with ${order.tripOrderCount} deliveries.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -142,7 +189,7 @@ class NavigationScreen extends ConsumerWidget {
             PrimaryButton(
               label: l10n.text('arrivedAtRestaurant'),
               icon: Icons.store_mall_directory_outlined,
-              onPressed: () => ref.read(orderControllerProvider.notifier).markArrivedAtRestaurant(),
+              onPressed: () => ref.read(orderControllerProvider.notifier).markArrivedAtRestaurant(order.id),
             ),
           ] else if (order.status == OrderStatus.atRestaurant) ...[
             PrimaryButton(

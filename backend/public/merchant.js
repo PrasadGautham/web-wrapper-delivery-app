@@ -353,7 +353,7 @@ function renderOrders(groups) {
           <div class="eyebrow">Store-facing commercial view</div>
           <div style="margin-top: 8px;">Store charge: ${formatMoney(order.companyCharge, order.displayCurrency || restaurant.currency)}</div>
           <div class="muted">Driver app distance: ${formatDistance(order.driverDisplayDistanceKm, order.driverDisplayDistanceUnit || restaurant.distanceUnit)}</div>
-          <div class="muted">ETA source: ${formatEtaSource(order.tracking.etaSource)}</div>
+          <div class="muted">ETA source: ${formatEtaSource(order.tracking.etaSource)}</div><div class="muted">${order.isBatchedTrip ? `Batched trip - ${order.tripOrderCount} orders in this run` : 'Single-order trip'}</div>
         </div>
       </div>
     </article>
@@ -380,7 +380,7 @@ function renderReports(groups, report) {
     const currency = latestOrderGroups.find((group) => group.restaurant.id === row.restaurantId)?.restaurant.currency || DEFAULT_CURRENCY_CODE;
     return `<div class="list-row"><span>${escapeHtml(row.restaurantName)}</span><strong>${formatMoney(row.totalRestaurantCharges, currency)}</strong></div>`;
   }).join('') || '<div class="muted">No billing data yet.</div>';
-  nodes.reportCourierPerformance.innerHTML = (report.byCourier || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.driverName)}</span><strong>${row.totalOrders} orders</strong></div>`).join('') || '<div class="muted">No courier activity yet.</div>';
+  nodes.reportCourierPerformance.innerHTML = (report.byTrip || []).length ? (report.byTrip || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.driverName)} - ${row.orderCount} orders</span><strong>${row.storeCount} stores</strong></div>`).join('') : ((report.byCourier || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.driverName)}</span><strong>${row.totalOrders} orders</strong></div>`).join('') || '<div class="muted">No courier activity yet.</div>');
   nodes.reportDailyVolume.innerHTML = (report.byDay || []).map((row) => `<div class="list-row"><span>${row.date}</span><strong>${row.totalOrders}</strong></div>`).join('') || '<div class="muted">No day-by-day activity yet.</div>';
   nodes.reportStatusMix.innerHTML = (report.statusMix || []).map((row) => `<div class="list-row"><span>${escapeHtml(row.status)}</span><strong>${row.count}</strong></div>`).join('') || '<div class="muted">No operational mix yet.</div>';
 }

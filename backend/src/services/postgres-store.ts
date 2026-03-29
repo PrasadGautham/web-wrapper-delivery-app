@@ -6,6 +6,7 @@ import { DatabaseShape } from '../domain/models.js';
 import { PostgresAdminUsersRepository } from '../persistence/postgres/admin-users-repository.js';
 import { PostgresAuditLogsRepository } from '../persistence/postgres/audit-logs-repository.js';
 import { PostgresDriversRepository } from '../persistence/postgres/drivers-repository.js';
+import { PostgresDriverTripsRepository } from '../persistence/postgres/driver-trips-repository.js';
 import { PostgresMerchantsRepository } from '../persistence/postgres/merchants-repository.js';
 import { PostgresOrdersRepository } from '../persistence/postgres/orders-repository.js';
 import { PostgresPasswordResetTokensRepository } from '../persistence/postgres/password-reset-tokens-repository.js';
@@ -25,6 +26,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
   private readonly tenantsRepository = new PostgresTenantsRepository();
   private readonly merchantsRepository = new PostgresMerchantsRepository();
   private readonly driversRepository = new PostgresDriversRepository();
+  private readonly driverTripsRepository = new PostgresDriverTripsRepository();
   private readonly restaurantsRepository = new PostgresRestaurantsRepository();
   private readonly adminUsersRepository = new PostgresAdminUsersRepository();
   private readonly ordersRepository = new PostgresOrdersRepository();
@@ -44,6 +46,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
       const tenants = await this.tenantsRepository.list(client);
       const merchants = await this.merchantsRepository.list(client);
       const drivers = await this.driversRepository.list(client);
+      const driverTrips = await this.driverTripsRepository.list(client);
       const restaurants = await this.restaurantsRepository.list(client);
       const adminUsers = await this.adminUsersRepository.list(client);
       const orders = await this.ordersRepository.list(client);
@@ -55,6 +58,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
         tenants,
         merchants,
         drivers,
+        driverTrips,
         restaurants,
         adminUsers,
         orders,
@@ -76,6 +80,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
       await this.tenantsRepository.upsertMany(client, data.tenants ?? []);
       await this.merchantsRepository.upsertMany(client, data.merchants);
       await this.driversRepository.upsertMany(client, data.drivers);
+      await this.driverTripsRepository.upsertMany(client, data.driverTrips ?? []);
       await this.restaurantsRepository.upsertMany(client, data.restaurants);
       await this.adminUsersRepository.upsertMany(client, data.adminUsers ?? []);
       await this.ordersRepository.upsertMany(client, data.orders);
@@ -84,6 +89,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
       await this.auditLogsRepository.upsertMany(client, data.auditLogs);
 
       await this.ordersRepository.deleteMissing(client, data.orders.map((item) => item.id));
+      await this.driverTripsRepository.deleteMissing(client, (data.driverTrips ?? []).map((item) => item.id));
       await this.restaurantsRepository.deleteMissing(client, data.restaurants.map((item) => item.id));
       await this.merchantsRepository.deleteMissing(client, data.merchants.map((item) => item.id));
       await this.driversRepository.deleteMissing(client, data.drivers.map((item) => item.id));
@@ -146,9 +152,11 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
       const context = await this.createOperationalContext(client);
       const result = await callback(context);
       await this.driversRepository.upsertMany(client, context.state.drivers);
+      await this.driverTripsRepository.upsertMany(client, context.state.driverTrips);
       await this.restaurantsRepository.upsertMany(client, context.state.restaurants);
       await this.ordersRepository.upsertMany(client, context.state.orders);
       await this.ordersRepository.deleteMissing(client, context.state.orders.map((item) => item.id));
+      await this.driverTripsRepository.deleteMissing(client, context.state.driverTrips.map((item) => item.id));
       await this.restaurantsRepository.deleteMissing(client, context.state.restaurants.map((item) => item.id));
       await this.driversRepository.deleteMissing(client, context.state.drivers.map((item) => item.id));
       await client.query('commit');
@@ -163,11 +171,12 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
 
   private async createOperationalContext(client: PoolClient): Promise<OperationalStateContext> {
     const drivers = await this.driversRepository.list(client);
+    const driverTrips = await this.driverTripsRepository.list(client);
     const restaurants = await this.restaurantsRepository.list(client);
     const orders = await this.ordersRepository.list(client);
 
     return {
-      state: { drivers, restaurants, orders },
+      state: { drivers, driverTrips, restaurants, orders },
       appendAuditLog: (log) => this.auditLogsRepository.appendOne(client, log),
     };
   }
@@ -225,6 +234,7 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
         (select count(*)::int from tenants) as tenants,
         (select count(*)::int from merchants where tenant_id is null) as merchants_missing_tenant,
         (select count(*)::int from drivers where tenant_id is null) as drivers_missing_tenant,
+        (select count(*)::int from driver_trips where tenant_id is null or driver_id is null) as driver_trips_missing_scope,
         (select count(*)::int from restaurants where tenant_id is null) as restaurants_missing_tenant,
         (select count(*)::int from orders where tenant_id is null) as orders_missing_tenant,
         (select count(*)::int from admin_users where role like 'tenant%' and tenant_id is null) as tenant_admins_missing_tenant,
@@ -233,16 +243,18 @@ export class PostgresStore implements StoreContract, WorkflowStoreContract, Oper
         (select count(*)::int from admin_users where role not in ('platformAdmin', 'opsAdmin', 'supportAdmin', 'billingAdmin', 'tenantAdmin', 'tenantOps', 'tenantSupport')) as unknown_admin_roles,
         (select count(*)::int from merchants) as merchant_count,
         (select count(*)::int from drivers) as driver_count,
+        (select count(*)::int from driver_trips) as driver_trip_count,
         (select count(*)::int from restaurants) as restaurant_count,
         (select count(*)::int from orders) as order_count
     `);
 
     const row = result.rows[0] as Record<string, number>;
-    const tenantOwnedRows = Number(row.merchant_count ?? 0) + Number(row.driver_count ?? 0) + Number(row.restaurant_count ?? 0) + Number(row.order_count ?? 0);
+    const tenantOwnedRows = Number(row.merchant_count ?? 0) + Number(row.driver_count ?? 0) + Number(row.driver_trip_count ?? 0) + Number(row.restaurant_count ?? 0) + Number(row.order_count ?? 0);
     const hasBrokenTenantState =
       (Number(row.tenants ?? 0) === 0 && tenantOwnedRows > 0) ||
       Number(row.merchants_missing_tenant ?? 0) > 0 ||
       Number(row.drivers_missing_tenant ?? 0) > 0 ||
+      Number(row.driver_trips_missing_scope ?? 0) > 0 ||
       Number(row.restaurants_missing_tenant ?? 0) > 0 ||
       Number(row.orders_missing_tenant ?? 0) > 0 ||
       Number(row.tenant_admins_missing_tenant ?? 0) > 0 ||

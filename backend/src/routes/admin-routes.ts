@@ -125,7 +125,7 @@ function describeReportRange(range: { startDate?: string; endDate?: string }) {
 
 function normalizeAdminReportType(value: unknown) {
   const normalized = String(value || 'orders').trim();
-  const valid = new Set(['orders', 'drivers', 'stores', 'merchant-groups', 'tenants', 'days']);
+  const valid = new Set(['orders', 'drivers', 'stores', 'merchant-groups', 'tenants', 'days', 'trips']);
   return valid.has(normalized) ? normalized : 'orders';
 }
 
@@ -328,10 +328,15 @@ export async function registerAdminRoutes(
         for (const item of report.byDay) {
           rows.push([item.date, String(item.totalOrders), String(item.deliveredOrders), String(item.totalStoreCharges), String(item.totalDriverPay)]);
         }
+      } else if (reportType === 'trips') {
+        rows.push(['Trip ID', 'Tenant', 'Driver', 'Orders In Trip', 'Delivered Orders', 'Stores In Trip', 'Stores', 'Started At', 'Completed At', 'Store Charges', 'Driver Pay']);
+        for (const item of report.byTrip) {
+          rows.push([item.tripId, item.tenantName, item.driverName, String(item.orderCount), String(item.deliveredOrders), String(item.storeCount), item.restaurantNames.join(' | '), formatDateTimeInTimeZone(item.startedAt, reportTimeZone), item.completedAt ? formatDateTimeInTimeZone(item.completedAt, reportTimeZone) : '', String(item.totalStoreCharges), String(item.totalDriverPay)]);
+        }
       } else {
-        rows.push(['Tenant', 'Merchant Group', 'Store', 'Order ID', 'Created At', 'Delivered At', 'Customer', 'Destination Address', 'Delivery Area', 'Status', 'Assigned Driver', 'Store Charge', 'Driver Pay', 'Currency']);
+        rows.push(['Tenant', 'Merchant Group', 'Store', 'Trip ID', 'Trip Size', 'Batched Trip', 'Order ID', 'Created At', 'Delivered At', 'Customer', 'Destination Address', 'Delivery Area', 'Status', 'Assigned Driver', 'Store Charge', 'Driver Pay', 'Currency']);
         for (const order of orders) {
-          rows.push([order.tenantName, order.merchantName, order.restaurantName, order.id, formatDateTimeInTimeZone(order.createdAt, reportTimeZone), order.deliveredAt ? formatDateTimeInTimeZone(order.deliveredAt, reportTimeZone) : '', order.customerName, order.destinationAddress, order.deliveryArea, order.status, order.assignedDriverName || '', String(order.storeCharge), String(order.driverPay), order.currency]);
+          rows.push([order.tenantName, order.merchantName, order.restaurantName, order.tripId || '', String(order.tripOrderCount || 1), order.isBatchedTrip ? 'Yes' : 'No', order.id, formatDateTimeInTimeZone(order.createdAt, reportTimeZone), order.deliveredAt ? formatDateTimeInTimeZone(order.deliveredAt, reportTimeZone) : '', order.customerName, order.destinationAddress, order.deliveryArea, order.status, order.assignedDriverName || '', String(order.storeCharge), String(order.driverPay), order.currency]);
         }
       }
 

@@ -16,6 +16,7 @@ class IncomingOrderScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(orderControllerProvider);
     final order = state.incomingOrder;
+    final incomingOrders = state.incomingOrders;
 
     if (order == null) {
       return AppShell(
@@ -29,6 +30,19 @@ class IncomingOrderScreen extends ConsumerWidget {
       body: ListView(
         children: [
           const SizedBox(height: 12),
+          if (incomingOrders.length > 1)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: incomingOrders
+                  .map((item) => ChoiceChip(
+                        label: Text(item.restaurant.name),
+                        selected: item.id == order.id,
+                        onSelected: (_) => ref.read(orderControllerProvider.notifier).selectIncomingOrder(item.id),
+                      ))
+                  .toList(),
+            ),
+          if (incomingOrders.length > 1) const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -76,7 +90,7 @@ class IncomingOrderScreen extends ConsumerWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    await ref.read(orderControllerProvider.notifier).reject();
+                    await ref.read(orderControllerProvider.notifier).reject(orderId: order.id);
                     if (context.mounted) {
                       context.pop();
                     }
@@ -91,7 +105,7 @@ class IncomingOrderScreen extends ConsumerWidget {
                   label: l10n.text('accept'),
                   icon: Icons.check_circle_outline,
                   onPressed: () async {
-                    final accepted = await ref.read(orderControllerProvider.notifier).accept();
+                    final accepted = await ref.read(orderControllerProvider.notifier).accept(order.id);
                     if (accepted && context.mounted) {
                       context.go('/navigation');
                     }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { DatabaseShape, DriverOfferDistanceMode, DriverRecord, LocationSnapshot, OrderRecord, RestaurantRecord } from '../domain/models.js';
+import { DatabaseShape, DriverOfferDistanceMode, DriverRecord, DriverTripRecord, LocationSnapshot, OrderRecord, RestaurantRecord } from '../domain/models.js';
 import { calculatePricingAmount } from './pricing-rules.js';
 import { haversineDistanceKm } from '../utils/geo.js';
 import { defaultDistanceUnit, defaultTenantCurrency } from '../utils/timezones.js';
@@ -80,6 +80,7 @@ export class DispatchService {
     const order: OrderRecord = {
       id: `order-${randomUUID()}`,
       tenantId: restaurant.tenantId,
+      tripId: null,
       restaurantId: restaurant.id,
       restaurant: restaurant.pickupLocation,
       customer: customerLocation,
@@ -186,7 +187,8 @@ export class DispatchService {
     order.status = 'accepted';
     order.expiresAt = null;
     order.pendingDispatchNotification = false;
-    order.events.push({ type: 'accepted', at: nowIso(), actorId: driverId });
+    const trip = this.attachOrderToDriverTrip(db, driverId, order);
+    order.events.push({ type: 'accepted', at: nowIso(), actorId: driverId, notes: `Trip ${trip.id}` });
     return order;
   }
 
@@ -229,6 +231,9 @@ export class DispatchService {
       const driver = this.requireDriver(db, driverId);
       driver.completedOrders += 1;
       driver.totalDistanceKm = Number((driver.totalDistanceKm + order.estimatedKm).toFixed(1));
+      if (order.tripId) {
+        this.completeDriverTripIfFinished(db, order.tripId);
+      }
       this.assignQueuedOrders(db);
     }
 
@@ -236,11 +241,27 @@ export class DispatchService {
   }
 
   getIncomingOrderForDriver(db: DatabaseShape, driverId: string): OrderRecord | null {
-    return db.orders.find((order) => order.status === 'pending' && order.assignedDriverId === driverId) ?? null;
+    return this.getIncomingOrdersForDriver(db, driverId)[0] ?? null;
   }
 
   getActiveOrderForDriver(db: DatabaseShape, driverId: string): OrderRecord | null {
-    return db.orders.find((order) => order.assignedDriverId === driverId && isActiveStatus(order.status)) ?? null;
+    return this.getActiveOrdersForDriver(db, driverId)[0] ?? null;
+  }
+
+  getIncomingOrdersForDriver(db: DatabaseShape, driverId: string): OrderRecord[] {
+    return db.orders
+      .filter((order) => order.status === 'pending' && order.assignedDriverId === driverId)
+      .sort((left, right) => {
+        const leftExpiry = left.expiresAt ? new Date(left.expiresAt).getTime() : Number.MAX_SAFE_INTEGER;
+        const rightExpiry = right.expiresAt ? new Date(right.expiresAt).getTime() : Number.MAX_SAFE_INTEGER;
+        return leftExpiry - rightExpiry;
+      });
+  }
+
+  getActiveOrdersForDriver(db: DatabaseShape, driverId: string): OrderRecord[] {
+    return db.orders
+      .filter((order) => order.assignedDriverId === driverId && isActiveStatus(order.status))
+      .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime());
   }
 
   getOrdersNeedingDispatchNotification(db: DatabaseShape): Array<{ driver: DriverRecord; order: OrderRecord }> {
@@ -421,6 +442,68 @@ export class DispatchService {
       return 'open';
     }
     return 'fallback-open';
+  }
+
+
+  private attachOrderToDriverTrip(db: DatabaseShape, driverId: string, order: OrderRecord): DriverTripRecord {
+    const existing = order.tripId ? db.driverTrips.find((trip) => trip.id === order.tripId) ?? null : null;
+    const trip = existing && existing.status === 'open'
+      ? existing
+      : this.findOpenTripForDriver(db, driverId) ?? this.createDriverTrip(db, driverId, order.tenantId);
+
+    order.tripId = trip.id;
+    if (!trip.orderIds.includes(order.id)) {
+      trip.orderIds.push(order.id);
+    }
+    if (!trip.restaurantIds.includes(order.restaurantId)) {
+      trip.restaurantIds.push(order.restaurantId);
+    }
+    return trip;
+  }
+
+  private findOpenTripForDriver(db: DatabaseShape, driverId: string): DriverTripRecord | null {
+    return db.driverTrips
+      .filter((trip) => trip.driverId === driverId && trip.status === 'open')
+      .sort((left, right) => new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime())[0] ?? null;
+  }
+
+  private createDriverTrip(db: DatabaseShape, driverId: string, tenantId: string): DriverTripRecord {
+    const trip: DriverTripRecord = {
+      id: `trip-${randomUUID()}`,
+      tenantId,
+      driverId,
+      status: 'open',
+      startedAt: nowIso(),
+      completedAt: null,
+      orderIds: [],
+      restaurantIds: [],
+    };
+    db.driverTrips.unshift(trip);
+    return trip;
+  }
+
+  private completeDriverTripIfFinished(db: DatabaseShape, tripId: string): void {
+    const trip = db.driverTrips.find((item) => item.id === tripId);
+    if (!trip || trip.status !== 'open') {
+      return;
+    }
+    const outstanding = db.orders.some((order) => order.tripId === tripId && order.status !== 'delivered');
+    if (!outstanding) {
+      trip.status = 'completed';
+      trip.completedAt = nowIso();
+    }
+  }
+
+  getTripOrderCount(db: DatabaseShape, tripId: string | null): number {
+    if (!tripId) {
+      return 1;
+    }
+    const trip = db.driverTrips.find((item) => item.id === tripId);
+    return Math.max(1, trip?.orderIds.length ?? db.orders.filter((order) => order.tripId === tripId).length);
+  }
+
+  isBatchedTrip(db: DatabaseShape, tripId: string | null): boolean {
+    return this.getTripOrderCount(db, tripId) > 1;
   }
 
   private driverHasCapacity(db: DatabaseShape, driverId: string): boolean {

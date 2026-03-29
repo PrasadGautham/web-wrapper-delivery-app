@@ -402,8 +402,16 @@ export class BackendService {
     return this.driverWorkflow.getIncomingOrder(driverId);
   }
 
+  getIncomingOrders(driverId: string): Promise<OrderRecord[]> {
+    return this.driverWorkflow.getIncomingOrders(driverId);
+  }
+
   getActiveOrder(driverId: string): Promise<OrderRecord | null> {
     return this.driverWorkflow.getActiveOrder(driverId);
+  }
+
+  getActiveOrders(driverId: string): Promise<OrderRecord[]> {
+    return this.driverWorkflow.getActiveOrders(driverId);
   }
 
   acceptOrder(driverId: string, orderId: string): Promise<OrderRecord> {

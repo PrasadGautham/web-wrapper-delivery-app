@@ -53,11 +53,11 @@ class DeliveryConfirmationScreen extends ConsumerWidget {
             label: 'Delivered',
             icon: Icons.check_circle_outline,
             onPressed: () async {
-              await ref.read(orderControllerProvider.notifier).deliver();
+              final hasMoreActiveOrders = await ref.read(orderControllerProvider.notifier).deliver(order.id);
               await ref.read(backendApiClientProvider).refreshState();
               await ref.read(dashboardControllerProvider.notifier).refresh();
               if (context.mounted) {
-                context.go('/home');
+                context.go(hasMoreActiveOrders ? '/navigation' : '/home');
               }
             },
           ),

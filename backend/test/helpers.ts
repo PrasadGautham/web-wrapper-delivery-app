@@ -16,6 +16,7 @@ export function loadSeed(): DatabaseShape {
   parsed.tenants ??= [];
   parsed.adminUsers ??= [];
   parsed.passwordResetTokens ??= [];
+  parsed.driverTrips ??= [];
   parsed.merchants.forEach((merchant) => {
     merchant.users ??= [];
   });
@@ -68,6 +69,7 @@ export class InMemoryStore implements StoreContract, WorkflowStoreContract, Oper
     return {
       state: {
         drivers: db.drivers,
+        driverTrips: db.driverTrips,
         restaurants: db.restaurants,
         orders: db.orders,
       },
@@ -82,6 +84,7 @@ export class InMemoryStore implements StoreContract, WorkflowStoreContract, Oper
     db.tenants ??= [];
     db.passwordResetTokens ??= [];
     db.adminUsers ??= [];
+    db.driverTrips ??= [];
     return {
       listTenants: async () => db.tenants,
       findTenantById: async (tenantId) => db.tenants.find((item) => item.id === tenantId) ?? null,

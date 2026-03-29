@@ -95,17 +95,27 @@ export class DriverWorkflowService {
   }
 
   async getIncomingOrder(driverId: string): Promise<OrderRecord | null> {
+    const orders = await this.getIncomingOrders(driverId);
+    return orders[0] ?? null;
+  }
+
+  async getIncomingOrders(driverId: string): Promise<OrderRecord[]> {
     return this.runtime.withMutableOperationalDb(async (state) => {
       this.dispatchService.tick(state as never);
       this.dispatchService.assignQueuedOrders(state as never);
-      return this.dispatchService.getIncomingOrderForDriver(state as never, driverId);
+      return this.dispatchService.getIncomingOrdersForDriver(state as never, driverId);
     });
   }
 
   async getActiveOrder(driverId: string): Promise<OrderRecord | null> {
+    const orders = await this.getActiveOrders(driverId);
+    return orders[0] ?? null;
+  }
+
+  async getActiveOrders(driverId: string): Promise<OrderRecord[]> {
     return this.runtime.withMutableOperationalDb(async (state) => {
       this.dispatchService.tick(state as never);
-      return this.dispatchService.getActiveOrderForDriver(state as never, driverId);
+      return this.dispatchService.getActiveOrdersForDriver(state as never, driverId);
     });
   }
 

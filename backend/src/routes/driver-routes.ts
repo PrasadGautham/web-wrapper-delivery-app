@@ -154,9 +154,19 @@ export async function registerDriverRoutes(
     return backendService.getIncomingOrder(authedRequest.driverId);
   });
 
+  app.get('/api/driver/orders/incoming-list', async (request) => {
+    const authedRequest = request as AuthedRequest;
+    return backendService.getIncomingOrders(authedRequest.driverId);
+  });
+
   app.get('/api/driver/orders/active', async (request) => {
     const authedRequest = request as AuthedRequest;
     return backendService.getActiveOrder(authedRequest.driverId);
+  });
+
+  app.get('/api/driver/orders/active-list', async (request) => {
+    const authedRequest = request as AuthedRequest;
+    return backendService.getActiveOrders(authedRequest.driverId);
   });
 
   app.post('/api/driver/orders/:orderId/accept', async (request) => {

@@ -193,6 +193,7 @@ Mobile startup behavior:
 - `Today's earnings` on the dashboard is live backend data, shown in tenant currency, and falls back to `0.0` only when the driver has no earnings yet
 - lightweight startup timing logs now measure auth restore, notification bootstrap, and location sync during launch
 - unchanged backend snapshots are no longer re-emitted to the UI, and the dashboard countdown no longer forces the whole home screen to rebuild every second
+- the driver app now supports multiple simultaneous incoming offers and active trips when driver capacity is greater than `1`, with explicit order switching in the app UI
 
 ## Verification
 
@@ -213,3 +214,15 @@ cd C:\dev\DriverApp
 C:\flutter\bin\flutter.bat analyze
 C:\flutter\bin\flutter.bat test
 ```
+
+## Batched Trips
+
+The platform now models multi-order courier runs explicitly. When a driver accepts multiple orders while still under capacity, the backend groups them into a `driver trip` and each order is linked by `tripId`.
+
+What this enables:
+- restaurant, merchant, and admin reports can identify batched trips directly
+- CSV exports include `Trip ID`, `Trip Size`, and `Batched Trip` columns
+- the driver app shows when an active order is part of a batched trip
+
+Trips stay `open` while they still have undelivered orders and are marked `completed` when the last linked order is delivered.
+

@@ -14,7 +14,15 @@ import {
   RestaurantTrackingSettings,
   TenantRecord,
 } from '../domain/models.js';
-import { defaultDistanceUnit, defaultTenantTimeZone, extractDateInTimeZone, localDateBoundaryToUtc, normalizeTenantCurrency, normalizeTenantTimeZone, platformReportTimeZone } from '../utils/timezones.js';
+import {
+  defaultDistanceUnit,
+  defaultTenantTimeZone,
+  extractDateInTimeZone,
+  localDateBoundaryToUtc,
+  normalizeTenantCurrency,
+  normalizeTenantTimeZone,
+  platformReportTimeZone,
+} from '../utils/timezones.js';
 import { BackofficeReadService } from './backoffice-read-service.js';
 import { toDriverProfile, toMerchantView, toRestaurantProfile } from './profile-projections.js';
 import { ReportDateRange } from '../utils/reporting.js';
@@ -72,6 +80,27 @@ type PrismaTenantRow = {
   createdAt: Date;
 };
 
+type PrismaDriverTripRow = {
+  id: string;
+  tenantId: string;
+  driverId: string;
+  status: string;
+  startedAt: Date;
+  completedAt: Date | null;
+  orderIds: string[];
+  restaurantIds: string[];
+};
+
+type PrismaReportOrderRow = {
+  id: string;
+  tripId: string | null;
+  restaurantId: string;
+  status: string;
+  companyCharge: number;
+  assignedDriverId: string | null;
+  createdAt: Date;
+};
+
 export class PrismaBackofficeReadService implements BackofficeReadService {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -99,7 +128,9 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       loadByDriverId.set(row.assignedDriverId, (loadByDriverId.get(row.assignedDriverId) ?? 0) + 1);
     }
     const tenantById = new Map<string, TenantRecord>(tenants.map((tenant: PrismaTenantRow) => [tenant.id, this.mapTenant(tenant)]));
-    return drivers.map((driver: PrismaDriverRow) => toDriverProfile(this.mapDriver(driver), loadByDriverId.get(driver.id) ?? 0, tenantById.get(driver.tenantId ?? '') ?? null));
+    return drivers.map((driver: PrismaDriverRow) =>
+      toDriverProfile(this.mapDriver(driver), loadByDriverId.get(driver.id) ?? 0, tenantById.get(driver.tenantId ?? '') ?? null),
+    );
   }
 
   async listRestaurants(): Promise<RestaurantProfile[]> {
@@ -124,40 +155,64 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
     const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { tenantId: true } });
     const tenant = restaurant?.tenantId ? await this.findTenantById(restaurant.tenantId) : null;
     const timeZone = normalizeTenantTimeZone(tenant?.timeZone ?? defaultTenantTimeZone);
-    const dateWhere = this.toOrderDateWhere(range, timeZone);
-    const [orders, drivers] = await this.prisma.$transaction([
-      this.prisma.order.findMany({
-        where: { restaurantId, ...dateWhere },
-        select: { status: true, companyCharge: true, tripEarnings: true, assignedDriverId: true, createdAt: true },
-      }),
+    const [orders, drivers, trips] = await Promise.all([
+      this.loadReportOrdersForRestaurant(restaurantId, range, timeZone),
       this.prisma.driver.findMany({ select: { id: true, name: true } }),
+      this.loadDriverTrips(restaurant?.tenantId ?? null),
     ]);
-    const driverNameById = new Map(drivers.map((driver) => [driver.id, driver.name]));
+
+    const driverNameById = new Map<string, string>(drivers.map((driver: { id: string; name: string }) => [driver.id, driver.name]));
+    const tripById = new Map<string, PrismaDriverTripRow>(trips.map((trip) => [trip.id, trip]));
     const totalOrders = orders.length;
     const activeOrders = orders.filter((order) => activeRestaurantStatuses.includes(order.status as (typeof activeRestaurantStatuses)[number])).length;
     const deliveredOrders = orders.filter((order) => order.status === 'delivered').length;
     const totalRestaurantCharges = Number(orders.reduce((sum, order) => sum + Number(order.companyCharge), 0).toFixed(2));
-    const statusMix = Array.from(orders.reduce((map, order) => {
-      map.set(order.status, (map.get(order.status) || 0) + 1);
-      return map;
-    }, new Map<string, number>()).entries()).map(([status, count]) => ({ status, count })).sort((left, right) => right.count - left.count);
+    const statusAccumulator = new Map<string, number>();
     const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
     const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    const byTrip = new Map<string, { tripId: string; driverId: string; driverName: string; orderCount: number; deliveredOrders: number; startedAt: string; completedAt: string | null; totalRestaurantCharges: number }>();
+
     for (const order of orders) {
+      statusAccumulator.set(order.status, (statusAccumulator.get(order.status) ?? 0) + 1);
       if (order.assignedDriverId) {
-        const driver = byCourier.get(order.assignedDriverId) || { driverId: order.assignedDriverId, driverName: driverNameById.get(order.assignedDriverId) || 'Unknown courier', totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+        const driver = byCourier.get(order.assignedDriverId) ?? {
+          driverId: order.assignedDriverId,
+          driverName: driverNameById.get(order.assignedDriverId) ?? 'Unknown courier',
+          totalOrders: 0,
+          deliveredOrders: 0,
+          totalRestaurantCharges: 0,
+        };
         driver.totalOrders += 1;
         driver.deliveredOrders += order.status === 'delivered' ? 1 : 0;
         driver.totalRestaurantCharges += Number(order.companyCharge);
         byCourier.set(order.assignedDriverId, driver);
       }
+      if (order.tripId) {
+        const trip = tripById.get(order.tripId) ?? null;
+        const driverId = trip?.driverId ?? order.assignedDriverId ?? 'unknown-driver';
+        const summary = byTrip.get(order.tripId) ?? {
+          tripId: order.tripId,
+          driverId,
+          driverName: driverNameById.get(driverId) ?? 'Unknown courier',
+          orderCount: 0,
+          deliveredOrders: 0,
+          startedAt: trip?.startedAt.toISOString() ?? order.createdAt.toISOString(),
+          completedAt: trip?.completedAt ? trip.completedAt.toISOString() : null,
+          totalRestaurantCharges: 0,
+        };
+        summary.orderCount += 1;
+        summary.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+        summary.totalRestaurantCharges += Number(order.companyCharge);
+        byTrip.set(order.tripId, summary);
+      }
       const dayKey = extractDateInTimeZone(order.createdAt.toISOString(), timeZone);
-      const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+      const day = byDay.get(dayKey) ?? { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
       day.totalOrders += 1;
       day.deliveredOrders += order.status === 'delivered' ? 1 : 0;
       day.totalRestaurantCharges += Number(order.companyCharge);
       byDay.set(dayKey, day);
     }
+
     return {
       totalOrders,
       activeOrders,
@@ -165,9 +220,18 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       totalRestaurantCharges,
       averageRestaurantCharge: totalOrders ? Number((totalRestaurantCharges / totalOrders).toFixed(2)) : 0,
       completionRate: totalOrders ? Number(((deliveredOrders / totalOrders) * 100).toFixed(1)) : 0,
-      statusMix,
-      byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
-      byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
+      statusMix: Array.from(statusAccumulator.entries())
+        .map(([status, count]) => ({ status, count }))
+        .sort((left, right) => right.count - left.count),
+      byCourier: Array.from(byCourier.values())
+        .map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) }))
+        .sort((left, right) => right.totalOrders - left.totalOrders),
+      byDay: Array.from(byDay.values())
+        .map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) }))
+        .sort((left, right) => left.date.localeCompare(right.date)),
+      byTrip: Array.from(byTrip.values())
+        .map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) }))
+        .sort((left, right) => right.orderCount - left.orderCount || left.startedAt.localeCompare(right.startedAt)),
     };
   }
 
@@ -176,7 +240,7 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
     const tenant = merchant?.tenantId ? await this.findTenantById(merchant.tenantId) : null;
     const timeZone = normalizeTenantTimeZone(tenant?.timeZone ?? defaultTenantTimeZone);
     const restaurants = await this.prisma.restaurant.findMany({ where: { merchantId }, select: { id: true, name: true } });
-    const restaurantIds = restaurants.map((item) => item.id);
+    const restaurantIds = restaurants.map((item: { id: string; name: string }) => item.id);
 
     if (!restaurantIds.length) {
       return {
@@ -191,50 +255,84 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
         byStore: [],
         byCourier: [],
         byDay: [],
+        byTrip: [],
       };
     }
 
-    const dateWhere = this.toOrderDateWhere(range, timeZone);
-    const [orders, drivers] = await this.prisma.$transaction([
-      this.prisma.order.findMany({
-        where: { restaurantId: { in: restaurantIds }, ...dateWhere },
-        select: { restaurantId: true, status: true, companyCharge: true, tripEarnings: true, assignedDriverId: true, createdAt: true },
-      }),
+    const [orders, drivers, trips] = await Promise.all([
+      this.loadReportOrdersForRestaurants(restaurantIds, range, timeZone),
       this.prisma.driver.findMany({ select: { id: true, name: true } }),
+      this.loadDriverTrips(merchant?.tenantId ?? null),
     ]);
-    const restaurantNameById = new Map(restaurants.map((restaurant) => [restaurant.id, restaurant.name]));
-    const driverNameById = new Map(drivers.map((driver) => [driver.id, driver.name]));
+
+    const restaurantNameById = new Map<string, string>(restaurants.map((item: { id: string; name: string }) => [item.id, item.name]));
+    const driverNameById = new Map<string, string>(drivers.map((driver: { id: string; name: string }) => [driver.id, driver.name]));
+    const tripById = new Map<string, PrismaDriverTripRow>(trips.map((trip) => [trip.id, trip]));
     const totalOrders = orders.length;
     const activeOrders = orders.filter((order) => activeRestaurantStatuses.includes(order.status as (typeof activeRestaurantStatuses)[number])).length;
     const deliveredOrders = orders.filter((order) => order.status === 'delivered').length;
     const totalRestaurantCharges = Number(orders.reduce((sum, order) => sum + Number(order.companyCharge), 0).toFixed(2));
-    const statusMix = Array.from(orders.reduce((map, order) => {
-      map.set(order.status, (map.get(order.status) || 0) + 1);
-      return map;
-    }, new Map<string, number>()).entries()).map(([status, count]) => ({ status, count })).sort((left, right) => right.count - left.count);
+    const statusAccumulator = new Map<string, number>();
     const byStore = new Map<string, { restaurantId: string; restaurantName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
     const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
     const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+    const byTrip = new Map<string, { tripId: string; driverId: string; driverName: string; orderCount: number; deliveredOrders: number; startedAt: string; completedAt: string | null; totalRestaurantCharges: number }>();
+
     for (const order of orders) {
-      const store = byStore.get(order.restaurantId) || { restaurantId: order.restaurantId, restaurantName: restaurantNameById.get(order.restaurantId) || 'Unknown store', totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+      statusAccumulator.set(order.status, (statusAccumulator.get(order.status) ?? 0) + 1);
+      const store = byStore.get(order.restaurantId) ?? {
+        restaurantId: order.restaurantId,
+        restaurantName: restaurantNameById.get(order.restaurantId) ?? 'Unknown store',
+        totalOrders: 0,
+        deliveredOrders: 0,
+        totalRestaurantCharges: 0,
+      };
       store.totalOrders += 1;
       store.deliveredOrders += order.status === 'delivered' ? 1 : 0;
       store.totalRestaurantCharges += Number(order.companyCharge);
       byStore.set(order.restaurantId, store);
+
       if (order.assignedDriverId) {
-        const driver = byCourier.get(order.assignedDriverId) || { driverId: order.assignedDriverId, driverName: driverNameById.get(order.assignedDriverId) || 'Unknown courier', totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+        const driver = byCourier.get(order.assignedDriverId) ?? {
+          driverId: order.assignedDriverId,
+          driverName: driverNameById.get(order.assignedDriverId) ?? 'Unknown courier',
+          totalOrders: 0,
+          deliveredOrders: 0,
+          totalRestaurantCharges: 0,
+        };
         driver.totalOrders += 1;
         driver.deliveredOrders += order.status === 'delivered' ? 1 : 0;
         driver.totalRestaurantCharges += Number(order.companyCharge);
         byCourier.set(order.assignedDriverId, driver);
       }
+
+      if (order.tripId) {
+        const trip = tripById.get(order.tripId) ?? null;
+        const driverId = trip?.driverId ?? order.assignedDriverId ?? 'unknown-driver';
+        const summary = byTrip.get(order.tripId) ?? {
+          tripId: order.tripId,
+          driverId,
+          driverName: driverNameById.get(driverId) ?? 'Unknown courier',
+          orderCount: 0,
+          deliveredOrders: 0,
+          startedAt: trip?.startedAt.toISOString() ?? order.createdAt.toISOString(),
+          completedAt: trip?.completedAt ? trip.completedAt.toISOString() : null,
+          totalRestaurantCharges: 0,
+        };
+        summary.orderCount += 1;
+        summary.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+        summary.totalRestaurantCharges += Number(order.companyCharge);
+        byTrip.set(order.tripId, summary);
+      }
+
       const dayKey = extractDateInTimeZone(order.createdAt.toISOString(), timeZone);
-      const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
+      const day = byDay.get(dayKey) ?? { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
       day.totalOrders += 1;
       day.deliveredOrders += order.status === 'delivered' ? 1 : 0;
       day.totalRestaurantCharges += Number(order.companyCharge);
       byDay.set(dayKey, day);
     }
+
     return {
       totalRestaurants: restaurantIds.length,
       totalOrders,
@@ -243,13 +341,95 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
       totalRestaurantCharges,
       averageRestaurantCharge: totalOrders ? Number((totalRestaurantCharges / totalOrders).toFixed(2)) : 0,
       completionRate: totalOrders ? Number(((deliveredOrders / totalOrders) * 100).toFixed(1)) : 0,
-      statusMix,
-      byStore: Array.from(byStore.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
-      byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
-      byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
+      statusMix: Array.from(statusAccumulator.entries())
+        .map(([status, count]) => ({ status, count }))
+        .sort((left, right) => right.count - left.count),
+      byStore: Array.from(byStore.values())
+        .map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) }))
+        .sort((left, right) => right.totalOrders - left.totalOrders),
+      byCourier: Array.from(byCourier.values())
+        .map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) }))
+        .sort((left, right) => right.totalOrders - left.totalOrders),
+      byDay: Array.from(byDay.values())
+        .map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) }))
+        .sort((left, right) => left.date.localeCompare(right.date)),
+      byTrip: Array.from(byTrip.values())
+        .map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) }))
+        .sort((left, right) => right.orderCount - left.orderCount || left.startedAt.localeCompare(right.startedAt)),
     };
   }
 
+  private async loadReportOrdersForRestaurant(restaurantId: string, range: ReportDateRange, timeZone: string): Promise<PrismaReportOrderRow[]> {
+    const params: unknown[] = [restaurantId];
+    const clauses = ['restaurant_id = $1'];
+    if (range.startDate) {
+      params.push(new Date(localDateBoundaryToUtc(range.startDate, timeZone, false)));
+      clauses.push(`created_at >= $${params.length}`);
+    }
+    if (range.endDate) {
+      params.push(new Date(localDateBoundaryToUtc(range.endDate, timeZone, true)));
+      clauses.push(`created_at <= $${params.length}`);
+    }
+    return this.prisma.$queryRawUnsafe<PrismaReportOrderRow[]>(`
+      select
+        id,
+        trip_id as "tripId",
+        restaurant_id as "restaurantId",
+        status,
+        company_charge as "companyCharge",
+        assigned_driver_id as "assignedDriverId",
+        created_at as "createdAt"
+      from orders
+      where ${clauses.join(' and ')}
+      order by created_at desc
+    `, ...params);
+  }
+
+  private async loadReportOrdersForRestaurants(restaurantIds: string[], range: ReportDateRange, timeZone: string): Promise<PrismaReportOrderRow[]> {
+    const params: unknown[] = [restaurantIds];
+    const clauses = ['restaurant_id = any($1)'];
+    if (range.startDate) {
+      params.push(new Date(localDateBoundaryToUtc(range.startDate, timeZone, false)));
+      clauses.push(`created_at >= $${params.length}`);
+    }
+    if (range.endDate) {
+      params.push(new Date(localDateBoundaryToUtc(range.endDate, timeZone, true)));
+      clauses.push(`created_at <= $${params.length}`);
+    }
+    return this.prisma.$queryRawUnsafe<PrismaReportOrderRow[]>(`
+      select
+        id,
+        trip_id as "tripId",
+        restaurant_id as "restaurantId",
+        status,
+        company_charge as "companyCharge",
+        assigned_driver_id as "assignedDriverId",
+        created_at as "createdAt"
+      from orders
+      where ${clauses.join(' and ')}
+      order by created_at desc
+    `, ...params);
+  }
+
+  private async loadDriverTrips(tenantId: string | null): Promise<PrismaDriverTripRow[]> {
+    if (!tenantId) {
+      return [];
+    }
+    return this.prisma.$queryRawUnsafe<PrismaDriverTripRow[]>(`
+      select
+        id,
+        tenant_id as "tenantId",
+        driver_id as "driverId",
+        status,
+        started_at as "startedAt",
+        completed_at as "completedAt",
+        order_ids as "orderIds",
+        restaurant_ids as "restaurantIds"
+      from driver_trips
+      where tenant_id = $1
+      order by started_at desc
+    `, tenantId);
+  }
 
   private async loadTenants(): Promise<PrismaTenantRow[]> {
     return this.prisma.$queryRawUnsafe<PrismaTenantRow[]>(`
@@ -329,7 +509,3 @@ export class PrismaBackofficeReadService implements BackofficeReadService {
     };
   }
 }
-
-
-
-

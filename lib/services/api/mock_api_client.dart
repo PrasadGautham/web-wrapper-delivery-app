@@ -194,6 +194,8 @@ class MockApiClient {
   }) {
     return OrderModel(
       id: source.id,
+      tripId: source.tripId,
+      tripOrderCount: source.tripOrderCount,
       restaurant: source.restaurant,
       customer: source.customer,
       status: status,
@@ -215,6 +217,8 @@ class MockApiClient {
   Map<String, dynamic> _toMap(OrderModel order) {
     return {
       'id': order.id,
+      'tripId': order.tripId,
+      'tripOrderCount': order.tripOrderCount,
       'restaurant': order.restaurant,
       'customer': order.customer,
       'status': order.status,

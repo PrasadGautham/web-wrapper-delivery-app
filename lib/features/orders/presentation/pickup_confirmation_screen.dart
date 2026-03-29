@@ -50,7 +50,7 @@ class PickupConfirmationScreen extends ConsumerWidget {
             label: 'Pickup Order',
             icon: Icons.shopping_bag_outlined,
             onPressed: () async {
-              await ref.read(orderControllerProvider.notifier).pickup();
+              await ref.read(orderControllerProvider.notifier).pickup(order.id);
               if (context.mounted) {
                 context.go('/navigation');
               }

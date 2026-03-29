@@ -12,6 +12,8 @@ class BackendApiClient {
   final _driverController = StreamController<Map<String, dynamic>?>.broadcast();
   final _incomingOrderController = StreamController<Map<String, dynamic>?>.broadcast();
   final _activeOrderController = StreamController<Map<String, dynamic>?>.broadcast();
+  final _incomingOrdersController = StreamController<List<Map<String, dynamic>>>.broadcast();
+  final _activeOrdersController = StreamController<List<Map<String, dynamic>>>.broadcast();
 
   String? _token;
   String? _deviceToken;
@@ -23,10 +25,14 @@ class BackendApiClient {
   String? _lastDriverSnapshot;
   String? _lastIncomingOrderSnapshot;
   String? _lastActiveOrderSnapshot;
+  String? _lastIncomingOrdersSnapshot;
+  String? _lastActiveOrdersSnapshot;
 
   Stream<Map<String, dynamic>?> watchDriver() => _driverController.stream;
   Stream<Map<String, dynamic>?> watchIncomingOrder() => _incomingOrderController.stream;
   Stream<Map<String, dynamic>?> watchActiveOrder() => _activeOrderController.stream;
+  Stream<List<Map<String, dynamic>>> watchIncomingOrders() => _incomingOrdersController.stream;
+  Stream<List<Map<String, dynamic>>> watchActiveOrders() => _activeOrdersController.stream;
 
   void configureAuthLifecycle({
     Future<void> Function(String?)? persistAuthToken,
@@ -44,6 +50,8 @@ class BackendApiClient {
       _emitIfChanged(_driverController, null, lastSnapshot: () => _lastDriverSnapshot, updateSnapshot: (value) => _lastDriverSnapshot = value);
       _emitIfChanged(_incomingOrderController, null, lastSnapshot: () => _lastIncomingOrderSnapshot, updateSnapshot: (value) => _lastIncomingOrderSnapshot = value);
       _emitIfChanged(_activeOrderController, null, lastSnapshot: () => _lastActiveOrderSnapshot, updateSnapshot: (value) => _lastActiveOrderSnapshot = value);
+      _emitListIfChanged(_incomingOrdersController, const [], lastSnapshot: () => _lastIncomingOrdersSnapshot, updateSnapshot: (value) => _lastIncomingOrdersSnapshot = value);
+      _emitListIfChanged(_activeOrdersController, const [], lastSnapshot: () => _lastActiveOrdersSnapshot, updateSnapshot: (value) => _lastActiveOrdersSnapshot = value);
       return;
     }
     _startRefreshLoop();
@@ -145,7 +153,11 @@ class BackendApiClient {
 
   Future<Map<String, dynamic>?> getOrdersAvailable() => _requestNullable('GET', '/driver/orders/incoming');
 
+  Future<List<Map<String, dynamic>>> getOrdersAvailableList() => _requestList('GET', '/driver/orders/incoming-list');
+
   Future<Map<String, dynamic>?> getActiveOrder() => _requestNullable('GET', '/driver/orders/active');
+
+  Future<List<Map<String, dynamic>>> getActiveOrdersList() => _requestList('GET', '/driver/orders/active-list');
 
   Future<Map<String, dynamic>> postAccept(String orderId) async {
     final response = await _request('POST', '/driver/orders/$orderId/accept');
@@ -184,12 +196,14 @@ class BackendApiClient {
     }
     final results = await Future.wait<dynamic>([
       _request('GET', '/driver/profile'),
-      _requestNullable('GET', '/driver/orders/incoming'),
-      _requestNullable('GET', '/driver/orders/active'),
+      _requestList('GET', '/driver/orders/incoming-list'),
+      _requestList('GET', '/driver/orders/active-list'),
     ]);
     final driver = results[0] as Map<String, dynamic>;
-    final incoming = results[1] as Map<String, dynamic>?;
-    final active = results[2] as Map<String, dynamic>?;
+    final incomingOrders = results[1] as List<Map<String, dynamic>>;
+    final activeOrders = results[2] as List<Map<String, dynamic>>;
+    final incoming = incomingOrders.isEmpty ? null : incomingOrders.first;
+    final active = activeOrders.isEmpty ? null : activeOrders.first;
     _emitIfChanged(
       _driverController,
       driver,
@@ -207,6 +221,18 @@ class BackendApiClient {
       active,
       lastSnapshot: () => _lastActiveOrderSnapshot,
       updateSnapshot: (value) => _lastActiveOrderSnapshot = value,
+    );
+    _emitListIfChanged(
+      _incomingOrdersController,
+      incomingOrders,
+      lastSnapshot: () => _lastIncomingOrdersSnapshot,
+      updateSnapshot: (value) => _lastIncomingOrdersSnapshot = value,
+    );
+    _emitListIfChanged(
+      _activeOrdersController,
+      activeOrders,
+      lastSnapshot: () => _lastActiveOrdersSnapshot,
+      updateSnapshot: (value) => _lastActiveOrdersSnapshot = value,
     );
   }
 
@@ -253,6 +279,30 @@ class BackendApiClient {
   Future<Map<String, dynamic>?> _requestNullable(String method, String path) async {
     final response = await _request(method, path);
     return response.isEmpty ? null : response;
+  }
+  Future<List<Map<String, dynamic>>> _requestList(String method, String path) async {
+    final response = await _performHttp(method, path, authenticated: true);
+
+    if (response.statusCode == 401 && _token != null) {
+      final refreshed = await _tryRefreshSession();
+      if (refreshed) {
+        return _requestList(method, path);
+      }
+    }
+
+    if (response.statusCode >= 400) {
+      final decoded = _decodeAny(response.body);
+      final message = decoded is Map && decoded['message'] != null
+          ? decoded['message'] as String
+          : 'Request failed (${response.statusCode})';
+      throw Exception(message);
+    }
+
+    final decoded = _decodeAny(response.body);
+    if (decoded is List) {
+      return decoded.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+    }
+    return const [];
   }
 
   Future<http.Response> _performHttp(
@@ -345,6 +395,20 @@ class BackendApiClient {
     controller.add(payload);
   }
 
+  void _emitListIfChanged(
+    StreamController<List<Map<String, dynamic>>> controller,
+    List<Map<String, dynamic>> payload, {
+    required String? Function() lastSnapshot,
+    required void Function(String?) updateSnapshot,
+  }) {
+    final snapshot = jsonEncode(payload);
+    if (snapshot == lastSnapshot()) {
+      return;
+    }
+    updateSnapshot(snapshot);
+    controller.add(payload);
+  }
+
   void _startRefreshLoop() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
@@ -378,5 +442,7 @@ class BackendApiClient {
     await _driverController.close();
     await _incomingOrderController.close();
     await _activeOrderController.close();
+    await _incomingOrdersController.close();
+    await _activeOrdersController.close();
   }
 }

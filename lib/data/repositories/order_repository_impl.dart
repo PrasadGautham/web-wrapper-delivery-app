@@ -21,15 +21,15 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Future<Order?> getActiveOrder() async {
-    final response = await _apiClient.getActiveOrder();
-    return response == null ? null : OrderModel.fromJson(response).toEntity();
+  Future<List<Order>> getActiveOrders() async {
+    final response = await _apiClient.getActiveOrdersList();
+    return response.map((item) => OrderModel.fromJson(item).toEntity()).toList();
   }
 
   @override
-  Future<Order?> getIncomingOrder() async {
-    final response = await _apiClient.getOrdersAvailable();
-    return response == null ? null : OrderModel.fromJson(response).toEntity();
+  Future<List<Order>> getIncomingOrders() async {
+    final response = await _apiClient.getOrdersAvailableList();
+    return response.map((item) => OrderModel.fromJson(item).toEntity()).toList();
   }
 
   @override
@@ -50,22 +50,12 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Stream<Order?> watchActiveOrder() {
-    return _apiClient.watchActiveOrder().map((event) {
-      if (event == null) {
-        return null;
-      }
-      return OrderModel.fromJson(event).toEntity();
-    });
+  Stream<List<Order>> watchActiveOrders() {
+    return _apiClient.watchActiveOrders().map((events) => events.map((event) => OrderModel.fromJson(event).toEntity()).toList());
   }
 
   @override
-  Stream<Order?> watchIncomingOrder() {
-    return _apiClient.watchIncomingOrder().map((event) {
-      if (event == null) {
-        return null;
-      }
-      return OrderModel.fromJson(event).toEntity();
-    });
+  Stream<List<Order>> watchIncomingOrders() {
+    return _apiClient.watchIncomingOrders().map((events) => events.map((event) => OrderModel.fromJson(event).toEntity()).toList());
   }
 }

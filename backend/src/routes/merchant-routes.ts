@@ -237,6 +237,9 @@ export async function registerMerchantRoutes(
         [],
         [
         'Store',
+        'Trip ID',
+        'Trip Size',
+        'Batched Trip',
         'Order ID',
         'Created At',
         'Delivered At',
@@ -254,6 +257,9 @@ export async function registerMerchantRoutes(
         for (const order of group.orders) {
           rows.push([
             group.restaurant.name,
+            order.tripId || '',
+            String(order.tripOrderCount || 1),
+            order.isBatchedTrip ? 'Yes' : 'No',
             order.id,
             formatDateTimeInTimeZone(order.createdAt, profile.timeZone),
             order.deliveredAt ? formatDateTimeInTimeZone(order.deliveredAt, profile.timeZone) : '',

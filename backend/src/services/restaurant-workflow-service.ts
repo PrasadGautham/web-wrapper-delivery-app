@@ -94,6 +94,8 @@ export class RestaurantWorkflowService {
       }, new Map<string, number>()).entries()).map(([status, count]) => ({ status, count })).sort((left, right) => right.count - left.count);
       const byCourier = new Map<string, { driverId: string; driverName: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
       const byDay = new Map<string, { date: string; totalOrders: number; deliveredOrders: number; totalRestaurantCharges: number }>();
+      const tripRecordById = new Map(db.driverTrips.map((trip) => [trip.id, trip]));
+      const tripById = new Map<string, { tripId: string; driverId: string; driverName: string; orderCount: number; deliveredOrders: number; startedAt: string; completedAt: string | null; totalRestaurantCharges: number }>();
       for (const order of orders) {
         if (order.assignedDriverId) {
           const driverName = driverById.get(order.assignedDriverId)?.name || 'Unknown courier';
@@ -102,6 +104,15 @@ export class RestaurantWorkflowService {
           driver.deliveredOrders += order.status === 'delivered' ? 1 : 0;
           driver.totalRestaurantCharges += order.companyCharge;
           byCourier.set(order.assignedDriverId, driver);
+        }
+        if (order.tripId) {
+          const trip = tripRecordById.get(order.tripId) ?? null;
+          const driverName = order.assignedDriverId ? (driverById.get(order.assignedDriverId)?.name || 'Unknown courier') : 'Unassigned';
+          const tripSummary = tripById.get(order.tripId) || { tripId: order.tripId, driverId: trip?.driverId ?? order.assignedDriverId ?? 'unknown-driver', driverName, orderCount: 0, deliveredOrders: 0, startedAt: trip?.startedAt ?? order.createdAt, completedAt: trip?.completedAt ?? null, totalRestaurantCharges: 0 };
+          tripSummary.orderCount += 1;
+          tripSummary.deliveredOrders += order.status === 'delivered' ? 1 : 0;
+          tripSummary.totalRestaurantCharges += order.companyCharge;
+          tripById.set(order.tripId, tripSummary);
         }
         const dayKey = extractDateInTimeZone(order.createdAt, timeZone);
         const day = byDay.get(dayKey) || { date: dayKey, totalOrders: 0, deliveredOrders: 0, totalRestaurantCharges: 0 };
@@ -120,6 +131,7 @@ export class RestaurantWorkflowService {
         statusMix,
         byCourier: Array.from(byCourier.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.totalOrders - left.totalOrders),
         byDay: Array.from(byDay.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => left.date.localeCompare(right.date)),
+        byTrip: Array.from(tripById.values()).map((item) => ({ ...item, totalRestaurantCharges: Number(item.totalRestaurantCharges.toFixed(2)) })).sort((left, right) => right.orderCount - left.orderCount || left.startedAt.localeCompare(right.startedAt)),
       };
     });
   }
@@ -153,9 +165,12 @@ export class RestaurantWorkflowService {
         : order.status;
 
     const { tripEarnings: _tripEarnings, ...storeVisibleOrder } = order;
+    const tripOrderCount = this.dispatchService.getTripOrderCount(db as never, order.tripId);
 
     return {
       ...storeVisibleOrder,
+      tripOrderCount,
+      isBatchedTrip: tripOrderCount > 1,
       tracking: {
         displayStatus,
         driverEtaToPickupMinutes: pickupEta?.minutes ?? null,

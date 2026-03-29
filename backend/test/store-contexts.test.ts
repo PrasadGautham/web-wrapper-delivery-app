@@ -37,6 +37,7 @@ export async function runStoreContextsTests(): Promise<void> {
       context.state.orders.push({
         id: 'op-order',
         tenantId: 'tnt_fleet_001',
+        tripId: null,
         restaurantId: 'rst_a13c5f20',
         restaurant: context.state.restaurants[0]!.pickupLocation,
         customer: {

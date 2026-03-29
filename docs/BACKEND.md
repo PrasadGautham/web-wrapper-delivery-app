@@ -254,3 +254,19 @@ Admin exports support typed report slices through the `reportType` query value:
 - `days`
 
 Merchant and restaurant exports are detailed order exports with clear date-based filenames.
+
+## Driver Trips
+
+`orders` now carry a nullable `tripId`, and the backend persists a `driver_trips` collection/table for explicit grouped courier runs. This is the canonical way to identify cases where a driver picked up or delivered multiple orders in the same operational trip.
+
+Lifecycle:
+- first accepted order for a driver opens a trip
+- later accepted orders join the current open trip while capacity allows
+- the trip closes when all linked orders are delivered
+
+Surfaces using this data:
+- restaurant reports and exports
+- merchant reports and exports
+- admin order exports and trip exports
+- driver app active-trip presentation
+

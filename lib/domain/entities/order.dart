@@ -26,6 +26,8 @@ class OrderLocation {
 class Order {
   const Order({
     required this.id,
+    required this.tripId,
+    required this.tripOrderCount,
     required this.restaurant,
     required this.customer,
     required this.status,
@@ -44,6 +46,8 @@ class Order {
   });
 
   final String id;
+  final String? tripId;
+  final int tripOrderCount;
   final OrderLocation restaurant;
   final OrderLocation customer;
   final OrderStatus status;
@@ -69,6 +73,8 @@ class Order {
   }) {
     return Order(
       id: id,
+      tripId: tripId,
+      tripOrderCount: tripOrderCount,
       restaurant: restaurant,
       customer: customer,
       status: status ?? this.status,

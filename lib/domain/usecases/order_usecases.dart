@@ -1,36 +1,36 @@
 import '../entities/order.dart';
 import '../repositories/order_repository.dart';
 
-class WatchIncomingOrderUseCase {
-  const WatchIncomingOrderUseCase(this._repository);
+class WatchIncomingOrdersUseCase {
+  const WatchIncomingOrdersUseCase(this._repository);
 
   final OrderRepository _repository;
 
-  Stream<Order?> call() => _repository.watchIncomingOrder();
+  Stream<List<Order>> call() => _repository.watchIncomingOrders();
 }
 
-class GetIncomingOrderUseCase {
-  const GetIncomingOrderUseCase(this._repository);
+class GetIncomingOrdersUseCase {
+  const GetIncomingOrdersUseCase(this._repository);
 
   final OrderRepository _repository;
 
-  Future<Order?> call() => _repository.getIncomingOrder();
+  Future<List<Order>> call() => _repository.getIncomingOrders();
 }
 
-class WatchActiveOrderUseCase {
-  const WatchActiveOrderUseCase(this._repository);
+class WatchActiveOrdersUseCase {
+  const WatchActiveOrdersUseCase(this._repository);
 
   final OrderRepository _repository;
 
-  Stream<Order?> call() => _repository.watchActiveOrder();
+  Stream<List<Order>> call() => _repository.watchActiveOrders();
 }
 
-class GetActiveOrderUseCase {
-  const GetActiveOrderUseCase(this._repository);
+class GetActiveOrdersUseCase {
+  const GetActiveOrdersUseCase(this._repository);
 
   final OrderRepository _repository;
 
-  Future<Order?> call() => _repository.getActiveOrder();
+  Future<List<Order>> call() => _repository.getActiveOrders();
 }
 
 class AcceptOrderUseCase {
