@@ -186,42 +186,93 @@ class AppStartup {
 
   final Ref _ref;
   bool _initialized = false;
+  bool _notificationsInitialized = false;
 
   Future<void> initialize() async {
     if (_initialized) {
       return;
     }
+    final logger = _ref.read(loggerProvider);
+    final startupStopwatch = Stopwatch()..start();
     _ref.read(backendApiClientProvider).configureAuthLifecycle(
       onSessionExpired: () => _ref.read(authControllerProvider.notifier).clearSession(),
     );
+    final restoreStopwatch = Stopwatch()..start();
     await _ref.read(authControllerProvider.notifier).restoreSession();
+    logger.i('App startup: auth restore completed in ${restoreStopwatch.elapsedMilliseconds}ms');
     _setupControllersForAuth(_ref.read(authControllerProvider));
     _ref.listen<AuthState>(authControllerProvider, (_, next) {
       _setupControllersForAuth(next);
     });
     _setupLocationSync();
     _initialized = true;
+    logger.i('App startup: initialize completed in ${startupStopwatch.elapsedMilliseconds}ms');
   }
 
   void _setupControllersForAuth(AuthState auth) {
+    final logger = _ref.read(loggerProvider);
     if (auth.isAuthenticated) {
+      final initStopwatch = Stopwatch()..start();
       _ref.read(dashboardControllerProvider.notifier).initialize();
       _ref.read(orderControllerProvider.notifier).initialize();
+      unawaited(_initializeNotifications());
+      logger.i(
+        'App startup: authenticated controller bootstrap kicked off in ${initStopwatch.elapsedMilliseconds}ms',
+      );
       return;
     }
     unawaited(_ref.read(dashboardControllerProvider.notifier).resetForLogout());
     unawaited(_ref.read(orderControllerProvider.notifier).resetForLogout());
   }
 
+  Future<void> _initializeNotifications() async {
+    if (_notificationsInitialized) {
+      return;
+    }
+    _notificationsInitialized = true;
+    final logger = _ref.read(loggerProvider);
+    final stopwatch = Stopwatch()..start();
+    try {
+      await _ref.read(orderControllerProvider.notifier).initializeNotifications(
+        onRouteRequest: (route, payload) {
+          unawaited(_ref.read(backendApiClientProvider).refreshState());
+          unawaited(_ref.read(dashboardControllerProvider.notifier).refresh());
+          _ref.read(appRouterProvider).go(route);
+        },
+        onIncomingOrderSignal: (_) async {
+          await _ref.read(backendApiClientProvider).refreshState();
+          await _ref.read(dashboardControllerProvider.notifier).refresh();
+        },
+        onTokenAvailable: (token) => _ref.read(backendApiClientProvider).registerDeviceToken(token),
+      );
+      logger.i(
+        'App startup: notification bootstrap completed in ${stopwatch.elapsedMilliseconds}ms',
+      );
+    } catch (error, stackTrace) {
+      _notificationsInitialized = false;
+      logger.w(
+        'Notification initialization failed. Continuing without push setup.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   void _setupLocationSync() {
-    Future<void> syncLocation() {
+    final logger = _ref.read(loggerProvider);
+
+    Future<void> syncLocation() async {
+      final stopwatch = Stopwatch()..start();
       final auth = _ref.read(authControllerProvider);
       final dashboard = _ref.read(dashboardControllerProvider);
       final orders = _ref.read(orderControllerProvider);
-      return _ref.read(driverLocationSyncServiceProvider).sync(
+      await _ref.read(driverLocationSyncServiceProvider).sync(
         isAuthenticated: auth.isAuthenticated,
         shouldTrack: (dashboard.driver?.isOnline ?? false) || orders.activeOrder != null,
         highFrequencyMode: orders.activeOrder != null,
+      );
+      logger.d(
+        'App startup: location sync evaluation completed in ${stopwatch.elapsedMilliseconds}ms',
       );
     }
 

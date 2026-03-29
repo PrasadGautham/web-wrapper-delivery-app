@@ -15,8 +15,8 @@ class _DriverAppBootstrapState extends ConsumerState<DriverAppBootstrap> {
   @override
   void initState() {
     super.initState();
-    Future<void>.microtask(() async {
-      await ref.read(appStartupProvider).initialize();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(appStartupProvider).initialize();
     });
   }
 

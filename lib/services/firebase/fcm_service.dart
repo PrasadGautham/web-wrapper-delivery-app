@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -35,44 +37,13 @@ class FcmService {
     }
 
     final options = FirebaseBootstrapOptions.currentPlatform;
+    final initializeStopwatch = Stopwatch()..start();
     if (options != null) {
       await Firebase.initializeApp(options: options);
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-      final settings = await FirebaseMessaging.instance.requestPermission();
-      _logger.i('Notification permission status: ${settings.authorizationStatus.name}');
-      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
+      _logger.i(
+        'FCM startup: Firebase core initialized in ${initializeStopwatch.elapsedMilliseconds}ms',
       );
-      _token = await FirebaseMessaging.instance.getToken();
-      _logger.i('FCM token: $_token');
-      if (_token != null) {
-        await onTokenAvailable(_token!);
-      }
-
-      FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
-        _token = token;
-        _logger.i('FCM token refreshed: $token');
-        await onTokenAvailable(token);
-      });
-
-      FirebaseMessaging.onMessage.listen((message) async {
-        final data = message.data.map((key, value) => MapEntry(key, '$value'));
-        await onIncomingOrderSignal(data);
-      });
-      FirebaseMessaging.onMessageOpenedApp.listen((message) async {
-        final data = message.data.map((key, value) => MapEntry(key, '$value'));
-        await onIncomingOrderSignal(data);
-        onRouteRequest(data['route'] ?? '/incoming-order', data);
-      });
-
-      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-      if (initialMessage != null) {
-        final data = initialMessage.data.map((key, value) => MapEntry(key, '$value'));
-        await onIncomingOrderSignal(data);
-        onRouteRequest(data['route'] ?? '/incoming-order', data);
-      }
     } else {
       _logger.i('Firebase not configured. Notifications run in mock mode.');
     }
@@ -107,7 +78,68 @@ class FcmService {
       );
     }
 
+    if (options != null) {
+      unawaited(_configureFirebaseMessaging(
+        onRouteRequest: onRouteRequest,
+        onIncomingOrderSignal: onIncomingOrderSignal,
+        onTokenAvailable: onTokenAvailable,
+      ));
+    }
+
     _initialized = true;
+  }
+
+  Future<void> _configureFirebaseMessaging({
+    required void Function(String route, Map<String, String> payload) onRouteRequest,
+    required Future<void> Function(Map<String, String> payload) onIncomingOrderSignal,
+    required Future<void> Function(String token) onTokenAvailable,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      final settings = await FirebaseMessaging.instance.requestPermission();
+      _logger.i('Notification permission status: ${settings.authorizationStatus.name}');
+      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
+        _token = token;
+        _logger.i('FCM token refreshed: $token');
+        await onTokenAvailable(token);
+      });
+
+      FirebaseMessaging.onMessage.listen((message) async {
+        final data = message.data.map((key, value) => MapEntry(key, '$value'));
+        await onIncomingOrderSignal(data);
+      });
+      FirebaseMessaging.onMessageOpenedApp.listen((message) async {
+        final data = message.data.map((key, value) => MapEntry(key, '$value'));
+        await onIncomingOrderSignal(data);
+        onRouteRequest(data['route'] ?? '/incoming-order', data);
+      });
+
+      _token = await FirebaseMessaging.instance.getToken();
+      _logger.i('FCM token: $_token');
+      if (_token != null) {
+        await onTokenAvailable(_token!);
+      }
+
+      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        final data = initialMessage.data.map((key, value) => MapEntry(key, '$value'));
+        await onIncomingOrderSignal(data);
+        onRouteRequest(data['route'] ?? '/incoming-order', data);
+      }
+      _logger.i('FCM startup: messaging bootstrap completed in ${stopwatch.elapsedMilliseconds}ms');
+    } catch (error, stackTrace) {
+      _logger.w(
+        'Firebase messaging initialization failed. Continuing without push bootstrap.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Future<String?> getToken() async {

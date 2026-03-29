@@ -92,6 +92,13 @@ Use the actual device id shown by `flutter devices`.
 
 For a hosted backend instead of local development, add `--dart-define=BACKEND_API_BASE_URL=https://your-host/api`.
 
+Driver app startup notes:
+- first launch defers non-essential bootstrap work until after the first frame to reduce ANR risk
+- Firebase push bootstrap continues in the background and should not block login rendering
+- location sync now serializes permission requests; if Android shows a location prompt, complete that prompt before toggling online
+- launch logs now include timing markers for auth restore, notification bootstrap, and location sync so startup regressions can be measured directly
+- mobile refresh handling now avoids re-emitting identical snapshots, and the home dashboard no longer repaints fully on every incoming-order countdown tick
+
 ## Seeded Demo Accounts
 
 The local seed source is [seed.json](/c:/dev/DriverApp/backend/data/seed.json). It currently creates two sample tenants and these commonly used demo accounts:

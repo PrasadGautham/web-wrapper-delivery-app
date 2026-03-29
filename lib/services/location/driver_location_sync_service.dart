@@ -17,21 +17,64 @@ class DriverLocationSyncService {
   Position? _lastSentPosition;
   bool _running = false;
   bool _highFrequencyMode = false;
+  bool _syncInFlight = false;
+  _LocationSyncTarget? _pendingTarget;
+  _LocationSyncTarget? _lastRequestedTarget;
+  Future<LocationPermission>? _permissionRequest;
 
   Future<void> sync({
     required bool isAuthenticated,
     required bool shouldTrack,
     required bool highFrequencyMode,
   }) async {
-    if (!isAuthenticated || !shouldTrack) {
-      await stop();
+    final target = _LocationSyncTarget(
+      isAuthenticated: isAuthenticated,
+      shouldTrack: shouldTrack,
+      highFrequencyMode: highFrequencyMode,
+    );
+    _pendingTarget = target;
+    if (_syncInFlight) {
       return;
     }
 
-    if (_running && _highFrequencyMode == highFrequencyMode) {
+    _syncInFlight = true;
+    try {
+      while (_pendingTarget != null) {
+        final nextTarget = _pendingTarget!;
+        _pendingTarget = null;
+        await _applyTarget(nextTarget);
+      }
+    } finally {
+      _syncInFlight = false;
+    }
+  }
+
+  Future<void> stop() async {
+    _running = false;
+    await _positionSubscription?.cancel();
+    _positionSubscription = null;
+    _highFrequencyMode = false;
+    _lastRequestedTarget = null;
+  }
+
+  Future<void> _applyTarget(_LocationSyncTarget target) async {
+    if (_lastRequestedTarget == target) {
       return;
     }
-    if (_running && _highFrequencyMode != highFrequencyMode) {
+    _lastRequestedTarget = target;
+    final stopwatch = Stopwatch()..start();
+
+    if (!target.isAuthenticated || !target.shouldTrack) {
+      await stop();
+      _logger.d('Location sync: stopped in ${stopwatch.elapsedMilliseconds}ms');
+      return;
+    }
+
+    if (_running && _highFrequencyMode == target.highFrequencyMode) {
+      _logger.d('Location sync: target already active, no-op in ${stopwatch.elapsedMilliseconds}ms');
+      return;
+    }
+    if (_running && _highFrequencyMode != target.highFrequencyMode) {
       await stop();
     }
 
@@ -41,10 +84,10 @@ class DriverLocationSyncService {
       return;
     }
 
-    final settings = _buildSettings(highFrequencyMode);
+    final settings = _buildSettings(target.highFrequencyMode);
 
     _running = true;
-    _highFrequencyMode = highFrequencyMode;
+    _highFrequencyMode = target.highFrequencyMode;
     try {
       final currentPosition = await Geolocator.getCurrentPosition(locationSettings: settings);
       await _maybeSend(currentPosition, force: true);
@@ -61,13 +104,9 @@ class DriverLocationSyncService {
       },
       cancelOnError: false,
     );
-  }
-
-  Future<void> stop() async {
-    _running = false;
-    await _positionSubscription?.cancel();
-    _positionSubscription = null;
-    _highFrequencyMode = false;
+    _logger.i(
+      'Location sync: started ${target.highFrequencyMode ? 'high-frequency' : 'standard'} mode in ${stopwatch.elapsedMilliseconds}ms',
+    );
   }
 
   Future<bool> _ensurePermissions() async {
@@ -78,7 +117,12 @@ class DriverLocationSyncService {
 
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      _permissionRequest ??= Geolocator.requestPermission();
+      try {
+        permission = await _permissionRequest!;
+      } finally {
+        _permissionRequest = null;
+      }
     }
 
     return permission == LocationPermission.always || permission == LocationPermission.whileInUse;
@@ -143,4 +187,27 @@ class DriverLocationSyncService {
   }
 
   Future<void> dispose() => stop();
+}
+
+class _LocationSyncTarget {
+  const _LocationSyncTarget({
+    required this.isAuthenticated,
+    required this.shouldTrack,
+    required this.highFrequencyMode,
+  });
+
+  final bool isAuthenticated;
+  final bool shouldTrack;
+  final bool highFrequencyMode;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _LocationSyncTarget &&
+        other.isAuthenticated == isAuthenticated &&
+        other.shouldTrack == shouldTrack &&
+        other.highFrequencyMode == highFrequencyMode;
+  }
+
+  @override
+  int get hashCode => Object.hash(isAuthenticated, shouldTrack, highFrequencyMode);
 }

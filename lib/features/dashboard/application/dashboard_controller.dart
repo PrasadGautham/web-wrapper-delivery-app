@@ -50,15 +50,25 @@ class DashboardController extends StateNotifier<DashboardState> {
   final UpdateAvailabilityUseCase _updateAvailability;
 
   StreamSubscription<Driver?>? _driverSubscription;
+  bool _initialized = false;
+  bool _refreshInFlight = false;
 
   void initialize() {
+    if (_initialized) {
+      return;
+    }
+    _initialized = true;
     _driverSubscription ??= _watchDriver().listen((driver) {
       state = state.copyWith(driver: driver, isLoading: false);
     });
-    refresh();
+    unawaited(refresh());
   }
 
   Future<void> refresh() async {
+    if (_refreshInFlight) {
+      return;
+    }
+    _refreshInFlight = true;
     try {
       final driver = await _getDriver();
       final earnings = await _getEarnings();
@@ -70,6 +80,8 @@ class DashboardController extends StateNotifier<DashboardState> {
       );
     } catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: state.driver == null ? null : error.toString());
+    } finally {
+      _refreshInFlight = false;
     }
   }
 
@@ -101,6 +113,8 @@ class DashboardController extends StateNotifier<DashboardState> {
     state = const DashboardState(
       isLoading: false,
     );
+    _initialized = false;
+    _refreshInFlight = false;
   }
 
   void disposeResources() {

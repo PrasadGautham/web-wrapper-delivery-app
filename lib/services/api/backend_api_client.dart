@@ -20,6 +20,9 @@ class BackendApiClient {
   Future<String>? _refreshingToken;
   Timer? _refreshTimer;
   bool _refreshInFlight = false;
+  String? _lastDriverSnapshot;
+  String? _lastIncomingOrderSnapshot;
+  String? _lastActiveOrderSnapshot;
 
   Stream<Map<String, dynamic>?> watchDriver() => _driverController.stream;
   Stream<Map<String, dynamic>?> watchIncomingOrder() => _incomingOrderController.stream;
@@ -38,14 +41,13 @@ class BackendApiClient {
     unawaited(_persistAuthToken?.call(token));
     if (token == null) {
       _stopRefreshLoop();
-      _driverController.add(null);
-      _incomingOrderController.add(null);
-      _activeOrderController.add(null);
+      _emitIfChanged(_driverController, null, lastSnapshot: () => _lastDriverSnapshot, updateSnapshot: (value) => _lastDriverSnapshot = value);
+      _emitIfChanged(_incomingOrderController, null, lastSnapshot: () => _lastIncomingOrderSnapshot, updateSnapshot: (value) => _lastIncomingOrderSnapshot = value);
+      _emitIfChanged(_activeOrderController, null, lastSnapshot: () => _lastActiveOrderSnapshot, updateSnapshot: (value) => _lastActiveOrderSnapshot = value);
       return;
     }
     _startRefreshLoop();
     unawaited(_registerDeviceTokenIfPossible());
-    unawaited(refreshState());
   }
 
   void setDeviceToken(String token) {
@@ -126,7 +128,12 @@ class BackendApiClient {
       'headingDegrees': headingDegrees,
       'capturedAt': capturedAt.toUtc().toIso8601String(),
     });
-    _driverController.add(response);
+    _emitIfChanged(
+      _driverController,
+      response,
+      lastSnapshot: () => _lastDriverSnapshot,
+      updateSnapshot: (value) => _lastDriverSnapshot = value,
+    );
     return response;
   }
 
@@ -175,12 +182,32 @@ class BackendApiClient {
     if (_token == null) {
       return;
     }
-    final driver = await _request('GET', '/driver/profile');
-    final incoming = await _requestNullable('GET', '/driver/orders/incoming');
-    final active = await _requestNullable('GET', '/driver/orders/active');
-    _driverController.add(driver);
-    _incomingOrderController.add(incoming);
-    _activeOrderController.add(active);
+    final results = await Future.wait<dynamic>([
+      _request('GET', '/driver/profile'),
+      _requestNullable('GET', '/driver/orders/incoming'),
+      _requestNullable('GET', '/driver/orders/active'),
+    ]);
+    final driver = results[0] as Map<String, dynamic>;
+    final incoming = results[1] as Map<String, dynamic>?;
+    final active = results[2] as Map<String, dynamic>?;
+    _emitIfChanged(
+      _driverController,
+      driver,
+      lastSnapshot: () => _lastDriverSnapshot,
+      updateSnapshot: (value) => _lastDriverSnapshot = value,
+    );
+    _emitIfChanged(
+      _incomingOrderController,
+      incoming,
+      lastSnapshot: () => _lastIncomingOrderSnapshot,
+      updateSnapshot: (value) => _lastIncomingOrderSnapshot = value,
+    );
+    _emitIfChanged(
+      _activeOrderController,
+      active,
+      lastSnapshot: () => _lastActiveOrderSnapshot,
+      updateSnapshot: (value) => _lastActiveOrderSnapshot = value,
+    );
   }
 
   Future<Map<String, dynamic>> _request(
@@ -302,6 +329,20 @@ class BackendApiClient {
     } catch (_) {
       // Keep the token and retry on the next auth/token signal.
     }
+  }
+
+  void _emitIfChanged(
+    StreamController<Map<String, dynamic>?> controller,
+    Map<String, dynamic>? payload, {
+    required String? Function() lastSnapshot,
+    required void Function(String?) updateSnapshot,
+  }) {
+    final snapshot = payload == null ? null : jsonEncode(payload);
+    if (snapshot == lastSnapshot()) {
+      return;
+    }
+    updateSnapshot(snapshot);
+    controller.add(payload);
   }
 
   void _startRefreshLoop() {

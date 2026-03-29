@@ -17,12 +17,9 @@ class HomeDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final dashboard = ref.watch(dashboardControllerProvider);
-    final orders = ref.watch(orderControllerProvider);
-    final secondsRemaining = orders.secondsRemaining == null
-        ? 0
-        : (orders.secondsRemaining! < 0 ? 0 : orders.secondsRemaining!);
-    final currencyCode = dashboard.driver?.displayCurrency ?? AppDefaults.tenantCurrencyCode;
+    final isLoading = ref.watch(dashboardControllerProvider.select((state) => state.isLoading));
+    final errorMessage =
+        ref.watch(dashboardControllerProvider.select((state) => state.errorMessage));
 
     return AppShell(
       title: l10n.text('dashboard'),
@@ -41,135 +38,18 @@ class HomeDashboardScreen extends ConsumerWidget {
         ),
       ],
       body: AsyncStateView(
-        isLoading: dashboard.isLoading,
-        errorMessage: dashboard.errorMessage,
+        isLoading: isLoading,
+        errorMessage: errorMessage,
         onRetry: () => ref.read(dashboardControllerProvider.notifier).refresh(),
         child: ListView(
-          children: [
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              dashboard.driver?.name ?? 'Driver',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(dashboard.driver?.email ?? ''),
-                          ],
-                        ),
-                        StatusChip(
-                          label: dashboard.driver?.isOnline == true
-                              ? l10n.text('online')
-                              : l10n.text('offline'),
-                          color: dashboard.driver?.isOnline == true ? Colors.green : Colors.grey,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SwitchListTile.adaptive(
-                      value: dashboard.driver?.isOnline ?? false,
-                      onChanged: (value) =>
-                          ref.read(dashboardControllerProvider.notifier).toggleOnline(value),
-                      title: Text(
-                        dashboard.driver?.isOnline == true
-                            ? 'Available to receive orders'
-                            : 'Go online to receive new orders',
-                      ),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (orders.incomingOrder != null) ...[
-              const SizedBox(height: 16),
-              Card(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                child: ListTile(
-                  title: Text(orders.incomingOrder!.restaurant.name),
-                  subtitle: Text(
-                    'Incoming delivery request • ${secondsRemaining}s remaining',
-                  ),
-                  trailing: FilledButton(
-                    onPressed: () => context.push('/incoming-order'),
-                    child: const Text('Open'),
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            GridView.count(
-              crossAxisCount: MediaQuery.of(context).size.width > 700 ? 4 : 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.15,
-              children: [
-                MetricCard(
-                  label: l10n.text('todaysEarnings'),
-                  value: Formatters.currency(dashboard.earnings?.daily ?? 0, code: currencyCode),
-                  icon: Icons.wallet_outlined,
-                ),
-                MetricCard(
-                  label: l10n.text('completedDeliveries'),
-                  value: '${dashboard.earnings?.completedDeliveries ?? 0}',
-                  icon: Icons.local_shipping_outlined,
-                ),
-                MetricCard(
-                  label: l10n.text('distanceTravelled'),
-                  value: Formatters.kilometers(dashboard.earnings?.distanceTravelledKm ?? 0),
-                  icon: Icons.route_outlined,
-                ),
-                MetricCard(
-                  label: l10n.text('rating'),
-                  value: '${dashboard.driver?.rating.toStringAsFixed(1) ?? '0.0'} / 5',
-                  icon: Icons.star_border,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                title: Text(l10n.text('activeOrder')),
-                subtitle: Text(
-                  orders.activeOrder == null
-                      ? l10n.text('noActiveOrder')
-                      : '${orders.activeOrder!.restaurant.name} to ${orders.activeOrder!.customer.address}',
-                ),
-                trailing: orders.activeOrder == null
-                    ? null
-                    : FilledButton(
-                        onPressed: () => context.push('/navigation'),
-                        child: const Text('Open trip'),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => context.push('/earnings'),
-                    icon: const Icon(Icons.bar_chart),
-                    label: Text(l10n.text('earnings')),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+          children: const [
+            SizedBox(height: 12),
+            _DriverStatusCard(),
+            _IncomingOrderCard(),
+            _MetricsGrid(),
+            _ActiveOrderCard(),
+            _EarningsButtonRow(),
+            SizedBox(height: 16),
           ],
         ),
       ),
@@ -177,3 +57,193 @@ class HomeDashboardScreen extends ConsumerWidget {
   }
 }
 
+class _DriverStatusCard extends ConsumerWidget {
+  const _DriverStatusCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final driver = ref.watch(dashboardControllerProvider.select((state) => state.driver));
+    final l10n = AppLocalizations.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      driver?.name ?? 'Driver',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(driver?.email ?? ''),
+                  ],
+                ),
+                StatusChip(
+                  label: driver?.isOnline == true ? l10n.text('online') : l10n.text('offline'),
+                  color: driver?.isOnline == true ? Colors.green : Colors.grey,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile.adaptive(
+              value: driver?.isOnline ?? false,
+              onChanged: (value) =>
+                  ref.read(dashboardControllerProvider.notifier).toggleOnline(value),
+              title: Text(
+                driver?.isOnline == true
+                    ? 'Available to receive orders'
+                    : 'Go online to receive new orders',
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IncomingOrderCard extends ConsumerWidget {
+  const _IncomingOrderCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orderState = ref.watch(
+      orderControllerProvider.select(
+        (state) => (
+          incomingOrder: state.incomingOrder,
+          secondsRemaining: state.secondsRemaining,
+        ),
+      ),
+    );
+    final incomingOrder = orderState.incomingOrder;
+    if (incomingOrder == null) {
+      return const SizedBox.shrink();
+    }
+    final secondsRemaining =
+        orderState.secondsRemaining == null ? 0 : (orderState.secondsRemaining! < 0 ? 0 : orderState.secondsRemaining!);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Card(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        child: ListTile(
+          title: Text(incomingOrder.restaurant.name),
+          subtitle: Text('Incoming delivery request • ${secondsRemaining}s remaining'),
+          trailing: FilledButton(
+            onPressed: () => context.push('/incoming-order'),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricsGrid extends ConsumerWidget {
+  const _MetricsGrid();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboard = ref.watch(dashboardControllerProvider);
+    final l10n = AppLocalizations.of(context);
+    final currencyCode = dashboard.driver?.displayCurrency ?? AppDefaults.tenantCurrencyCode;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: GridView.count(
+        crossAxisCount: MediaQuery.of(context).size.width > 700 ? 4 : 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.15,
+        children: [
+          MetricCard(
+            label: l10n.text('todaysEarnings'),
+            value: Formatters.currency(dashboard.earnings?.daily ?? 0, code: currencyCode),
+            icon: Icons.wallet_outlined,
+          ),
+          MetricCard(
+            label: l10n.text('completedDeliveries'),
+            value: '${dashboard.earnings?.completedDeliveries ?? 0}',
+            icon: Icons.local_shipping_outlined,
+          ),
+          MetricCard(
+            label: l10n.text('distanceTravelled'),
+            value: Formatters.kilometers(dashboard.earnings?.distanceTravelledKm ?? 0),
+            icon: Icons.route_outlined,
+          ),
+          MetricCard(
+            label: l10n.text('rating'),
+            value: '${dashboard.driver?.rating.toStringAsFixed(1) ?? '0.0'} / 5',
+            icon: Icons.star_border,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveOrderCard extends ConsumerWidget {
+  const _ActiveOrderCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeOrder = ref.watch(orderControllerProvider.select((state) => state.activeOrder));
+    final l10n = AppLocalizations.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Card(
+        child: ListTile(
+          title: Text(l10n.text('activeOrder')),
+          subtitle: Text(
+            activeOrder == null
+                ? l10n.text('noActiveOrder')
+                : '${activeOrder.restaurant.name} to ${activeOrder.customer.address}',
+          ),
+          trailing: activeOrder == null
+              ? null
+              : FilledButton(
+                  onPressed: () => context.push('/navigation'),
+                  child: const Text('Open trip'),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EarningsButtonRow extends StatelessWidget {
+  const _EarningsButtonRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => context.push('/earnings'),
+              icon: const Icon(Icons.bar_chart),
+              label: Text(l10n.text('earnings')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

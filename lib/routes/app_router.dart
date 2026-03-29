@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -52,19 +50,6 @@ GoRouter buildAppRouter(Ref ref) {
       GoRoute(path: '/earnings', builder: (_, __) => const EarningsScreen()),
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
     ],
-  );
-
-  ref.read(orderControllerProvider.notifier).initializeNotifications(
-    onRouteRequest: (route, payload) {
-      unawaited(ref.read(backendApiClientProvider).refreshState());
-      unawaited(ref.read(dashboardControllerProvider.notifier).refresh());
-      router.go(route);
-    },
-    onIncomingOrderSignal: (payload) async {
-      await ref.read(backendApiClientProvider).refreshState();
-      await ref.read(dashboardControllerProvider.notifier).refresh();
-    },
-    onTokenAvailable: (token) => ref.read(backendApiClientProvider).registerDeviceToken(token),
   );
 
   return router;

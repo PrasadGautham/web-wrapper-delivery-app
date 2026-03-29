@@ -186,6 +186,14 @@ C:\flutter\bin\flutter.bat pub get
 C:\flutter\bin\flutter.bat run
 ```
 
+Mobile startup behavior:
+- the driver app now defers heavy startup work until after the first frame
+- FCM bootstrap runs in the background instead of blocking first render
+- location sync serializes permission and startup requests so Android does not receive overlapping permission prompts
+- `Today's earnings` on the dashboard is live backend data, shown in tenant currency, and falls back to `0.0` only when the driver has no earnings yet
+- lightweight startup timing logs now measure auth restore, notification bootstrap, and location sync during launch
+- unchanged backend snapshots are no longer re-emitted to the UI, and the dashboard countdown no longer forces the whole home screen to rebuild every second
+
 ## Verification
 
 Backend:

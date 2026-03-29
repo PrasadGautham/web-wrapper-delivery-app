@@ -72,12 +72,18 @@ class OrderController extends StateNotifier<OrderState> {
   StreamSubscription<Order?>? _activeSubscription;
   Timer? _countdownTimer;
   bool _notificationsInitialized = false;
+  bool _initialized = false;
+  bool _bootRefreshInFlight = false;
 
   Future<void> initialize() async {
+    if (_initialized) {
+      return;
+    }
+    _initialized = true;
     _incomingSubscription ??= _watchIncomingOrder().listen(_handleIncomingOrder);
     _activeSubscription ??= _watchActiveOrder().listen((order) {
       if (order != null) {
-        _notificationRepository.stopIncomingOrderAlert();
+        unawaited(_notificationRepository.stopIncomingOrderAlert());
       }
 
       state = state.copyWith(
@@ -88,6 +94,10 @@ class OrderController extends StateNotifier<OrderState> {
       );
     });
 
+    if (_bootRefreshInFlight) {
+      return;
+    }
+    _bootRefreshInFlight = true;
     try {
       final incomingOrder = await _getIncomingOrder();
       final activeOrder = await _getActiveOrder();
@@ -108,6 +118,8 @@ class OrderController extends StateNotifier<OrderState> {
       );
     } catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: state.incomingOrder == null && state.activeOrder == null ? null : error.toString());
+    } finally {
+      _bootRefreshInFlight = false;
     }
   }
 
@@ -269,6 +281,8 @@ class OrderController extends StateNotifier<OrderState> {
     state = const OrderState(
       isLoading: false,
     );
+    _initialized = false;
+    _bootRefreshInFlight = false;
   }
 
   void disposeResources() {
